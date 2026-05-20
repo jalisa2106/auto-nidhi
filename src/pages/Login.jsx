@@ -83,7 +83,7 @@ const Login = () => {
               Remember me
             </Checkbox>
 
-            <Link href="#">
+            <Link to="#">
               Forgot password?
             </Link>
           </div>
@@ -102,7 +102,7 @@ const Login = () => {
 
         <div className="auth-footer">
           Don’t have an account?{' '}
-          <Link href="/signup">
+          <Link to="/signup">
             Create account
           </Link>
         </div>

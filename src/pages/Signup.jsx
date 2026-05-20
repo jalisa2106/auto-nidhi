@@ -8,7 +8,6 @@ import {
   Button,
   Typography,
   message,
-  Card,
 } from 'antd'
 
 import {
@@ -33,6 +32,12 @@ const Signup = () => {
   // ✅ API CALL
   const handleSignup = async (values) => {
     try {
+
+      // ✅ IMPORTANT FIX: remove passkey if not required
+      if (!restrictedRoles.includes(values.role)) {
+        values.passkey = null
+      }
+
       const res = await fetch("http://127.0.0.1:8000/api/signup", {
         method: "POST",
         headers: {
@@ -68,15 +73,12 @@ const Signup = () => {
           Start managing operations smarter
         </Text>
 
-        {/* ✅ FORM (ONLY ONE FORM — FIXED) */}
         <Form layout="vertical" onFinish={handleSignup}>
 
           <Form.Item
             label="Email"
             name="email"
-            rules={[
-              { required: true, message: 'Please enter your email' }
-            ]}
+            rules={[{ required: true, message: 'Please enter your email' }]}
           >
             <Input placeholder="you@example.com" />
           </Form.Item>
@@ -84,9 +86,7 @@ const Signup = () => {
           <Form.Item
             label="Password"
             name="password"
-            rules={[
-              { required: true, message: 'Please enter your password' }
-            ]}
+            rules={[{ required: true, message: 'Please enter your password' }]}
           >
             <Input.Password placeholder="Enter password" />
           </Form.Item>
@@ -113,9 +113,7 @@ const Signup = () => {
           <Form.Item
             label="Role"
             name="role"
-            rules={[
-              { required: true, message: 'Please select role' }
-            ]}
+            rules={[{ required: true, message: 'Please select role' }]}
           >
             <Select
               placeholder="Select role"
@@ -130,6 +128,7 @@ const Signup = () => {
             </Select>
           </Form.Item>
 
+          {/* ✅ Passkey only for restricted roles */}
           {showPasskey && (
             <Form.Item
               label="Role Passkey"
@@ -156,7 +155,7 @@ const Signup = () => {
 
         <div className="auth-footer">
           <Text>Already have an account? </Text>
-          <Link href="/login">Sign in</Link>
+          <Link to="/login">Sign in</Link>
         </div>
 
       </AuthCard>
