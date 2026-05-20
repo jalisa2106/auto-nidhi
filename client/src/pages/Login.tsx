@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Form, Input, Button, Typography, Checkbox, message } from 'antd'
 import { LoginOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
@@ -15,50 +15,66 @@ interface LoginFormValues {
   remember?: boolean
 }
 
-interface StoredUser {
-  email: string
-  password: string
-  role: string
-  name?: string
-}
-
 const Login: React.FC = () => {
   const navigate = useNavigate()
+  const [loading, setLoading] = useState(false) // Added loading state
 
-  // ✅ localStorage-based LOGIN (frontend-only dev mode)
-  const handleLogin = (values: LoginFormValues) => {
+  // ✅ Backend API-based LOGIN
+  const handleLogin = async (values: LoginFormValues) => {
     try {
-      // Read users from localStorage
-      const raw = localStorage.getItem('an_users')
-      const users: StoredUser[] = raw ? JSON.parse(raw) : []
+      setLoading(true)
 
-      const found = users.find(
-        (u) => u.email === values.email && u.password === values.password
-      )
+      // 1. Send the email and password to your FastAPI backend
+      const response = await fetch("http://localhost:8000/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password,
+        }),
+      })
 
-      if (found) {
-        // Store logged-in user info
-        localStorage.setItem(
-          'an_current_user',
-          JSON.stringify({ email: found.email, role: found.role, name: found.name || '' })
-        )
-        // Store a fake access token so Dashboard's logout can clear it
-        localStorage.setItem('access_token', 'local-dev-token')
-        message.success('Login successful! Welcome back.')
-        navigate('/dashboard')
-      } else {
-        message.error('Invalid email or password.')
+      // 2. Read the response from Python
+      const data = await response.json()
+
+      // 3. Handle errors (e.g., wrong password or email doesn't exist)
+      if (!response.ok || data.error) {
+        message.error(data.error || 'Invalid email or password.')
+        setLoading(false)
+        return
       }
+
+      // 4. Success! Save the user session locally so React knows they are logged in
+      localStorage.setItem(
+        'an_current_user',
+        JSON.stringify({ 
+          email: data.user, 
+          role: data.role_id, 
+          name: data.first_name || 'User' 
+        })
+      )
+      
+      // Store the token (or a placeholder one until you fully implement JWTs)
+      localStorage.setItem('access_token', data.access_token || 'local-dev-token')
+      
+      message.success('Login successful! Welcome back.')
+      
+      // 5. Redirect them to the main dashboard
+      navigate('/dashboard')
+
     } catch (err) {
-      console.error(err)
-      message.error('Something went wrong. Please try again.')
+      console.error("Backend connection error:", err)
+      message.error('Failed to connect to the server. Is FastAPI running?')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <AuthLayout leftContent={<BrandSection />}>
       <AuthCard>
-
         <Title level={2} className="auth-title">
           Welcome Back
         </Title>
@@ -69,7 +85,6 @@ const Login: React.FC = () => {
 
         {/* ✅ FORM */}
         <Form layout="vertical" onFinish={handleLogin}>
-
           <Form.Item
             label="Email"
             name="email"
@@ -113,10 +128,10 @@ const Login: React.FC = () => {
             icon={<LoginOutlined />}
             block
             className="auth-btn"
+            loading={loading} // Binds the spinner to the API call
           >
             Login
           </Button>
-
         </Form>
 
         <div className="auth-footer">
@@ -125,7 +140,6 @@ const Login: React.FC = () => {
             Create account
           </Link>
         </div>
-
       </AuthCard>
     </AuthLayout>
   )
