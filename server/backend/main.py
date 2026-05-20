@@ -1,8 +1,8 @@
 ﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routes.signup import router as signup_router
-from backend.routes.login import router as login_router
+from .routes.signup import router as signup_router
+from .routes.login import router as login_router
 
 app = FastAPI(title="AutoNidhi API", version="1.0.0")
 

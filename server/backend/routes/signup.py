@@ -1,6 +1,8 @@
 ﻿from fastapi import APIRouter
 from pydantic import BaseModel
 
+from ..utils.hash import hash_password
+
 router = APIRouter()
 
 # ================= In-memory store =================
@@ -20,6 +22,7 @@ class SignupData(BaseModel):
 
 # ================= Signup Route =================
 
+
 @router.post("/signup")
 def signup(data: SignupData):
 
@@ -32,10 +35,13 @@ def signup(data: SignupData):
         if user["email"] == data.email:
             return {"error": "User already exists"}
 
-    # Save user
+    # Hash password before saving
+    hashed = hash_password(data.password)
+
+    # Save user (do not store confirmPassword)
     users.append({
         "email": data.email,
-        "password": data.password,
+        "password": hashed,
         "role": data.role,
     })
 
