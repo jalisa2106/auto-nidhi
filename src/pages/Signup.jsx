@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom"
 import React, { useState } from 'react'
 
 import {
@@ -6,6 +7,7 @@ import {
   Select,
   Button,
   Typography,
+  message,
 } from 'antd'
 
 import {
@@ -30,14 +32,40 @@ const Signup = () => {
     'data_entry',
   ]
 
-  const handleSignup = (values) => {
-    console.log(values)
+  // ✅ API CALL
+  const handleSignup = async (values) => {
+    try {
+
+      // ✅ IMPORTANT FIX: remove passkey if not required
+      if (!restrictedRoles.includes(values.role)) {
+        values.passkey = null
+      }
+
+      const res = await fetch("http://127.0.0.1:8000/api/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      })
+
+      const data = await res.json()
+      console.log("Response:", data)
+
+      if (data.message) {
+        message.success(data.message)
+      } else {
+        message.error(data.error || "Signup failed")
+      }
+
+    } catch (error) {
+      console.log(error)
+      message.error("Server error. Please try again.")
+    }
   }
 
   return (
-    <AuthLayout
-      leftContent={<BrandSection />}
-    >
+    <AuthLayout leftContent={<BrandSection />}>
       <AuthCard>
 
         <Title level={2} className="auth-title">
@@ -56,31 +84,17 @@ const Signup = () => {
           <Form.Item
             label="Email"
             name="email"
-            rules={[
-              {
-                required: true,
-                message: 'Please enter your email',
-              },
-            ]}
+            rules={[{ required: true, message: 'Please enter your email' }]}
           >
-            <Input
-              placeholder="you@example.com"
-            />
+            <Input placeholder="you@example.com" />
           </Form.Item>
 
           <Form.Item
             label="Password"
             name="password"
-            rules={[
-              {
-                required: true,
-                message: 'Please enter your password',
-              },
-            ]}
+            rules={[{ required: true, message: 'Please enter your password' }]}
           >
-            <Input.Password
-              placeholder="Enter password"
-            />
+            <Input.Password placeholder="Enter password" />
           </Form.Item>
 
           <Form.Item
@@ -88,82 +102,48 @@ const Signup = () => {
             name="confirmPassword"
             dependencies={['password']}
             rules={[
-              {
-                required: true,
-                message: 'Please confirm your password',
-              },
+              { required: true, message: 'Please confirm your password' },
               ({ getFieldValue }) => ({
                 validator(_, value) {
-
-                  if (
-                    !value ||
-                    getFieldValue('password') === value
-                  ) {
+                  if (!value || getFieldValue('password') === value) {
                     return Promise.resolve()
                   }
-
-                  return Promise.reject(
-                    new Error('Passwords do not match')
-                  )
+                  return Promise.reject(new Error('Passwords do not match'))
                 },
               }),
             ]}
           >
-            <Input.Password
-              placeholder="Confirm password"
-            />
+            <Input.Password placeholder="Confirm password" />
           </Form.Item>
 
           <Form.Item
             label="Role"
             name="role"
-            rules={[
-              {
-                required: true,
-                message: 'Please select a role',
-              },
-            ]}
+            rules={[{ required: true, message: 'Please select role' }]}
           >
             <Select
               placeholder="Select role"
               onChange={(value) =>
-                setShowPasskey(
-                  restrictedRoles.includes(value)
-                )
+                setShowPasskey(restrictedRoles.includes(value))
               }
             >
-              <Select.Option value="customer">
-                Customer
-              </Select.Option>
-
-              <Select.Option value="admin">
-                Admin 🔒
-              </Select.Option>
-
-              <Select.Option value="accountant">
-                Accountant 🔒
-              </Select.Option>
-
-              <Select.Option value="data_entry">
-                Data Entry 🔒
-              </Select.Option>
+              <Select.Option value="customer">Customer</Select.Option>
+              <Select.Option value="admin">Admin 🔒</Select.Option>
+              <Select.Option value="accountant">Accountant 🔒</Select.Option>
+              <Select.Option value="data_entry">Data Entry 🔒</Select.Option>
             </Select>
           </Form.Item>
 
+          {/* ✅ Passkey only for restricted roles */}
           {showPasskey && (
             <Form.Item
               label="Role Passkey"
               name="passkey"
               rules={[
-                {
-                  required: true,
-                  message: 'Please enter role passkey',
-                },
+                { required: true, message: 'Passkey required for this role' }
               ]}
             >
-              <Input.Password
-                placeholder="Enter role passkey"
-              />
+              <Input.Password placeholder="Enter role passkey" />
             </Form.Item>
           )}
 
@@ -180,10 +160,8 @@ const Signup = () => {
         </Form>
 
         <div className="auth-footer">
-          Already have an account?{' '}
-          <Link to="/login">
-            Sign in
-          </Link>
+          <Text>Already have an account? </Text>
+          <Link to="/login">Sign in</Link>
         </div>
 
       </AuthCard>

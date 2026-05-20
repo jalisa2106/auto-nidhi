@@ -1,19 +1,8 @@
 import React from 'react'
+import { Form, Input, Button, Typography, Checkbox, message } from 'antd'
+import { LoginOutlined } from '@ant-design/icons'
 
-import {
-  Form,
-  Input,
-  Button,
-  Typography,
-  Checkbox,
-} from 'antd'
-
-import {
-  LoginOutlined,
-} from '@ant-design/icons'
-
-import { Link } from 'react-router-dom'
-
+import { Link } from "react-router-dom"
 import AuthLayout from '../components/auth/AuthLayout'
 import AuthCard from '../components/auth/AuthCard'
 import BrandSection from '../components/auth/BrandSection'
@@ -22,14 +11,34 @@ const { Title, Text } = Typography
 
 const Login = () => {
 
-  const handleLogin = (values) => {
-    console.log(values)
+  // ✅ LOGIN API CALL
+  const handleLogin = async (values) => {
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      })
+
+      const data = await res.json()
+      console.log("Login Response:", data)
+
+      if (data.message) {
+        message.success(data.message)
+      } else {
+        message.error(data.error || "Login failed")
+      }
+
+    } catch (err) {
+      console.log(err)
+      message.error("Server error")
+    }
   }
 
   return (
-    <AuthLayout
-      leftContent={<BrandSection />}
-    >
+    <AuthLayout leftContent={<BrandSection />}>
       <AuthCard>
 
         <Title level={2} className="auth-title">
@@ -40,19 +49,14 @@ const Login = () => {
           Login to continue to Auto-Nidhi
         </Text>
 
-        <Form
-          layout="vertical"
-          onFinish={handleLogin}
-        >
+        {/* ✅ FORM */}
+        <Form layout="vertical" onFinish={handleLogin}>
 
           <Form.Item
             label="Email"
             name="email"
             rules={[
-              {
-                required: true,
-                message: 'Please enter email',
-              },
+              { required: true, message: 'Please enter email' }
             ]}
           >
             <Input placeholder="you@example.com" />
@@ -62,15 +66,10 @@ const Login = () => {
             label="Password"
             name="password"
             rules={[
-              {
-                required: true,
-                message: 'Please enter password',
-              },
+              { required: true, message: 'Please enter password' }
             ]}
           >
-            <Input.Password
-              placeholder="Enter password"
-            />
+            <Input.Password placeholder="Enter password" />
           </Form.Item>
 
           <div
@@ -84,7 +83,7 @@ const Login = () => {
               Remember me
             </Checkbox>
 
-            <Link to="/forgot-password">
+            <Link to="#">
               Forgot password?
             </Link>
           </div>
@@ -93,6 +92,7 @@ const Login = () => {
             type="primary"
             htmlType="submit"
             icon={<LoginOutlined />}
+            block
             className="auth-btn"
           >
             Login
