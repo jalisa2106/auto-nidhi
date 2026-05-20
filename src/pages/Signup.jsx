@@ -15,6 +15,17 @@ import {
 
 import './Signup.css'
 
+import { useEffect } from "react";
+
+useEffect(() => {
+  fetch("http://127.0.0.1:8000/api/test")
+    .then((res) => res.json())
+    .then((data) => {
+      console.log("Backend Response:", data);
+    })
+    .catch((err) => console.log("Error:", err));
+}, []);
+
 const { Title, Text, Link } = Typography
 
 const Signup = () => {
