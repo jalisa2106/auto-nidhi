@@ -24,63 +24,70 @@ interface SignupFormValues {
   passkey?: string
 }
 
-interface StoredUser {
-  email: string
-  password: string
-  role: string
-}
-
 const restrictedRoles = ['admin', 'accountant', 'data_entry']
 
 const Signup: React.FC = () => {
   const navigate = useNavigate()
   const [showPasskey, setShowPasskey] = useState(false)
+  const [loading, setLoading] = useState(false) // Added a loading state for the button
 
-  // ✅ localStorage-based SIGNUP (frontend-only dev mode)
-  const handleSignup = (values: SignupFormValues) => {
+  // ✅ Backend API-based SIGNUP
+  const handleSignup = async (values: SignupFormValues) => {
     try {
-      // Remove passkey if not required
+      setLoading(true)
+
+      // 1. Password match check (Frontend validation)
+      if (values.password !== values.confirmPassword) {
+        message.error('Passwords do not match.')
+        setLoading(false)
+        return
+      }
+
+      // 2. Format passkey
       if (!restrictedRoles.includes(values.role)) {
         values.passkey = undefined
       }
 
-      // Read existing users from localStorage
-      const raw = localStorage.getItem('an_users')
-      const users: StoredUser[] = raw ? JSON.parse(raw) : []
-
-      // Check if user already exists
-      const exists = users.some((u) => u.email === values.email)
-      if (exists) {
-        message.error('An account with this email already exists.')
-        return
-      }
-
-      // Password match check
-      if (values.password !== values.confirmPassword) {
-        message.error('Passwords do not match.')
-        return
-      }
-
-      // Save new user
-      users.push({
-        email: values.email,
-        password: values.password,
-        role: values.role,
+      // 3. Send data to FastAPI Backend
+      const response = await fetch("http://localhost:8000/api/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password,
+          confirmPassword: values.confirmPassword,
+          role: values.role,
+          passkey: values.passkey || null,
+        }),
       })
-      localStorage.setItem('an_users', JSON.stringify(users))
 
+      // 4. Read the response
+      const data = await response.json()
+
+      // 5. Handle errors from the backend (like "User already exists" or "Invalid passkey")
+      if (!response.ok || data.error) {
+        message.error(data.error || 'Signup failed.')
+        setLoading(false)
+        return
+      }
+
+      // 6. Success!
       message.success('Account created successfully! Please login.')
       navigate('/login')
+      
     } catch (err) {
-      console.error(err)
-      message.error('Something went wrong. Please try again.')
+      console.error("Backend connection error:", err)
+      message.error('Failed to connect to the server. Is the backend running?')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <AuthLayout leftContent={<BrandSection />}>
       <AuthCard>
-
         <Title level={2} className="auth-title">
           Create Account
         </Title>
@@ -93,7 +100,6 @@ const Signup: React.FC = () => {
           layout="vertical"
           onFinish={handleSignup}
         >
-
           <Form.Item
             label="Email"
             name="email"
@@ -172,17 +178,16 @@ const Signup: React.FC = () => {
             icon={<UserAddOutlined />}
             htmlType="submit"
             className="auth-btn"
+            loading={loading}
           >
             Create Account
           </Button>
-
         </Form>
 
         <div className="auth-footer">
           <Text>Already have an account? </Text>
           <Link to="/login">Sign in</Link>
         </div>
-
       </AuthCard>
     </AuthLayout>
   )

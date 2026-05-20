@@ -2,7 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
-import Dashboard from './pages/Dashboard'
+
+// Import your new Router and the new Applications page
+import RoleBasedRouter from './pages/RoleBasedRouter' // Make sure path is correct!
+import Applications from './pages/Applications' 
 
 function App() {
   return (
@@ -11,7 +14,14 @@ function App() {
         <Route path="/"          element={<Home />} />
         <Route path="/login"     element={<Login />} />
         <Route path="/signup"    element={<Signup />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        
+        {/* Use the Role Router so Admins, Accountants, etc. see their own dashboard */}
+        <Route path="/dashboard" element={<RoleBasedRouter />} />
+        
+        {/* --- NEW ROUTE --- */}
+        {/* When the user clicks Applications in the sidebar, it opens this page */}
+        <Route path="/files"     element={<Applications />} />
+        
         <Route path="*"          element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

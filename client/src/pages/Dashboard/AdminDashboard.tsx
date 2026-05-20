@@ -3,18 +3,22 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users, CreditCard,
   Shield, TrendingUp, Bell, LogOut, Car,
-  ArrowUpRight, ArrowDownRight, Activity
-} from 'lucide-react'
-import '../pages.css'
+  ArrowUpRight, ArrowDownRight, Activity,
+  FolderOpen, MessageSquare, Plus
+} from 'lucide-react';
+import '../../pages.css'
 
 /* ── Sidebar nav items ── */
 const NAV = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', active: true },
-  { icon: FileText,         label: 'Files',     path: '/files' },
-  { icon: Users,            label: 'Customers', path: '/customers' },
-  { icon: CreditCard,       label: 'Payments',  path: '/payments' },
-  { icon: Shield,           label: 'Insurance', path: '/insurance' },
-  { icon: TrendingUp,       label: 'Reports',   path: '/reports' },
+  { icon: LayoutDashboard, label: 'Dashboard',    path: '/dashboard', active: true },
+  { icon: FolderOpen,      label: 'Applications', path: '/files' }, // Changed from 'Files'
+  { icon: MessageSquare,   label: 'Leads',        path: '/leads' }, // New!
+  { icon: Car,             label: 'Loans',        path: '/loans' }, // New!
+  { icon: Shield,          label: 'Insurance',    path: '/insurance' },
+  { icon: FileText,        label: 'RTO Services', path: '/rto' },   // New!
+  { icon: Users,           label: 'Customers',    path: '/customers' },
+  { icon: CreditCard,      label: 'Payments',     path: '/payments' },
+  { icon: TrendingUp,      label: 'Reports',      path: '/reports' },
 ]
 
 /* ── Stat Card ── */
@@ -44,7 +48,7 @@ function StatCard({ title, value, change, up, icon: Icon, color }: any) {
   )
 }
 
-export default function Dashboard() {
+export default function AdminDashboard() {
   const navigate = useNavigate()
   const [stats] = useState({
     active_files: 248,
@@ -129,7 +133,7 @@ export default function Dashboard() {
       {/* ── Main Content ── */}
       <main style={{ marginLeft: 240, flex: 1, padding: '32px 36px', minHeight: '100vh' }}>
 
-        {/* Top bar */}
+                {/* Top bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
           <div>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--gray-900)', marginBottom: 2 }}>
@@ -139,7 +143,27 @@ export default function Dashboard() {
               Here's what's happening with your consultancy today.
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* --- NEW QUICK ACTION BUTTONS --- */}
+            <button style={{
+              padding: '10px 16px', borderRadius: 8, background: 'var(--surface-0)', border: '1px solid var(--gray-200)',
+              color: 'var(--gray-700)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s'
+            }}>
+              + Add Lead
+            </button>
+            <button style={{
+              padding: '10px 18px', borderRadius: 8, 
+              background: 'linear-gradient(135deg, var(--brand-600), var(--brand-800))',
+              color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 4px 10px rgba(37,99,235,.2)'
+            }}>
+              <Plus size={16} /> New Application
+            </button>
+            {/* -------------------------------- */}
+
+            <div style={{ width: 1, height: 32, background: 'var(--gray-200)' }}></div>
+
             <button style={{
               width: 40, height: 40, borderRadius: 10, background: 'var(--surface-0)',
               border: '1px solid var(--gray-200)', display: 'flex', alignItems: 'center',
