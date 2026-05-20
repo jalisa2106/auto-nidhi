@@ -12,11 +12,13 @@ import {
   LoginOutlined,
 } from '@ant-design/icons'
 
+import { Link } from 'react-router-dom'
+
 import AuthLayout from '../components/auth/AuthLayout'
 import AuthCard from '../components/auth/AuthCard'
 import BrandSection from '../components/auth/BrandSection'
 
-const { Title, Text, Link } = Typography
+const { Title, Text } = Typography
 
 const Login = () => {
 
@@ -82,7 +84,7 @@ const Login = () => {
               Remember me
             </Checkbox>
 
-            <Link href="#">
+            <Link to="/forgot-password">
               Forgot password?
             </Link>
           </div>
@@ -100,7 +102,7 @@ const Login = () => {
 
         <div className="auth-footer">
           Don’t have an account?{' '}
-          <Link href="/signup">
+          <Link to="/signup">
             Create account
           </Link>
         </div>

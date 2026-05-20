@@ -12,13 +12,16 @@ import {
   UserAddOutlined,
 } from '@ant-design/icons'
 
+import { Link } from 'react-router-dom'
+
 import AuthLayout from '../components/auth/AuthLayout'
 import AuthCard from '../components/auth/AuthCard'
 import BrandSection from '../components/auth/BrandSection'
 
-const { Title, Text, Link } = Typography
+const { Title, Text } = Typography
 
 const Signup = () => {
+
   const [showPasskey, setShowPasskey] = useState(false)
 
   const restrictedRoles = [
@@ -45,7 +48,10 @@ const Signup = () => {
           Start managing operations smarter
         </Text>
 
-        <Form layout="vertical" onFinish={handleSignup}>
+        <Form
+          layout="vertical"
+          onFinish={handleSignup}
+        >
 
           <Form.Item
             label="Email"
@@ -68,7 +74,7 @@ const Signup = () => {
             rules={[
               {
                 required: true,
-                message: 'Please enter your email',
+                message: 'Please enter your password',
               },
             ]}
           >
@@ -88,6 +94,7 @@ const Signup = () => {
               },
               ({ getFieldValue }) => ({
                 validator(_, value) {
+
                   if (
                     !value ||
                     getFieldValue('password') === value
@@ -113,7 +120,7 @@ const Signup = () => {
             rules={[
               {
                 required: true,
-                message: 'Please enter your email',
+                message: 'Please select a role',
               },
             ]}
           >
@@ -147,12 +154,12 @@ const Signup = () => {
             <Form.Item
               label="Role Passkey"
               name="passkey"
-            rules={[
-              {
-                required: true,
-                message: 'Please enter your email',
-              },
-            ]}
+              rules={[
+                {
+                  required: true,
+                  message: 'Please enter role passkey',
+                },
+              ]}
             >
               <Input.Password
                 placeholder="Enter role passkey"
@@ -164,7 +171,7 @@ const Signup = () => {
             type="primary"
             block
             icon={<UserAddOutlined />}
-            htmlType='submit'
+            htmlType="submit"
             className="auth-btn"
           >
             Create Account
@@ -174,7 +181,7 @@ const Signup = () => {
 
         <div className="auth-footer">
           Already have an account?{' '}
-          <Link href="/login">
+          <Link to="/login">
             Sign in
           </Link>
         </div>
@@ -184,4 +191,4 @@ const Signup = () => {
   )
 }
 
-export default Signup
+export default Signup;
