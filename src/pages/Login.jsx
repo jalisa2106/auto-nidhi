@@ -2,6 +2,7 @@ import React from 'react'
 import { Form, Input, Button, Typography, Checkbox, message } from 'antd'
 import { LoginOutlined } from '@ant-design/icons'
 
+import { Link } from "react-router-dom"
 import AuthLayout from '../components/auth/AuthLayout'
 import AuthCard from '../components/auth/AuthCard'
 import BrandSection from '../components/auth/BrandSection'
