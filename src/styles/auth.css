@@ -37,6 +37,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-start;
+  text-align: left;
 }
 
 .auth-right {
@@ -56,7 +58,6 @@
 
 .brand-logo {
   margin-bottom: 50px;
-  margin-left: 60px;
 }
 
 .brand-logo h1,
@@ -92,8 +93,8 @@
 
 .feature-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 28px;
+  flex-direction: column;
+  gap: 16px;
   margin-top: 50px;
 }
 
