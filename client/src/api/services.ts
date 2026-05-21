@@ -1,0 +1,75 @@
+import api from './axios'
+
+interface LoginPayload {
+  email: string
+  password: string
+}
+
+interface TokenResponse {
+  access_token: string
+  refresh_token: string
+  token_type: string
+}
+
+export const authApi = {
+  login: async (payload: LoginPayload): Promise<TokenResponse> => {
+    const { data } = await api.post<TokenResponse>('/auth/login', payload)
+    // Store tokens
+    localStorage.setItem('access_token', data.access_token)
+    localStorage.setItem('refresh_token', data.refresh_token)
+    return data
+  },
+
+  logout: () => {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    window.location.href = '/login'
+  },
+
+  me: async () => {
+    const { data } = await api.get('/auth/me')
+    return data
+  },
+}
+
+export const dashboardApi = {
+  getStats: async () => {
+    const { data } = await api.get('/dashboard/stats')
+    return data
+  },
+}
+
+export const customersApi = {
+  list: async (page = 1, limit = 20, search = '') => {
+    const { data } = await api.get('/customers', {
+      params: { page, limit, search },
+    })
+    return data
+  },
+
+  get: async (id: string) => {
+    const { data } = await api.get(`/customers/${id}`)
+    return data
+  },
+}
+
+export const filesApi = {
+  list: async (page = 1, limit = 20, status?: string, file_type?: string) => {
+    const { data } = await api.get('/files', {
+      params: { page, limit, status, file_type },
+    })
+    return data
+  },
+
+  get: async (id: string) => {
+    const { data } = await api.get(`/files/${id}`)
+    return data
+  },
+}
+
+export const paymentsApi = {
+  list: async () => {
+    const { data } = await api.get('/payments')
+    return data
+  },
+}
