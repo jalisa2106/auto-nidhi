@@ -1,17 +1,25 @@
-﻿-- ============================================================
--- AutoConsultancy ΓÇö Part 1: Extensions & Enums
--- ============================================================
+-- AutoNidhi — Part 1: Extensions & Enums
+-- CHANGES: Added file_type, file_status, customer_type enums
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Documents
 CREATE TYPE document_type AS ENUM (
-    'aadhar_front','aadhar_back','pan_card','passport_photo',
-    'address_proof','income_proof','bank_statement','vehicle_rc',
-    'insurance_copy','dealer_invoice','form_34_35','noc',
-    'signature_photo','other'
+  'aadhar_front','aadhar_back','pan_card','passport_photo',
+  'address_proof','income_proof','bank_statement','vehicle_rc',
+  'insurance_copy','dealer_invoice','form_34_35','noc',
+  'signature_photo','other'
 );
 CREATE TYPE document_status AS ENUM ('pending_review','verified','rejected');
+
+-- File lifecycle  [NEW]
+CREATE TYPE file_type AS ENUM ('new_vehicle', 'used_vehicle', 'renewal');
+CREATE TYPE file_status AS ENUM (
+  'draft','login','under_process','sanctioned','disbursed','completed','cancelled'
+);
+
+-- Customer type  [NEW]
+CREATE TYPE customer_type AS ENUM ('individual', 'business');
 
 -- Payments & Ledgers
 CREATE TYPE payment_mode AS ENUM ('cash','cheque','rtgs','neft','imps','upi');
@@ -23,6 +31,6 @@ CREATE TYPE payee_type_enum AS ENUM ('dealer', 'broker', 'rto');
 CREATE TYPE party_type AS ENUM ('dealer','broker');
 CREATE TYPE recovery_status AS ENUM ('pending','partial','fully_recovered');
 CREATE TYPE notification_type AS ENUM (
-    'insurance_expiry','file_status_change','document_approved',
-    'document_rejected','payment_recorded','commission_credited','general'
+  'insurance_expiry','file_status_change','document_approved',
+  'document_rejected','payment_recorded','commission_credited','general'
 );
