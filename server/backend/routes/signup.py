@@ -64,4 +64,11 @@ def signup(data: SignupData, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    return {"message": "Signup successful", "user": new_user.email}
+    return {
+        "message": "Signup successful", 
+        "user": new_user.email,
+        "first_name": new_user.first_name,
+        "last_name": new_user.last_name,
+        "role": db_role.role_name,
+        "role_id": str(new_user.role_id)
+    }
