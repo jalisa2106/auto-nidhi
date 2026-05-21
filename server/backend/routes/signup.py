@@ -16,6 +16,9 @@ VALID_PASSKEYS = {
 
 # ================= Signup Model =================
 class SignupData(BaseModel):
+    first_name: str
+    last_name: str | None = None
+    phone_number: str | None = None
     email: str
     password: str
     confirmPassword: str
@@ -49,8 +52,11 @@ def signup(data: SignupData, db: Session = Depends(get_db)):
     hashed_pwd = get_password_hash(data.password)
     
     new_user = SystemUser(
+        first_name=data.first_name,
+        last_name=data.last_name,
         email=data.email,
         password_hash=hashed_pwd,
+        phone_number=data.phone_number,
         role_id=db_role.id
     )
     
