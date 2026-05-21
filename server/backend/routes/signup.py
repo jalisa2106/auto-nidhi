@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db
@@ -16,9 +16,12 @@ VALID_PASSKEYS = {
 
 # ================= Signup Model =================
 class SignupData(BaseModel):
+    first_name: str
+    last_name: str | None = None
     email: str
     password: str
     confirmPassword: str
+    phone_number: str | None = None
     role: str
     passkey: str | None = None
 
@@ -49,6 +52,9 @@ def signup(data: SignupData, db: Session = Depends(get_db)):
     hashed_pwd = get_password_hash(data.password)
     
     new_user = SystemUser(
+        first_name=data.first_name,
+        last_name=data.last_name,
+        phone_number=data.phone_number,
         email=data.email,
         password_hash=hashed_pwd,
         role_id=db_role.id

@@ -17,6 +17,9 @@ import BrandSection from '../components/auth/BrandSection'
 const { Title, Text } = Typography
 
 interface SignupFormValues {
+  first_name: string
+  last_name?: string
+  phone_number?: string
   email: string
   password: string
   confirmPassword: string
@@ -55,6 +58,9 @@ const Signup: React.FC = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          first_name: values.first_name,
+          last_name: values.last_name || null,
+          phone_number: values.phone_number || null,
           email: values.email,
           password: values.password,
           confirmPassword: values.confirmPassword,
@@ -101,6 +107,21 @@ const Signup: React.FC = () => {
           onFinish={handleSignup}
         >
           <Form.Item
+            label="First Name"
+            name="first_name"
+            rules={[{ required: true, message: 'Please enter your first name' }]}
+          >
+            <Input placeholder="John" />
+          </Form.Item>
+
+          <Form.Item
+            label="Last Name"
+            name="last_name"
+          >
+            <Input placeholder="Doe" />
+          </Form.Item>
+
+          <Form.Item
             label="Email"
             name="email"
             rules={[
@@ -109,6 +130,13 @@ const Signup: React.FC = () => {
             ]}
           >
             <Input placeholder="you@example.com" />
+          </Form.Item>
+
+          <Form.Item
+            label="Phone Number"
+            name="phone_number"
+          >
+            <Input placeholder="+91 9876543210" />
           </Form.Item>
 
           <Form.Item

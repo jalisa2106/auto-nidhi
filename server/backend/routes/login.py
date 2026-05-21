@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db
@@ -27,5 +27,7 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     return {
         "message": "Login successful", 
         "user": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "role_id": str(user.role_id)
     }
