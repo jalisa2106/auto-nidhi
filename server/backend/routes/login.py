@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db
@@ -21,7 +21,10 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     
     # 2. Check if the user exists AND if the password matches the hashed password
     if not user or not verify_password(data.password, user.password_hash):
-        return {"error": "Invalid email or password"}
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
         
     # 3. Get the Role Name from the database using role_id
     db_role = db.query(MasterRole).filter(MasterRole.id == user.role_id).first()

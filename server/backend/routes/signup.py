@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db
@@ -31,7 +31,7 @@ def signup(data: SignupData, db: Session = Depends(get_db)):
 
     # 1. Password match check
     if data.password != data.confirmPassword:
-        return {"error": "Passwords do not match"}
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match")
 
     # 2. Existing user check in the Database
     existing_user = db.query(SystemUser).filter(SystemUser.email == data.email).first()
