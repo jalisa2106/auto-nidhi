@@ -51,10 +51,13 @@ const Login: React.FC = () => {
         'an_current_user',
         JSON.stringify({ 
           email: data.user, 
-          role: data.role_id, 
+          role: data.role, 
           name: data.first_name || 'User' 
         })
       )
+      
+      // Store the exact role string (e.g. 'admin') for RoleBasedRouter
+      localStorage.setItem('user_role', data.role)
       
       // Store the token (or a placeholder one until you fully implement JWTs)
       localStorage.setItem('access_token', data.access_token || 'local-dev-token')
@@ -91,6 +94,7 @@ const Login: React.FC = () => {
             rules={[
               { required: true, message: 'Please enter email' },
               { type: 'email', message: 'Please enter a valid email' },
+              { pattern: /^[a-zA-Z0-9._%+-]+@gmail\.com$/, message: 'Only @gmail.com emails are allowed' }
             ]}
           >
             <Input placeholder="you@example.com" />
