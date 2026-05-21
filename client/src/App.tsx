@@ -7,6 +7,7 @@ import Signup from './pages/Signup'
 import RoleBasedRouter from './pages/RoleBasedRouter' // Make sure path is correct!
 import Applications from './pages/Applications'
 import Loans        from './pages/Loans'
+import CustomerDashboard from './pages/Dashboard/CustomerDashboard'
 
 function App() {
   return (
@@ -18,13 +19,13 @@ function App() {
         
         {/* Use the Role Router so Admins, Accountants, etc. see their own dashboard */}
         <Route path="/dashboard" element={<RoleBasedRouter />} />
+        <Route path="/customer"   element={<CustomerDashboard />} />
         
         {/* --- NEW ROUTE --- */}
         {/* When the user clicks Applications in the sidebar, it opens this page */}
         <Route path="/files"     element={<Applications />} />
         <Route path="/loans"     element={<Loans />} />
         
-        <Route path="*"          element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )
