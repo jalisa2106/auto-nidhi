@@ -15,7 +15,7 @@ class SystemUser(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
     role_id = Column(UUID(as_uuid=True), ForeignKey("master_role.id"))
-    first_name = Column(String(100), nullable=False, default="User")
+    first_name = Column(String(100), nullable=False)
     last_name = Column(String(100))
     email = Column(String(255), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
