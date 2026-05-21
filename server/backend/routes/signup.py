@@ -36,17 +36,19 @@ def signup(data: SignupData, db: Session = Depends(get_db)):
     # 2. Existing user check in the Database
     existing_user = db.query(SystemUser).filter(SystemUser.email == data.email).first()
     if existing_user:
-        return {"error": "User already exists"}
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
 
-    # 3. Passkey validation for restricted roles
-    if data.role in VALID_PASSKEYS:
-        if data.passkey != VALID_PASSKEYS[data.role]:
-            return {"error": "Invalid passkey for this role"}
+    # 3. Normalize the requested role and validate passkey for restricted roles
+    role_key = data.role.strip().lower()
+
+    if role_key in VALID_PASSKEYS:
+        if data.passkey != VALID_PASSKEYS[role_key]:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid passkey for this role")
 
     # 4. Find the matching Role ID from the master_role table
-    db_role = db.query(MasterRole).filter(MasterRole.role_name.ilike(data.role)).first()
+    db_role = db.query(MasterRole).filter(MasterRole.role_name.ilike(role_key)).first()
     if not db_role:
-        return {"error": f"Role '{data.role}' does not exist in the database"}
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Role '{data.role}' does not exist in the database")
 
     # 5. Hash password and save to Database
     hashed_pwd = get_password_hash(data.password)
@@ -64,11 +66,12 @@ def signup(data: SignupData, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
+    role_name = db_role.role_name.lower()
     return {
         "message": "Signup successful", 
         "user": new_user.email,
         "first_name": new_user.first_name,
         "last_name": new_user.last_name,
-        "role": db_role.role_name,
+        "role": role_name,
         "role_id": str(new_user.role_id)
     }

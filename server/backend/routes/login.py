@@ -28,7 +28,7 @@ def login(data: LoginData, db: Session = Depends(get_db)):
         
     # 3. Get the Role Name from the database using role_id
     db_role = db.query(MasterRole).filter(MasterRole.id == user.role_id).first()
-    role_name = db_role.role_name if db_role else "customer"
+    role_name = db_role.role_name.lower() if db_role else "customer"
 
     # 4. Success! (In the future, you will generate a real JWT token here)
     return {
