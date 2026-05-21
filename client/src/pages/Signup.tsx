@@ -79,9 +79,20 @@ const Signup: React.FC = () => {
         return
       }
 
-      // 6. Success!
-      message.success('Account created successfully! Please login.')
-      navigate('/login')
+      // 6. Success! Auto-login the user
+      localStorage.setItem(
+        'an_current_user',
+        JSON.stringify({ 
+          email: data.user, 
+          role: data.role, 
+          name: data.first_name || 'User' 
+        })
+      )
+      localStorage.setItem('user_role', data.role)
+      localStorage.setItem('access_token', data.access_token || 'local-dev-token')
+
+      message.success('Account created successfully! Welcome.')
+      navigate('/dashboard')
       
     } catch (err) {
       console.error("Backend connection error:", err)
@@ -127,6 +138,7 @@ const Signup: React.FC = () => {
             rules={[
               { required: true, message: 'Please enter your email' },
               { type: 'email', message: 'Please enter a valid email' },
+              { pattern: /^[a-zA-Z0-9._%+-]+@gmail\.com$/, message: 'Only @gmail.com emails are allowed' }
             ]}
           >
             <Input placeholder="you@example.com" />
@@ -135,6 +147,9 @@ const Signup: React.FC = () => {
           <Form.Item
             label="Phone Number"
             name="phone_number"
+            rules={[
+              { pattern: /^\+?[0-9\s\-]{10,15}$/, message: 'Please enter a valid phone number' }
+            ]}
           >
             <Input placeholder="+91 9876543210" />
           </Form.Item>
