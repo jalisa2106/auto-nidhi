@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, FolderOpen,
   ArrowDownToLine, ArrowUpFromLine, BadgePercent, HandCoins,
   Receipt, ShieldCheck, Wallet, Landmark,
-  Database, Settings, LogOut, Car, BellRing,
+  Database, Settings, LogOut, Car, BellRing, PiggyBank,
 } from 'lucide-react'
 import '../../pages.css'
 
@@ -29,6 +29,7 @@ const adminNav: NavGroup[] = [
       { to: '/insurance-payments',   label: 'Insurance Payments',  icon: ShieldCheck      },
       { to: '/expenses',             label: 'Expenses',            icon: Wallet           },
       { to: '/advances',             label: 'Advances',            icon: Landmark         },
+      { to: '/loans',                label: 'Loans',               icon: PiggyBank        },
     ],
   },
   {
@@ -79,7 +80,7 @@ export default function AdminLayout() {
     '/payments/in': 'Payment IN', '/payments/out': 'Payment OUT',
     '/commissions/in': 'Commission IN', '/commissions/out': 'Commission OUT',
     '/rto-payments': 'RTO Payments', '/insurance-payments': 'Insurance Payments',
-    '/expenses': 'Expenses', '/advances': 'Advances',
+    '/expenses': 'Expenses', '/advances': 'Advances', '/loans': 'Loans',
     '/masters/dealers': 'Dealers', '/masters/brokers': 'Brokers',
     '/masters/finance-banks': 'Finance Banks',
     '/masters/insurance-companies': 'Insurance Companies',
