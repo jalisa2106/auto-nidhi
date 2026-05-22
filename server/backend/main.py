@@ -9,6 +9,7 @@ from backend.routes.login import router as login_router
 from backend.routes.admin.dashboard import router as dashboard_router
 from backend.routes.admin.customers import router as customers_router
 from backend.routes.admin.files import router as files_router
+from backend.routes.admin.payments_in import router as payments_in_router
 
 app = FastAPI(title="AutoNidhi API", version="1.0.0")
 
@@ -38,3 +39,4 @@ app.include_router(login_router, prefix="/api/v1/auth")
 app.include_router(dashboard_router)
 app.include_router(customers_router)
 app.include_router(files_router)
+app.include_router(payments_in_router)
