@@ -31,8 +31,8 @@ def test():
 # ================= Register Routers =================
 
 # Auth
-app.include_router(signup_router, prefix="/api")
-app.include_router(login_router, prefix="/api")
+app.include_router(signup_router, prefix="/api/v1/auth")
+app.include_router(login_router, prefix="/api/v1/auth")
 
 # Admin Dashboard & Data
 app.include_router(dashboard_router)

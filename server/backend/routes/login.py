@@ -13,6 +13,7 @@ class LoginData(BaseModel):
     password: str
 
 # ================= Login Route =================
+# Since we put prefix="/api/v1/auth" in main.py, this route becomes /api/v1/auth/login
 @router.post("/login")
 def login(data: LoginData, db: Session = Depends(get_db)):
     
@@ -30,21 +31,27 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     db_role = db.query(MasterRole).filter(MasterRole.id == user.role_id).first()
     role_name = db_role.role_name.lower() if db_role else "customer"
 
-    # 4. Success! (In the future, you will generate a real JWT token here)
-    access_token = create_access_token(
-    data={
+    # 4. Generate JWT tokens
+    token_data = {
         "sub": str(user.id),
         "email": user.email,
         "role": role_name,
     }
-)
+    
+    access_token = create_access_token(data=token_data)
+    refresh_token = create_access_token(data=token_data)
+
+    # 5. Return what services.ts TokenResponse expects, plus user data
     return {
-        "message": "Login successful",
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
-        "user": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "role": role_name,
-        "role_id": str(user.role_id)
+        "message": "Login successful", 
+        "user": {
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "role": role_name,
+            "role_id": str(user.role_id)
+        }
     }
