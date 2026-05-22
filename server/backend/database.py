@@ -13,6 +13,9 @@ if not DATABASE_URL:
         "Please add it in Render → Environment Variables."
     )
 
+# Clean up accidental quotes that users often copy from .env files
+DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
+
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
