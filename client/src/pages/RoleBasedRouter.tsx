@@ -1,61 +1,30 @@
 import { useState, useEffect } from 'react'
-import AdminDashboard from '../pages/Dashboard/AdminDashboard'
-
-/* --- Blank components for your specific roles --- */
-const AccountantDashboard = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--surface-1)' }}>
-    <div style={{ textAlign: 'center' }}>
-      <h2 style={{ color: 'var(--gray-900)' }}>Accountant Dashboard</h2>
-      <p style={{ color: 'var(--gray-500)' }}>Focused on payments, invoices, and revenue...</p>
-    </div>
-  </div>
-)
-
-const DataEntryDashboard = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--surface-1)' }}>
-    <div style={{ textAlign: 'center' }}>
-      <h2 style={{ color: 'var(--gray-900)' }}>Data Entry Dashboard</h2>
-      <p style={{ color: 'var(--gray-500)' }}>Focused on uploading documents and adding new applications...</p>
-    </div>
-  </div>
-)
-
-const CustomerDashboard = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--surface-1)' }}>
-    <div style={{ textAlign: 'center' }}>
-      <h2 style={{ color: 'var(--gray-900)' }}>Customer Portal</h2>
-      <p style={{ color: 'var(--gray-500)' }}>Track my loan/RTO status...</p>
-    </div>
-  </div>
-)
-/* ---------------------------------------- */
+import { Navigate } from 'react-router-dom'
 
 export default function RoleBasedRouter() {
-  const [role, setRole] = useState('admin') 
+  const [role, setRole] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Read the user's role from local storage on login
     const savedRole = localStorage.getItem('user_role')
-    if (savedRole) {
-      setRole(savedRole)
-    }
+    setRole(savedRole)
+    setLoading(false)
   }, [])
 
-  // Route them to the correct dashboard based on their role
+  if (loading) {
+    return <div style={{ padding: 40, color: 'var(--gray-500)' }}>Verifying session...</div>
+  }
+
   switch (role) {
     case 'admin':
-      return <AdminDashboard />
+    case 'Accountant':
     case 'accountant':
-      return <AccountantDashboard />
+    case 'Data_Entry':
     case 'data_entry':
-      return <DataEntryDashboard />
+      return <Navigate to="/dashboard" replace />
     case 'customer':
-      return <CustomerDashboard />
+      return <Navigate to="/customer" replace />
     default:
-      return (
-        <div style={{ textAlign: 'center', marginTop: 50 }}>
-          Invalid Role. Please log in again.
-        </div>
-      )
+      return <Navigate to="/login" replace />
   }
 }

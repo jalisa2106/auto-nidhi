@@ -32,26 +32,22 @@ const restrictedRoles = ['admin', 'accountant', 'data_entry']
 const Signup: React.FC = () => {
   const navigate = useNavigate()
   const [showPasskey, setShowPasskey] = useState(false)
-  const [loading, setLoading] = useState(false) // Added a loading state for the button
+  const [loading, setLoading] = useState(false)
 
-// ✅ Backend API-based SIGNUP
   const handleSignup = async (values: SignupFormValues) => {
     try {
       setLoading(true)
 
-      // 1. Password match check (Frontend validation)
       if (values.password !== values.confirmPassword) {
         message.error('Passwords do not match.')
         setLoading(false)
         return
       }
 
-      // 2. Format passkey
       if (!restrictedRoles.includes(values.role)) {
         values.passkey = undefined
       }
 
-      // 3. Send data to FastAPI Backend
       const response = await fetch("http://localhost:8000/api/signup", {
         method: "POST",
         headers: {
@@ -69,17 +65,14 @@ const Signup: React.FC = () => {
         }),
       })
 
-      // 4. Read the response
       const data = await response.json()
 
-      // 5. Handle errors from the backend (like "User already exists" or "Invalid passkey")
       if (!response.ok || data.error) {
         message.error(data.error || 'Signup failed.')
         setLoading(false)
         return
       }
 
-      // 6. Success! Auto-login the user
       localStorage.setItem(
         'an_current_user',
         JSON.stringify({ 
@@ -93,7 +86,6 @@ const Signup: React.FC = () => {
 
       message.success('Account created successfully! Welcome.')
       
-      // 7. Dynamic redirect based on backend evaluation role
       if (data.role === 'customer') {
         navigate('/customer')
       } else {
@@ -208,7 +200,6 @@ const Signup: React.FC = () => {
             </Select>
           </Form.Item>
 
-          {/* Passkey only for restricted roles */}
           {showPasskey && (
             <Form.Item
               label="Role Passkey"

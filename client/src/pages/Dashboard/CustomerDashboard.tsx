@@ -21,6 +21,7 @@ export default function CustomerDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('user_role');
     navigate('/');
   };
 
@@ -33,7 +34,6 @@ export default function CustomerDashboard() {
         padding: '0 40px', height: 70, display: 'flex', alignItems: 'center',
         justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, boxShadow: 'var(--shadow-sm)'
       }}>
-        {/* Logo Branding */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10,
@@ -50,7 +50,6 @@ export default function CustomerDashboard() {
           </div>
         </div>
 
-        {/* Center Menu Links */}
         <nav style={{ display: 'flex', gap: 8 }}>
           <button style={{ ...navLinkStyle, background: 'var(--brand-50)', color: 'var(--brand-700)', fontWeight: 600 }}>
             <LayoutDashboard size={16} /> Dashboard
@@ -60,7 +59,6 @@ export default function CustomerDashboard() {
           </button>
         </nav>
 
-        {/* User Workspace Profile & Session controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ textAlign: 'right' }}>
@@ -83,7 +81,6 @@ export default function CustomerDashboard() {
       {/* ── Screen-Filling Content Body ── */}
       <main style={{ flex: 1, padding: '40px', display: 'flex', flexDirection: 'column', gap: 32, width: '100%', boxSizing: 'border-box' }}>
         
-        {/* Dashboard Dynamic Title Segment */}
         <div>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--gray-900)', margin: '0 0 6px 0' }}>
             Welcome back! 👋
@@ -93,7 +90,7 @@ export default function CustomerDashboard() {
           </p>
         </div>
 
-        {/* Unified Status Progression Overview Metrics */}
+        {/* Status Tracker Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
           <div className="card" style={statCardStyle}>
             <div style={{ ...iconContainerStyle, background: 'var(--brand-50)', color: 'var(--brand-600)' }}>
@@ -189,7 +186,6 @@ export default function CustomerDashboard() {
   );
 }
 
-// ── Shared Functional UI Styles ──
 const navLinkStyle = { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--gray-600)', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', transition: 'all 0.15s' };
 const logoutBtnStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, border: '1px solid var(--gray-200)', background: 'transparent', color: 'var(--gray-400)', cursor: 'pointer', transition: 'all 0.2s' };
 

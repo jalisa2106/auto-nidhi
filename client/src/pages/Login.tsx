@@ -17,10 +17,8 @@ interface LoginFormValues {
 
 const Login: React.FC = () => {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false) // Added loading state
+  const [loading, setLoading] = useState(false)
 
-  // ✅ Backend API-based LOGIN
-// ✅ Backend API-based LOGIN
   const handleLogin = async (values: LoginFormValues) => {
     try {
       setLoading(true)
@@ -58,7 +56,6 @@ const Login: React.FC = () => {
       
       message.success('Login successful! Welcome back.')
       
-      // 5. Dynamic Redirect based on exact role matching configuration
       if (data.role === 'customer') {
         navigate('/customer')
       } else {
@@ -84,7 +81,6 @@ const Login: React.FC = () => {
           Login to continue to Auto-Nidhi
         </Text>
 
-        {/* ✅ FORM */}
         <Form layout="vertical" onFinish={handleLogin}>
           <Form.Item
             label="Email"
@@ -130,7 +126,7 @@ const Login: React.FC = () => {
             icon={<LoginOutlined />}
             block
             className="auth-btn"
-            loading={loading} // Binds the spinner to the API call
+            loading={loading}
           >
             Login
           </Button>
