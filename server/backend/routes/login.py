@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import SystemUser, MasterRole
-from backend.utils import verify_password
+from backend.utils import verify_password, create_access_token
 
 router = APIRouter()
 
@@ -31,8 +31,17 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     role_name = db_role.role_name.lower() if db_role else "customer"
 
     # 4. Success! (In the future, you will generate a real JWT token here)
+    access_token = create_access_token(
+    data={
+        "sub": str(user.id),
+        "email": user.email,
+        "role": role_name,
+    }
+)
     return {
-        "message": "Login successful", 
+        "message": "Login successful",
+        "access_token": access_token,
+        "token_type": "bearer",
         "user": user.email,
         "first_name": user.first_name,
         "last_name": user.last_name,
