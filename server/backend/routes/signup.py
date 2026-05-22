@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import SystemUser, MasterRole
-from backend.utils import get_password_hash
+from backend.utils import get_password_hash, create_access_token
 
 router = APIRouter()
 
@@ -67,11 +67,26 @@ def signup(data: SignupData, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     role_name = db_role.role_name.lower()
+    # 1. Generate the tokens so the user is instantly logged in
+    token_data = {
+        "sub": str(new_user.id),
+        "email": new_user.email,
+        "role": role_name,
+    }
+    access_token = create_access_token(data=token_data)
+    refresh_token = create_access_token(data=token_data)
+
+    # 2. Return the exact same nested structure as login.py
     return {
         "message": "Signup successful", 
-        "user": new_user.email,
-        "first_name": new_user.first_name,
-        "last_name": new_user.last_name,
-        "role": role_name,
-        "role_id": str(new_user.role_id)
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": {
+            "email": new_user.email,
+            "first_name": new_user.first_name,
+            "last_name": new_user.last_name,
+            "role": role_name,
+            "role_id": str(new_user.role_id)
+        }
     }
