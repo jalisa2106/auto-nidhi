@@ -51,6 +51,11 @@ export const customersApi = {
     const { data } = await api.get(`/customers/${id}`)
     return data
   },
+
+  create: async (payload: { full_name: string; mobile_1: string; email?: string; city?: string }) => {
+    const { data } = await api.post('/customers', payload)
+    return data
+  },
 }
 
 export const filesApi = {

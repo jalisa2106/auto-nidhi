@@ -33,6 +33,7 @@ import ExpenseCategoriesPage  from './pages/AdminPages/ExpenseCategoriesPage'
 import CompanySettingsPage    from './pages/AdminPages/CompanySettingsPage'
 import BankAccountsPage       from './pages/AdminPages/BankAccountsPage'
 import UsersPage              from './pages/AdminPages/UsersPage'
+import LoansPage              from './pages/AdminPages/LoansPage'
 
 function App() {
   return (
@@ -63,6 +64,7 @@ function App() {
           <Route path="/insurance-payments"           element={<InsurancePaymentsPage />}  />
           <Route path="/expenses"                     element={<ExpensesPage />}           />
           <Route path="/advances"                     element={<AdvancesPage />}           />
+          <Route path="/loans"                        element={<LoansPage />}              />
           {/* Masters */}
           <Route path="/masters/dealers"              element={<DealersPage />}            />
           <Route path="/masters/brokers"              element={<BrokersPage />}            />
