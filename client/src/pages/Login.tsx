@@ -23,7 +23,7 @@ const Login: React.FC = () => {
     try {
       setLoading(true)
 
-      const response = await fetch("http://localhost:8000/api/login", {
+      const response = await fetch("http://localhost:8000/api/v1/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
