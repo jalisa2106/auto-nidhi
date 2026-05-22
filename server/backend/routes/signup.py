@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import SystemUser, MasterRole
@@ -17,13 +18,13 @@ VALID_PASSKEYS = {
 # ================= Signup Model =================
 class SignupData(BaseModel):
     first_name: str
-    last_name: str | None = None
-    phone_number: str | None = None
+    last_name: Optional[str] = None
+    phone_number: Optional[str] = None
     email: str
     password: str
     confirmPassword: str
     role: str
-    passkey: str | None = None
+    passkey: Optional[str] = None
 
 # ================= Signup Route =================
 @router.post("/signup")
