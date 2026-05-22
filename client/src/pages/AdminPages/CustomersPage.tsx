@@ -40,12 +40,21 @@ export default function CustomersPage() {
     setError('')
     try {
       const data = await customersApi.list()
-      setRows(data.map(normalizeCustomer))
+      
+      // ✅ Safeguard: Only run map if the backend explicitly returns an Array
+      if (data && Array.isArray(data)) {
+        setRows(data.map(normalizeCustomer))
+      } else {
+        // If it's an object with a custom error message detail, use it
+        console.error("Backend did not return an array:", data)
+        throw new Error(data?.detail || 'Unexpected response format from the server.')
+      }
+      
     } catch (err: any) {
       console.error("API Fetch Error:", err)
       setError(err?.message || 'Unable to load customers')
       
-      // Fallback local mock data matching database rules if the FastAPI server is offline
+      // Keep your fallback mock data so your layout stays visible if the server is down
       setRows([
         { id: '1', name: 'Rajesh Kumar', mobile: '+919876543210', email: 'rajesh@gmail.com', city: 'Anand', files: 2, created: '2026-05-20' },
         { id: '2', name: 'Priya Mehta', mobile: '+918765432109', email: 'priya@gmail.com', city: 'Nadiad', files: 1, created: '2026-05-19' },
