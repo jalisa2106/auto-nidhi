@@ -35,6 +35,8 @@ class Customer(Base):
     mobile_1 = Column(String(15), nullable=False, unique=True)
     mobile_2 = Column(String(15))
     address = Column(String)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
 
 class FileRecord(Base):
     __tablename__ = "file_record"
