@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Form, Input, Button, Typography, Checkbox, message } from 'antd'
 import { LoginOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
+import API_BASE from '../lib/apiConfig'
 
 import AuthLayout from '../components/auth/AuthLayout'
 import AuthCard from '../components/auth/AuthCard'
@@ -23,7 +24,7 @@ const Login: React.FC = () => {
     try {
       setLoading(true)
 
-      const response = await fetch("http://localhost:8000/api/v1/auth/login", {
+      const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

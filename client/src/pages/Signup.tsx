@@ -9,6 +9,7 @@ import {
 } from 'antd'
 import { UserAddOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
+import API_BASE from '../lib/apiConfig'
 
 import AuthLayout from '../components/auth/AuthLayout'
 import AuthCard from '../components/auth/AuthCard'
@@ -48,7 +49,7 @@ const Signup: React.FC = () => {
         values.passkey = undefined
       }
 
-      const response = await fetch("http://localhost:8000/api/signup", {
+      const response = await fetch(`${API_BASE}/api/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
