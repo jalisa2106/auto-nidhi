@@ -26,8 +26,8 @@ export default function CustomersPage() {
     setLoading(true)
     setError('')
     try {
-      const data = await customersApi.list()
-      setRows(data.map(normalizeCustomer))
+      const response = await customersApi.list()
+      setRows(response.data.map(normalizeCustomer)) 
     } catch (err: any) {
       setError(err?.message || 'Unable to load customers')
     } finally {
