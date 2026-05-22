@@ -48,7 +48,7 @@ const Signup: React.FC = () => {
         values.passkey = undefined
       }
 
-      const response = await fetch("http://localhost:8000/api/signup", {
+      const response = await fetch("http://localhost:8000/api/v1/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
