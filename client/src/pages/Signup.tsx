@@ -68,8 +68,8 @@ const Signup: React.FC = () => {
 
       const data = await response.json()
 
-      if (!response.ok || data.error) {
-        message.error(data.error || 'Signup failed.')
+      if (!response.ok || data.detail) {
+        message.error(data.detail || 'Signup failed.')
         setLoading(false)
         return
       }
@@ -77,17 +77,17 @@ const Signup: React.FC = () => {
       localStorage.setItem(
         'an_current_user',
         JSON.stringify({ 
-          email: data.user, 
-          role: data.role, 
-          name: data.first_name || 'User' 
+          email: data.user.email, 
+          role: data.user.role, 
+          name: data.user.first_name || 'User' 
         })
       )
-      localStorage.setItem('user_role', data.role)
+      localStorage.setItem('user_role', data.user.role)
       localStorage.setItem('access_token', data.access_token || 'local-dev-token')
 
       message.success('Account created successfully! Welcome.')
       
-      if (data.role === 'customer') {
+      if (data.user.role === 'customer') {
         navigate('/customer')
       } else {
         navigate('/dashboard')

@@ -37,8 +37,8 @@ const Login: React.FC = () => {
 
       const data = await response.json()
 
-      if (!response.ok || data.error) {
-        message.error(data.error || 'Invalid email or password.')
+      if (!response.ok) {
+        message.error(data.detail || 'Invalid credentials.')
         setLoading(false)
         return
       }
@@ -46,18 +46,18 @@ const Login: React.FC = () => {
       localStorage.setItem(
         'an_current_user',
         JSON.stringify({ 
-          email: data.user, 
-          role: data.role, 
-          name: data.first_name || 'User' 
+          email: data.user.email, 
+          role: data.user.role, 
+          name: data.user.first_name || 'User' 
         })
       )
       
-      localStorage.setItem('user_role', data.role)
+      localStorage.setItem('user_role', data.user.role)
       localStorage.setItem('access_token', data.access_token || 'local-dev-token')
       
       message.success('Login successful! Welcome back.')
       
-      if (data.role === 'customer') {
+      if (data.user.role === 'customer') {
         navigate('/customer')
       } else {
         navigate('/dashboard')
