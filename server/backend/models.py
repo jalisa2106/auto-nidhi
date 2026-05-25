@@ -175,6 +175,8 @@ class RTOPayment(Base):
     utr_no = Column(String(100))
     remarks = Column(String)
     file = relationship("FileRecord")
+    is_deleted = Column(Boolean, nullable=False, default=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     payee_dealer = relationship("MasterDealer", foreign_keys=[payee_dealer_id])
     payee_broker = relationship("MasterBroker", foreign_keys=[payee_broker_id])
 
