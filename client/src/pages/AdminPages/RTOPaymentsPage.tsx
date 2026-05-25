@@ -516,8 +516,8 @@ export default function RTOPaymentsPage() {
                 {MODES.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
               </select>
             </FormField>
-            <FormField label="Payee Dealer Name"><input className="form-input" value={form.payee_dealer_name} onChange={f('payee_dealer_name')} placeholder="master_dealer.dealer_name" /></FormField>
-            <FormField label="Payee Broker Name"><input className="form-input" value={form.payee_broker_name} onChange={f('payee_broker_name')} placeholder="master_broker.broker_name" /></FormField>
+            <FormField label="Payee Dealer Name"><input className="form-input" value={form.payee_dealer_name} onChange={f('payee_dealer_name')} /></FormField>
+            <FormField label="Payee Broker Name"><input className="form-input" value={form.payee_broker_name} onChange={f('payee_broker_name')} /></FormField>
             
             {/* Cheque specific fields */}
             {isCheque && (
