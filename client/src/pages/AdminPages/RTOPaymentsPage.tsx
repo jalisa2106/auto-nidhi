@@ -137,6 +137,9 @@ export default function RTOPaymentsPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [form,     setForm]     = useState<Omit<RTOPayment,'id'>>(emptyForm())
 
+  const isCheque = form.payment_mode === 'cheque'
+  const isOnline = ['rtgs', 'neft', 'imps', 'upi'].includes(form.payment_mode)
+
   // Stats
   const totalAmount  = rows.reduce((s, r) => s + r.amount, 0)
   const uniquePayees = new Set(rows.map(r => getPayeeName(r))).size
@@ -354,19 +357,31 @@ export default function RTOPaymentsPage() {
             </FormField>
             <FormField label="Payee Dealer Name"><input className="form-input" value={form.payee_dealer_name} onChange={f('payee_dealer_name')} placeholder="master_dealer.dealer_name" /></FormField>
             <FormField label="Payee Broker Name"><input className="form-input" value={form.payee_broker_name} onChange={f('payee_broker_name')} placeholder="master_broker.broker_name" /></FormField>
-            <FormField label="Bank Account No."><input className="form-input" value={form.bank_account_no} onChange={f('bank_account_no')} /></FormField>
-            <FormField label="IFSC Code"><input className="form-input" value={form.ifsc_code} onChange={f('ifsc_code')} /></FormField>
-            <FormField label="Cheque Bank Name"><input className="form-input" value={form.cheque_bank_name} onChange={f('cheque_bank_name')} /></FormField>
-            <FormField label="Branch Name"><input className="form-input" value={form.branch_name} onChange={f('branch_name')} /></FormField>
-            <FormField label="Cheque No."><input className="form-input" value={form.cheque_no} onChange={f('cheque_no')} /></FormField>
-            <FormField label="Cheque Date"><input className="form-input" type="date" value={form.cheque_date} onChange={f('cheque_date')} /></FormField>
-            <FormField label="Cheque Amount (₹)"><input className="form-input" type="number" value={form.cheque_amount || ''} onChange={f('cheque_amount')} /></FormField>
-            <FormField label="UTR / Ref No."><input className="form-input" value={form.utr_no} onChange={f('utr_no')} /></FormField>
+            
+            {/* Cheque specific fields */}
+            {isCheque && (
+              <>
+                <FormField label="Cheque No. *"><input className="form-input" value={form.cheque_no} onChange={f('cheque_no')} placeholder="Cheque number" required /></FormField>
+                <FormField label="Cheque Date"><input className="form-input" type="date" value={form.cheque_date} onChange={f('cheque_date')} /></FormField>
+                <FormField label="Cheque Bank Name"><input className="form-input" value={form.cheque_bank_name} onChange={f('cheque_bank_name')} placeholder="Bank name" /></FormField>
+                <FormField label="Branch Name"><input className="form-input" value={form.branch_name} onChange={f('branch_name')} placeholder="Branch name" /></FormField>
+                <FormField label="Cheque Amount (₹)"><input className="form-input" type="number" value={form.cheque_amount || ''} onChange={f('cheque_amount')} placeholder="Cheque amount" /></FormField>
+              </>
+            )}
+
+            {/* Online specific fields */}
+            {isOnline && (
+              <>
+                <FormField label="UTR / Ref No. *"><input className="form-input" value={form.utr_no} onChange={f('utr_no')} placeholder="UTR or reference number" required /></FormField>
+                <FormField label="Bank Account No."><input className="form-input" value={form.bank_account_no} onChange={f('bank_account_no')} placeholder="Account number" /></FormField>
+                <FormField label="IFSC Code"><input className="form-input" value={form.ifsc_code} onChange={f('ifsc_code')} placeholder="IFSC code" /></FormField>
+              </>
+            )}
           </div>
           <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize:'vertical' }} /></FormField>
         </div>
       </Modal>
-
+ 
       {/* ── Edit Modal ── */}
       <Modal open={editOpen} title={`Edit Payment — ${selected?.id}`} onClose={() => setEditOpen(false)} onSubmit={handleEdit} submitLabel="Save Changes" maxWidth="760px">
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
@@ -389,12 +404,26 @@ export default function RTOPaymentsPage() {
             </FormField>
             <FormField label="Payee Dealer"><input className="form-input" value={form.payee_dealer_name} onChange={f('payee_dealer_name')} /></FormField>
             <FormField label="Payee Broker"><input className="form-input" value={form.payee_broker_name} onChange={f('payee_broker_name')} /></FormField>
-            <FormField label="Bank Account No."><input className="form-input" value={form.bank_account_no} onChange={f('bank_account_no')} /></FormField>
-            <FormField label="IFSC Code"><input className="form-input" value={form.ifsc_code} onChange={f('ifsc_code')} /></FormField>
-            <FormField label="Cheque No."><input className="form-input" value={form.cheque_no} onChange={f('cheque_no')} /></FormField>
-            <FormField label="Cheque Date"><input className="form-input" type="date" value={form.cheque_date} onChange={f('cheque_date')} /></FormField>
-            <FormField label="Cheque Amount (₹)"><input className="form-input" type="number" value={form.cheque_amount || ''} onChange={f('cheque_amount')} /></FormField>
-            <FormField label="UTR / Ref No."><input className="form-input" value={form.utr_no} onChange={f('utr_no')} /></FormField>
+            
+            {/* Cheque specific fields */}
+            {isCheque && (
+              <>
+                <FormField label="Cheque No. *"><input className="form-input" value={form.cheque_no} onChange={f('cheque_no')} required /></FormField>
+                <FormField label="Cheque Date"><input className="form-input" type="date" value={form.cheque_date} onChange={f('cheque_date')} /></FormField>
+                <FormField label="Cheque Bank Name"><input className="form-input" value={form.cheque_bank_name} onChange={f('cheque_bank_name')} /></FormField>
+                <FormField label="Branch Name"><input className="form-input" value={form.branch_name} onChange={f('branch_name')} /></FormField>
+                <FormField label="Cheque Amount (₹)"><input className="form-input" type="number" value={form.cheque_amount || ''} onChange={f('cheque_amount')} /></FormField>
+              </>
+            )}
+
+            {/* Online specific fields */}
+            {isOnline && (
+              <>
+                <FormField label="UTR / Ref No. *"><input className="form-input" value={form.utr_no} onChange={f('utr_no')} required /></FormField>
+                <FormField label="Bank Account No."><input className="form-input" value={form.bank_account_no} onChange={f('bank_account_no')} /></FormField>
+                <FormField label="IFSC Code"><input className="form-input" value={form.ifsc_code} onChange={f('ifsc_code')} /></FormField>
+              </>
+            )}
           </div>
           <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize:'vertical' }} /></FormField>
         </div>
