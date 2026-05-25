@@ -82,3 +82,14 @@ export const paymentsInApi = {
     return data
   },
 }
+
+export const paymentsOutApi = {
+  list: async (params: any) => {
+    const { data } = await api.get('/payments/out', { params })
+    return data
+  },
+  create: async (payload: any) => {
+    const { data } = await api.post('/payments/out', payload)
+    return data
+  },
+}

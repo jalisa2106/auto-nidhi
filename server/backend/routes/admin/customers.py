@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 from uuid import UUID
 import datetime
+import re
 
 from backend.database import get_db
 from backend.models import Customer
@@ -11,10 +12,30 @@ from backend.models import Customer
 router = APIRouter(prefix="/api/v1/customers", tags=["Admin Customers"])
 
 class CustomerCreate(BaseModel):
-    full_name: str
-    mobile_1: str
+    full_name: str = Field(..., min_length=1)
+    mobile_1: str = Field(..., pattern=r"^[0-9]{10}$")
     email: Optional[str] = None
     city: Optional[str] = None
+
+    @validator("full_name")
+    def validate_full_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Full name is required")
+        if not re.match(r"^[A-Za-z ]+$", value):
+            raise ValueError("Full name must contain letters and spaces only")
+        return value
+
+    @validator("city")
+    def validate_city(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("City cannot be empty")
+        if not re.match(r"^[A-Za-z ]+$", value):
+            raise ValueError("City must contain letters and spaces only")
+        return value
 
 @router.get("/")
 def list_customers(page: int = 1, limit: int = 50, search: Optional[str] = None, db: Session = Depends(get_db)):
@@ -34,8 +55,17 @@ def list_customers(page: int = 1, limit: int = 50, search: Optional[str] = None,
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_customer(payload: CustomerCreate, db: Session = Depends(get_db)):
+    # Validate mobile uniqueness
+    existing = db.query(Customer).filter(Customer.mobile_1 == payload.mobile_1).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Customer with this mobile already exists")
+
     new_customer = Customer(**payload.dict())
     db.add(new_customer)
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     db.refresh(new_customer)
     return new_customer
