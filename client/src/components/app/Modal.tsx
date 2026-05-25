@@ -8,12 +8,13 @@ interface Props {
   onSubmit?: () => void
   submitLabel?: string
   children: ReactNode
+  maxWidth?: string | number
 }
-export default function Modal({ open, title, onClose, onSubmit, submitLabel = 'Save', children }: Props) {
+export default function Modal({ open, title, onClose, onSubmit, submitLabel = 'Save', children, maxWidth }: Props) {
   if (!open) return null
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={maxWidth ? { maxWidth } : undefined} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{title}</h3>
           <button className="btn btn-ghost btn-sm" onClick={onClose}><X size={16} /></button>
