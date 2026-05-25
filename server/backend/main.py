@@ -12,6 +12,8 @@ from backend.routes.admin.files import router as files_router
 from backend.routes.admin.payments_in import router as payments_in_router
 from backend.routes.admin.payments_out import router as payments_out_router
 from backend.routes.admin.rto_payments import router as rto_payments_router
+from backend.routes.admin.commissions_in import router as commissions_in_router
+from backend.routes.admin.commissions_out import router as commissions_out_router
 
 app = FastAPI(title="AutoNidhi API", version="1.0.0")
 
@@ -44,3 +46,5 @@ app.include_router(files_router)
 app.include_router(payments_in_router)
 app.include_router(payments_out_router)
 app.include_router(rto_payments_router)
+app.include_router(commissions_in_router)
+app.include_router(commissions_out_router)

@@ -1,13 +1,32 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   TrendingDown, IndianRupee, CalendarClock, Plus, X, Eye,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
 } from 'lucide-react'
-import { mockCommissionsOut, mockFiles } from '../../lib/mockData'
+import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
+import { commissionsOutApi, filesApi } from '../../api/services'
 
 // ─── Types ────────────────────────────────────────────────────────────────
-type CommissionOut = typeof mockCommissionsOut[number]
+type CommissionOut = {
+  id: string
+  file_id?: string
+  file_number: string
+  payee_type: string
+  payee_name: string
+  amount: number
+  advance: boolean
+  tds_deducted: boolean
+  mode: string
+  payment_date: string
+  cheque_bank_name?: string | null
+  branch_name?: string | null
+  cheque_no?: string | null
+  cheque_date?: string | null
+  utr_no?: string | null
+  company_bank_id?: string | null
+  remarks?: string | null
+}
 
 const PAYMENT_MODES   = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 const PAYEE_TYPES     = ['Dealer', 'Broker', 'Agent', 'Other'] as const
@@ -134,7 +153,8 @@ function Pagination({
 
 // ─── Main Page ─────────────────────────────────────────────────────────────
 export default function CommissionOutPage() {
-  const [rows, setRows]         = useState<CommissionOut[]>(mockCommissionsOut as CommissionOut[])
+  const [rows, setRows]         = useState<CommissionOut[]>([])
+  const [availableFiles, setAvailableFiles] = useState<any[]>([])
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<CommissionOut | null>(null)
   const [form, setForm]         = useState({ ...EMPTY_FORM })
@@ -185,6 +205,34 @@ export default function CommissionOutPage() {
   const isChequeLike = form.mode === 'Cheque' || form.mode === 'DD'
   const isTransfer   = form.mode === 'NEFT'   || form.mode === 'RTGS'
 
+  const isUuid = (val: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val)
+
+  const loadCommissions = async () => {
+    try {
+      const res = await commissionsOutApi.list({ page: 1, limit: 5000 })
+      setRows(res.data || [])
+      setPage(1)
+    } catch (err) {
+      message.error('Failed to load commissions')
+    }
+  }
+
+  const loadFilesDropdown = async () => {
+    try {
+      const response = await filesApi.list(1, 1000)
+      setAvailableFiles(response.data || [])
+    } catch (err) { }
+  }
+
+  useEffect(() => {
+    loadCommissions()
+  }, [])
+
+  useEffect(() => {
+    if (showAdd) loadFilesDropdown()
+  }, [showAdd])
+
   function updateForm(field: string, value: unknown) {
     setForm((prev) => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors((e) => { const n = { ...e }; delete n[field]; return n })
@@ -204,31 +252,36 @@ export default function CommissionOutPage() {
     return Object.keys(e).length === 0
   }
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!validate()) return
-    const newRow = {
-      id:               `CO${String(rows.length + 1).padStart(3, '0')}`,
-      file_number:      form.file_number,
-      payee_type:       form.payee_type,
-      payee_name:       form.payee_name.trim(),
-      amount:           Number(form.amount),
-      advance:          form.advance,
-      tds_deducted:     form.tds_deducted,
-      mode:             form.mode,
-      payment_date:     form.payment_date,
+    const payload = {
+      file_id: form.file_number, // stores file UUID from dropdown
+      payee_type: form.payee_type,
+      payee_name: form.payee_name.trim(),
+      amount: Number(form.amount),
+      advance: form.advance,
+      tds_deducted: form.tds_deducted,
+      mode: form.mode,
+      payment_date: form.payment_date,
       cheque_bank_name: form.cheque_bank_name || null,
-      branch_name:      form.branch_name      || null,
-      cheque_no:        form.cheque_no        || null,
-      cheque_date:      form.cheque_date      || null,
-      utr_no:           form.utr_no           || null,
-      company_bank_id:  form.company_bank_id  || null,
-      remarks:          form.remarks          || null,
-    } as unknown as CommissionOut
-    setRows([newRow, ...rows])
-    setForm({ ...EMPTY_FORM })
-    setErrors({})
-    setShowAdd(false)
-    setPage(1)
+      branch_name: form.branch_name || null,
+      cheque_no: form.cheque_no || null,
+      cheque_date: form.cheque_date || null,
+      utr_no: form.utr_no || null,
+      company_bank_id: isUuid(form.company_bank_id) ? form.company_bank_id : null,
+      remarks: form.remarks || null,
+    }
+
+    try {
+      await commissionsOutApi.create(payload)
+      message.success('Commission recorded successfully')
+      setForm({ ...EMPTY_FORM })
+      setErrors({})
+      setShowAdd(false)
+      loadCommissions()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Failed to save commission')
+    }
   }
 
   function resetFilters() {
@@ -449,8 +502,8 @@ export default function CommissionOutPage() {
                       onChange={(e) => updateForm('file_number', e.target.value)}
                     >
                       <option value="">Select file…</option>
-                      {mockFiles.map((f) => (
-                        <option key={f.id} value={f.id}>{f.id} – {f.customer}</option>
+                      {availableFiles.map((f) => (
+                        <option key={f.id} value={f.id}>{f.file_number} – {f.customer}</option>
                       ))}
                     </select>
                     {errors.file_number && <span className="form-error">{errors.file_number}</span>}

@@ -93,3 +93,25 @@ export const paymentsOutApi = {
     return data
   },
 }
+
+export const commissionsInApi = {
+  list: async (params: any) => {
+    const { data } = await api.get('/commissions/in', { params })
+    return data
+  },
+  create: async (payload: any) => {
+    const { data } = await api.post('/commissions/in', payload)
+    return data
+  },
+}
+
+export const commissionsOutApi = {
+  list: async (params: any) => {
+    const { data } = await api.get('/commissions/out', { params })
+    return data
+  },
+  create: async (payload: any) => {
+    const { data } = await api.post('/commissions/out', payload)
+    return data
+  },
+}
