@@ -126,7 +126,7 @@ export default function LoansPage() {
 
   useEffect(() => {
     const loadLoans = async () => {
-      const { data } = await api.get('/loans')
+      const { data } = await api.get('/loans/')
       setRows(data?.data ?? [])
     }
 
@@ -161,16 +161,28 @@ export default function LoansPage() {
     setEditOpen(false)
   }
 
-  const handleDelete = (_fileNumber: string) => {
-    // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
-    // Before uncommenting: add this column to DB:
-    //   ALTER TABLE file_record ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
-    // API call: PATCH /api/loans/:file_number  →  body: { is_deleted: true }
-    //
-    // setRows(prev => prev.filter(l => l.file_number !== _fileNumber))
-    // setSelected(null)
-    // ─────────────────────────────────────────────────────────────────────────
-    alert('Soft delete is pending. Backend needs to add is_deleted column to file_record table.')
+  // const handleDelete = (_fileNumber: string) => {
+  //   // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
+  //   // Before uncommenting: add this column to DB:
+  //   //   ALTER TABLE file_record ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
+  //   // API call: PATCH /api/loans/:file_number  →  body: { is_deleted: true }
+  //   //
+  //   // setRows(prev => prev.filter(l => l.file_number !== _fileNumber))
+  //   // setSelected(null)
+  //   // ─────────────────────────────────────────────────────────────────────────
+  //   alert('Soft delete is pending. Backend needs to add is_deleted column to file_record table.')
+  // }
+  
+  const handleDelete = async (_fileNumber: string) => {
+    try {
+      await api.patch(`/loans/${_fileNumber}/delete`)
+
+      setRows(prev => prev.filter(l => l.file_number !== _fileNumber))
+      setSelected(null)
+    } catch (err) {
+      console.error(err)
+      alert('Failed to delete loan')
+    }
   }
 
   const filterPills = [
