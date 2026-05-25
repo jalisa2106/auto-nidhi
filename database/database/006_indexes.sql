@@ -34,6 +34,7 @@ CREATE INDEX idx_commission_out_file_id     ON commission_out(file_id);
 CREATE INDEX idx_expense_category_id        ON expense_ledger(expense_category_id);
 CREATE INDEX idx_expense_ledger_file_id     ON expense_ledger(file_id);
 CREATE INDEX idx_rto_payment_file_id        ON rto_payment(file_id);
+CREATE INDEX idx_rto_payment_not_deleted    ON rto_payment(file_id) WHERE is_deleted = FALSE;
 CREATE INDEX idx_insurance_payment_file_id  ON insurance_payment(file_id);
 
 -- Advances (FIXED: old idx_advances_party removed, replaced with proper FK indexes)
