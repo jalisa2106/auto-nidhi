@@ -93,3 +93,32 @@ export const paymentsOutApi = {
     return data
   },
 }
+
+export const loansApi = {
+  list: async (status?: string, search?: string) => {
+    const { data } = await api.get('/loans', {
+      params: { status, search },
+    })
+    return data
+  },
+
+  getStats: async () => {
+    const { data } = await api.get('/loans/stats')
+    return data
+  },
+
+  update: async (
+    file_number: string,
+    payload: { remarks?: string; status?: string }
+  ) => {
+    const { data } = await api.patch(`/loans/${file_number}`, payload)
+    return data
+  },
+
+  softDelete: async (file_number: string) => {
+    const { data } = await api.patch(
+      `/loans/${file_number}/delete`
+    )
+    return data
+  },
+}
