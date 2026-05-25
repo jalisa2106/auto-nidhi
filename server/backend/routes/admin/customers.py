@@ -2,12 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from uuid import UUID
-import datetime
 import re
 
 from backend.database import get_db
-from backend.models import Customer
+from backend.models import Customer, FileRecord
 
 router = APIRouter(prefix="/api/v1/customers", tags=["Admin Customers"])
 
@@ -39,19 +39,27 @@ class CustomerCreate(BaseModel):
 
 @router.get("/")
 def list_customers(page: int = 1, limit: int = 50, search: Optional[str] = None, db: Session = Depends(get_db)):
-    query = db.query(Customer)
+    # Query with left outer join to count active files per customer
+    query = db.query(
+        Customer, 
+        func.count(FileRecord.id).label("active_files_count")
+    ).outerjoin(FileRecord).group_by(Customer.id)
+
     if search:
-        query = query.filter(Customer.full_name.ilike(f"%{search}%") | Customer.mobile_1.ilike(f"%{search}%"))
+        search_term = f"%{search}%"
+        query = query.filter(Customer.full_name.ilike(search_term) | Customer.mobile_1.ilike(search_term))
     
     total = query.count()
-    customers = query.order_by(Customer.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    results = query.order_by(Customer.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
     
-    return {
-        "data": customers,
-        "total": total,
-        "page": page,
-        "limit": limit
-    }
+    # Format the response to include the active_files_count for the frontend
+    customers_data = []
+    for customer, count in results:
+        cust_dict = customer.__dict__.copy()
+        cust_dict["active_files_count"] = count 
+        customers_data.append(cust_dict)
+    
+    return customers_data
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_customer(payload: CustomerCreate, db: Session = Depends(get_db)):

@@ -31,17 +31,13 @@ export default function CustomersPage() {
     setLoading(true)
     setError('')
     try {
+      // API now returns the list directly as an array
       const data = await customersApi.list()
-      
-      // Safeguard: Only run map if the backend explicitly returns an Array
-      if (data && Array.isArray(data)) {
+      if (Array.isArray(data)) {
         setRows(data.map(normalizeCustomer))
       } else {
-        // If it's an object with a custom error message detail, use it
-        console.error("Backend did not return an array:", data)
-        throw new Error(data?.detail || 'Unexpected response format from the server.')
+        throw new Error('Unexpected response format')
       }
-      
     } catch (err: any) {
       setError(extractError(err) || 'Unable to load customers')
     } finally {
