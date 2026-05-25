@@ -103,7 +103,7 @@ export default function Applications() {
               <Search size={16} color="var(--gray-400)" className="search-icon" />
               <input type="text" placeholder="Search File No. or Name..." className="search-input" />
             </div>
-            <button className="new-app-btn">
+            <button className="new-app-btn" onClick={() => navigate('/files/new')}>
               <Plus size={16} /> New Application
             </button>
           </div>

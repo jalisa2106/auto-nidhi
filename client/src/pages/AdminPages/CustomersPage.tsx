@@ -5,13 +5,16 @@ import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
 import { customersApi } from '../../api/services'
 
+// ✅ Aligned with your exact PostgreSQL DB Schema & Spec metrics
 const normalizeCustomer = (customer: any) => ({
   id: customer.id,
   name: customer.full_name,
   mobile: customer.mobile_1,
+  email: customer.email || '-',
   city: customer.city || '',
-  files: customer.files ?? 0,
+  files: customer.active_files_count ?? 0, // Maps to aggregate database count view
   created: customer.created_at ? customer.created_at.slice(0, 10) : '',
+  type: customer.customer_type || 'Individual',
 })
 
 export default function CustomersPage() {
@@ -28,8 +31,17 @@ export default function CustomersPage() {
     setLoading(true)
     setError('')
     try {
-      const response = await customersApi.list()
-      setRows(response.data.map(normalizeCustomer)) 
+      const data = await customersApi.list()
+      
+      // Safeguard: Only run map if the backend explicitly returns an Array
+      if (data && Array.isArray(data)) {
+        setRows(data.map(normalizeCustomer))
+      } else {
+        // If it's an object with a custom error message detail, use it
+        console.error("Backend did not return an array:", data)
+        throw new Error(data?.detail || 'Unexpected response format from the server.')
+      }
+      
     } catch (err: any) {
       setError(extractError(err) || 'Unable to load customers')
     } finally {
@@ -144,33 +156,68 @@ export default function CustomersPage() {
 
   return (
     <>
-      <PageHeader title="Customers" subtitle="All customers in the system" />
-      {error && <div className="form-error">{error}</div>}
+      <PageHeader title="Customers" subtitle="All registered customers and client accounts within the system" />
+      
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', padding: '12px 16px', borderRadius: 8, marginBottom: 20, fontSize: '0.875rem' }}>
+          {error}
+        </div>
+      )}
+
+      {/* ── Main Data View Grid (Restored!) ── */}
       {loading ? (
-        <div className="data-empty">Loading customers...</div>
+        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--gray-400)', fontWeight: 500 }}>
+          Loading customer pipeline directory...
+        </div>
       ) : (
         <DataTable
           rows={rows}
-          searchKeys={['name', 'mobile', 'city']}
+          searchKeys={['name', 'mobile', 'city', 'email']}
           onAdd={() => setOpen(true)}
           addLabel="New customer"
           columns={[
-            { key: 'id', label: 'ID' },
-            {
-              key: 'name', label: 'Name',
+            { 
+              key: 'id', 
+              label: 'ID',
               render: (r) => (
-                <a className="auth-link" style={{ cursor: 'pointer' }} onClick={() => navigate(`/customers/${r.id}`)}>
+                <span style={{ fontFamily: 'monospace', color: 'var(--gray-400)', fontSize: '0.8rem' }} title={r.id}>
+                  #{r.id.slice(0, 6)}
+                </span>
+              )
+            },
+            {
+              key: 'name', label: 'Customer Name',
+              render: (r) => (
+                <span 
+                  style={{ color: 'var(--brand-600)', fontWeight: 600, cursor: 'pointer' }} 
+                  onClick={() => navigate(`/customers/${r.id}`)}
+                >
                   {r.name}
-                </a>
+                </span>
               ),
             },
-            { key: 'mobile', label: 'Mobile' },
+            { key: 'mobile', label: 'Mobile Number' },
+            { key: 'email', label: 'Email Address' },
             { key: 'city', label: 'City' },
-            { key: 'files', label: 'Active Files' },
-            { key: 'created', label: 'Created' },
+            { 
+              key: 'files', 
+              label: 'Active Files',
+              render: (r) => (
+                <span style={{ 
+                  background: r.files > 0 ? 'var(--brand-50)' : 'var(--gray-50)', 
+                  color: r.files > 0 ? 'var(--brand-700)' : 'var(--gray-400)',
+                  padding: '4px 8px', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem'
+                }}>
+                  {r.files} active
+                </span>
+              )
+            },
+            { key: 'created', label: 'Created Date' },
           ]}
         />
       )}
+
+      {/* ── Safe, Form-Intercepted Creation Dialog Modal ── */}
       <Modal
         open={open}
         title="Create customer"
@@ -217,3 +264,6 @@ export default function CustomersPage() {
     </>
   )
 }
+
+const labelStyle = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--gray-700)', marginBottom: 6 };
+const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--gray-200)', fontSize: '0.9rem', outline: 'none', background: 'var(--surface-0)', boxSizing: 'border-box' as const };
