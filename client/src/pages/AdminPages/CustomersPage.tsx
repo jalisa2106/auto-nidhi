@@ -23,17 +23,9 @@ export default function CustomersPage() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  
-  // Explicitly controlled tracking state for form elements
-  const [form, setForm] = useState({ 
-    name: '', 
-    mobile: '', 
-    email: '',
-    city: '',
-    customer_type: 'Individual',
-    pan_number: '',
-    aadhar_number: ''
-  })
+  const [formError, setFormError] = useState('')
+  const [form, setForm] = useState({ name: '', mobile: '', city: '' })
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   const loadCustomers = async () => {
     setLoading(true)
@@ -51,14 +43,7 @@ export default function CustomersPage() {
       }
       
     } catch (err: any) {
-      console.error("API Fetch Error:", err)
-      setError(err?.message || 'Unable to load customers')
-      
-      // Keep your fallback mock data so your layout stays visible if the server is down
-      setRows([
-        { id: '1', name: 'Rajesh Kumar', mobile: '+919876543210', email: 'rajesh@gmail.com', city: 'Anand', files: 2, created: '2026-05-20' },
-        { id: '2', name: 'Priya Mehta', mobile: '+918765432109', email: 'priya@gmail.com', city: 'Nadiad', files: 1, created: '2026-05-19' },
-      ])
+      setError(extractError(err) || 'Unable to load customers')
     } finally {
       setLoading(false)
     }
@@ -68,55 +53,105 @@ export default function CustomersPage() {
     loadCustomers()
   }, [])
 
-  const handleCreate = async () => {
-    if (!form.name || !form.mobile) {
-      setError('Full name and primary mobile are required fields.')
-      return
+  const updateForm = (field: 'name' | 'mobile' | 'city', value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
+    if (formErrors[field]) {
+      setFormErrors((prev) => {
+        const next = { ...prev }
+        delete next[field]
+        return next
+      })
+    }
+    if (formError) setFormError('')
+  }
+
+  const validateForm = () => {
+    const nextErrors: Record<string, string> = {}
+    const trimmedName = form.name.trim()
+    const trimmedCity = form.city.trim()
+    const mobileClean = form.mobile.replace(/\D/g, '')
+
+    if (!trimmedName) {
+      nextErrors.name = 'Name is required'
+    } else if (!/^[A-Za-z ]+$/.test(trimmedName)) {
+      nextErrors.name = 'Name must contain letters and spaces only'
     }
 
+    if (!form.mobile.trim()) {
+      nextErrors.mobile = 'Mobile number is required'
+    } else if (!/^\d{10}$/.test(mobileClean)) {
+      nextErrors.mobile = 'Mobile number must be exactly 10 digits'
+    }
+
+    if (form.city && !trimmedCity) {
+      nextErrors.city = 'City cannot be empty'
+    } else if (trimmedCity && !/^[A-Za-z ]+$/.test(trimmedCity)) {
+      nextErrors.city = 'City must contain letters and spaces only'
+    }
+
+    setFormErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }
+
+  const mapApiErrorsToFields = (err: any) => {
+    const detail = err?.response?.data?.detail
+    if (!Array.isArray(detail)) return {}
+
+    const nextErrors: Record<string, string> = {}
+    for (const item of detail) {
+      const field = item?.loc?.[item.loc.length - 1]
+      if (field === 'full_name') nextErrors.name = item.msg
+      if (field === 'mobile_1') nextErrors.mobile = item.msg
+      if (field === 'city') nextErrors.city = item.msg
+    }
+    return nextErrors
+  }
+
+  const handleCreate = async () => {
+    setFormError('')
+    if (!validateForm()) return
+
+    const trimmedName = form.name.trim()
+    const trimmedCity = form.city.trim()
+    const mobileClean = form.mobile.replace(/\D/g, '')
+
     setLoading(true)
-    setError('')
     try {
       const created = await customersApi.create({
-        full_name: form.name,
-        mobile_1: form.mobile,
-        email: form.email || null,
-        city: form.city || null,
-        customer_type: form.customer_type,
-        pan_number: form.pan_number ? form.pan_number.toUpperCase() : null,
-        aadhar_number: form.aadhar_number || null
-      } as any)
-      
-      // ✅ Only run on server response status success
-      setRows([normalizeCustomer(created), ...rows])
-      
-      // Reset form variables
-      setForm({ 
-        name: '', 
-        mobile: '', 
-        email: '', 
-        city: '', 
-        customer_type: 'Individual', 
-        pan_number: '', 
-        aadhar_number: '' 
+        full_name: trimmedName,
+        mobile_1: mobileClean,
+        city: trimmedCity || undefined,
       })
-      
+      setRows([normalizeCustomer(created), ...rows])
+      setForm({ name: '', mobile: '', city: '' })
+      setFormErrors({})
+      setFormError('')
       setOpen(false)
     } catch (err: any) {
-      console.error("Database submission failure:", err)
-      
-      // ── Clean User-Friendly Error Translation Layer ──
-      const errorMessage = err?.response?.data?.detail || err?.message || '';
-      if (errorMessage.includes('customer_mobile_1_key') || errorMessage.includes('already exists')) {
-        setError('A customer with this mobile number is already registered in the system.')
-      } else if (errorMessage.includes('customer_email_key')) {
-        setError('This email address is already in use by another customer.')
+      const apiFieldErrors = mapApiErrorsToFields(err)
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setFormErrors(apiFieldErrors)
       } else {
-        setError('Unable to save record. Please check your inputs and try again.')
+        setFormError(extractError(err) || 'Unable to create customer')
       }
     } finally {
       setLoading(false)
     }
+  }
+
+  // Extract user-friendly error message from API / axios errors
+  function extractError(err: any): string | undefined {
+    const resp = err?.response?.data
+    if (!resp) return err?.message
+    const detail = resp.detail ?? resp.message
+    if (!detail) return typeof resp === 'string' ? resp : JSON.stringify(resp)
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail)) {
+      // Pydantic validation errors: [{loc, msg, type}, ...]
+      return detail.map((d: any) => d?.msg || (typeof d === 'string' ? d : JSON.stringify(d))).join('; ')
+    }
+    // Fallback
+    return String(detail)
   }
 
   return (
@@ -185,92 +220,46 @@ export default function CustomersPage() {
       {/* ── Safe, Form-Intercepted Creation Dialog Modal ── */}
       <Modal
         open={open}
-        title="Create Customer Record"
-        onClose={() => setOpen(false)}
+        title="Create customer"
+        onClose={() => {
+          setOpen(false)
+          setFormErrors({})
+          setFormError('')
+        }}
         onSubmit={handleCreate}
       >
-        <form onSubmit={(e) => e.preventDefault()} style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 0' }}>
-          
+        {formError && <div className="form-error">{formError}</div>}
+        <div className="form-group">
+          <label className="form-label">Full name<span className="req">*</span></label>
+          <input
+            className={`form-input ${formErrors.name ? 'error' : ''}`}
+            value={form.name}
+            onChange={(e) => updateForm('name', e.target.value)}
+            required
+          />
+          {formErrors.name && <span className="form-error">{formErrors.name}</span>}
+        </div>
+        <div className="form-row">
           <div className="form-group">
-            <label style={labelStyle}>Profile Classification *</label>
-            <select
-              style={inputStyle}
-              value={form.customer_type}
-              onChange={(e) => setForm({ ...form, customer_type: e.target.value })}
-            >
-              <option value="Individual">Individual Client</option>
-              <option value="Business">Business Entity / Commercial</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label style={labelStyle}>Full Name / Business Title *</label>
+            <label className="form-label">Mobile<span className="req">*</span></label>
             <input
-              style={inputStyle}
-              placeholder="e.g. Rajesh Kumar"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className={`form-input ${formErrors.mobile ? 'error' : ''}`}
+              value={form.mobile}
+              onChange={(e) => updateForm('mobile', e.target.value)}
               required
             />
+            {formErrors.mobile && <span className="form-error">{formErrors.mobile}</span>}
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div className="form-group">
-              <label style={labelStyle}>Primary Mobile *</label>
-              <input
-                style={inputStyle}
-                placeholder="e.g. 9843754164"
-                value={form.mobile}
-                onChange={(e) => setForm({ ...form, mobile: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label style={labelStyle}>Email Address</label>
-              <input
-                style={inputStyle}
-                type="email"
-                placeholder="you@example.com"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-          </div>
-
           <div className="form-group">
-            <label style={labelStyle}>City Location</label>
+            <label className="form-label">City</label>
             <input
-              style={inputStyle}
-              placeholder="e.g. Anand"
+              className={`form-input ${formErrors.city ? 'error' : ''}`}
               value={form.city}
-              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              onChange={(e) => updateForm('city', e.target.value)}
             />
+            {formErrors.city && <span className="form-error">{formErrors.city}</span>}
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, borderTop: '1px solid var(--gray-100)', paddingTop: 16, marginTop: 4 }}>
-            <div className="form-group">
-              <label style={labelStyle}>PAN Identification Number</label>
-              <input
-                style={{ ...inputStyle, textTransform: 'uppercase' }}
-                placeholder="ABCDE1234F"
-                maxLength={10}
-                value={form.pan_number}
-                onChange={(e) => setForm({ ...form, pan_number: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label style={labelStyle}>Aadhar Card Number</label>
-              <input
-                style={inputStyle}
-                placeholder="1234 5678 9012"
-                maxLength={12}
-                value={form.aadhar_number}
-                onChange={(e) => setForm({ ...form, aadhar_number: e.target.value })}
-              />
-            </div>
-          </div>
-
-        </form>
+        </div>
       </Modal>
     </>
   )
