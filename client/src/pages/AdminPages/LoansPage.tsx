@@ -6,7 +6,7 @@ import {
   Phone, MapPin, Banknote, Clock, Hash,
   Pencil, Trash2,
 } from 'lucide-react'
-import api from '../../api/axios'
+import { loansApi } from '../../api/services'
 import Modal from '../../components/app/Modal'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,7 +126,7 @@ export default function LoansPage() {
 
   useEffect(() => {
     const loadLoans = async () => {
-      const { data } = await api.get('/loans/')
+      const data = await loansApi.list()
       setRows(data?.data ?? [])
     }
 
@@ -152,13 +152,20 @@ export default function LoansPage() {
     setEditOpen(true)
   }
 
-  const handleEdit = () => {
-    // PATCH /api/loans/:file_number  →  body: { remarks, status }
-    setRows(prev => prev.map(l =>
-      l.file_number === selected!.file_number ? { ...l, ...editForm } : l
-    ))
-    setSelected(prev => prev ? { ...prev, ...editForm } : prev)
-    setEditOpen(false)
+  const handleEdit = async () => {
+    try {
+      // PATCH /api/loans/:file_number  →  body: { remarks, status }
+      await loansApi.update(selected!.file_number, editForm)
+
+      setRows(prev => prev.map(l =>
+        l.file_number === selected!.file_number ? { ...l, ...editForm } : l
+      ))
+      setSelected(prev => prev ? { ...prev, ...editForm } : prev)
+      setEditOpen(false)
+    } catch (err) {
+      console.error(err)
+      alert('Failed to update loan')
+    }
   }
 
   // const handleDelete = (_fileNumber: string) => {
@@ -175,7 +182,7 @@ export default function LoansPage() {
   
   const handleDelete = async (_fileNumber: string) => {
     try {
-      await api.patch(`/loans/${_fileNumber}/delete`)
+      await loansApi.softDelete(_fileNumber)
 
       setRows(prev => prev.filter(l => l.file_number !== _fileNumber))
       setSelected(null)
