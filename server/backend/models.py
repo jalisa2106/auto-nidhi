@@ -110,3 +110,26 @@ class PaymentIn(Base):
     # Relationships to fetch joined data easily
     file = relationship("FileRecord")
     company_bank = relationship("MasterCompanyBank")
+
+class PaymentOut(Base):
+    __tablename__ = "payment_out"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=False)
+    amount = Column(DECIMAL(15,2), nullable=False)
+    payment_mode = Column(String, nullable=False)
+    payment_date = Column(Date, nullable=False)
+    payment_to = Column(String)
+    payee_dealer_id = Column(UUID(as_uuid=True), ForeignKey("master_dealer.id"))
+    payee_broker_id = Column(UUID(as_uuid=True), ForeignKey("master_broker.id"))
+    bank_account_no = Column(String(50))
+    ifsc_code = Column(String(20))
+    cheque_bank_name = Column(String(255))
+    branch_name = Column(String(255))
+    cheque_no = Column(String(50))
+    cheque_date = Column(Date)
+    cheque_amount = Column(DECIMAL(15,2))
+    utr_no = Column(String(100))
+    remarks = Column(String)
+    # Relationships
+    file = relationship("FileRecord")

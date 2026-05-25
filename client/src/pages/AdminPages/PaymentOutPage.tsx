@@ -1,13 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   TrendingDown, IndianRupee, Hash, Plus, X, Eye,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
 } from 'lucide-react'
-import { mockPaymentsOut, mockFiles } from '../../lib/mockData'
+import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
-
-// ─── Types ────────────────────────────────────────────────────────────────
-type PaymentOut = typeof mockPaymentsOut[number]
+import { paymentsOutApi, filesApi } from '../../api/services'
 
 const PAYMENT_MODES  = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 const PAYMENT_TO_TYPES = ['Customer', 'Dealer', 'Broker', 'Agent', 'Other'] as const
@@ -16,9 +14,8 @@ const COMPANY_BANKS = [
   { id: 'CB002', label: 'ICICI Bank – Operations' },
 ]
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
 function fmtINR(n: number) {
-  return '₹' + n.toLocaleString('en-IN')
+  return '₹' + Number(n).toLocaleString('en-IN')
 }
 
 function modeBadge(mode: string) {
@@ -37,7 +34,6 @@ function toBadge(to: string) {
   return <span className={`from-badge ${cls[to] ?? 'from-other'}`}>{to}</span>
 }
 
-// ─── Helpers: current month range ─────────────────────────────────────────
 function thisMonthRange() {
   const now = new Date()
   const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
@@ -45,7 +41,6 @@ function thisMonthRange() {
   return { from, to }
 }
 
-// ─── Empty form ───────────────────────────────────────────────────────────
 const EMPTY_FORM = {
   file_number:      '',
   payment_to:       'Dealer' as string,
@@ -62,7 +57,6 @@ const EMPTY_FORM = {
   remarks:          '',
 }
 
-// ─── Pagination component ─────────────────────────────────────────────────
 function Pagination({
   total, page, pageSize, onPage, onPageSize,
 }: {
@@ -88,7 +82,7 @@ function Pagination({
     <div className="pagination-bar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span className="pagination-info">
-          Showing {start}–{end} of {total} records
+          Showing {total === 0 ? 0 : start}–{end} of {total} records
         </span>
         <select
           className="page-size-select"
@@ -125,11 +119,13 @@ function Pagination({
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────
 export default function PaymentOutPage() {
-  const [rows, setRows]         = useState<PaymentOut[]>(mockPaymentsOut as PaymentOut[])
+  const [rows, setRows]           = useState<any[]>([])
+  const [totalRows, setTotalRows] = useState(0)
+  const [availableFiles, setAvailableFiles] = useState<any[]>([])
+  
   const [showAdd, setShowAdd]   = useState(false)
-  const [viewRow, setViewRow]   = useState<PaymentOut | null>(null)
+  const [viewRow, setViewRow]   = useState<any | null>(null)
   const [form, setForm]         = useState({ ...EMPTY_FORM })
   const [errors, setErrors]     = useState<Record<string, string>>({})
 
@@ -144,38 +140,48 @@ export default function PaymentOutPage() {
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
-  // ── Derived ──────────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      if (search) {
-        const q = search.toLowerCase()
-        if (
-          !r.file_number.toLowerCase().includes(q) &&
-          !r.payee_name.toLowerCase().includes(q) &&
-          !(r.remarks ?? '').toLowerCase().includes(q)
-        ) return false
-      }
-      if (filterMode && r.payment_mode !== filterMode) return false
-      if (filterTo   && r.payment_to   !== filterTo)   return false
-      if (filterDateFrom && r.payment_date < filterDateFrom) return false
-      if (filterDateTo   && r.payment_date > filterDateTo)   return false
-      return true
-    })
-  }, [rows, search, filterMode, filterTo, filterDateFrom, filterDateTo])
+  // Data Fetching
+  const loadPayments = async () => {
+    try {
+      const response = await paymentsOutApi.list({
+        page, 
+        limit: pageSize, 
+        search: search || undefined, 
+        payment_mode: filterMode || undefined, 
+        payment_to: filterTo || undefined,
+        date_from: filterDateFrom || undefined, 
+        date_to: filterDateTo || undefined
+      })
+      setRows(response.data)
+      setTotalRows(response.total)
+    } catch (err) {
+      message.error("Failed to load payments")
+    }
+  }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const safePage   = Math.min(page, totalPages)
-  const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const loadFilesDropdown = async () => {
+    try {
+      const response = await filesApi.list(1, 1000)
+      setAvailableFiles(response.data)
+    } catch (err) { }
+  }
 
-  // ── KPI summaries ────────────────────────────────────────────────────────
-  const kpiTotal     = rows.reduce((s, r) => s + r.amount, 0)
+  useEffect(() => {
+    loadPayments()
+  }, [page, pageSize, search, filterMode, filterTo, filterDateFrom, filterDateTo])
+
+  useEffect(() => {
+    if (showAdd) loadFilesDropdown()
+  }, [showAdd])
+
+  // KPIs
+  const kpiTotal     = rows.reduce((s, r) => s + Number(r.amount), 0)
   const { from: mFrom, to: mTo } = thisMonthRange()
   const kpiThisMonth = rows
     .filter((r) => r.payment_date >= mFrom && r.payment_date <= mTo)
-    .reduce((s, r) => s + r.amount, 0)
-  const kpiCount     = rows.length
+    .reduce((s, r) => s + Number(r.amount), 0)
+  const kpiCount     = totalRows
 
-  // ── Form helpers ──────────────────────────────────────────────────────────
   const isChequeLike = form.payment_mode === 'Cheque' || form.payment_mode === 'DD'
   const isTransfer   = form.payment_mode === 'NEFT'   || form.payment_mode === 'RTGS'
 
@@ -198,11 +204,11 @@ export default function PaymentOutPage() {
     return Object.keys(e).length === 0
   }
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!validate()) return
-    const newRow = {
-      id:               `PO${String(rows.length + 1).padStart(3, '0')}`,
-      file_number:      form.file_number,
+    
+    const payload = {
+      file_id:          form.file_number,
       payment_to:       form.payment_to,
       payee_name:       form.payee_name.trim(),
       amount:           Number(form.amount),
@@ -213,14 +219,18 @@ export default function PaymentOutPage() {
       cheque_no:        form.cheque_no        || null,
       cheque_date:      form.cheque_date      || null,
       utr_no:           form.utr_no           || null,
-      company_bank_id:  form.company_bank_id  || null,
       remarks:          form.remarks          || null,
-    } as unknown as PaymentOut
-    setRows([newRow, ...rows])
-    setForm({ ...EMPTY_FORM })
-    setErrors({})
-    setShowAdd(false)
-    setPage(1)
+    }
+
+    try {
+      await paymentsOutApi.create(payload)
+      message.success("Payment OUT recorded successfully")
+      setShowAdd(false)
+      setForm({ ...EMPTY_FORM })
+      loadPayments()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || "Failed to save payment")
+    }
   }
 
   function resetFilters() {
@@ -230,7 +240,6 @@ export default function PaymentOutPage() {
 
   const hasFilters = search || filterMode || filterTo || filterDateFrom || filterDateTo
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
       <PageHeader title="Payment OUT" subtitle="Outward payment ledger — all disbursements linked to files" />
@@ -240,7 +249,7 @@ export default function PaymentOutPage() {
         <div className="pay-kpi-card">
           <div className="pay-kpi-icon red"><TrendingDown size={20} /></div>
           <div className="pay-kpi-body">
-            <div className="pay-kpi-label">Total Paid Out</div>
+            <div className="pay-kpi-label">Total Paid Out (Current Page)</div>
             <div className="pay-kpi-value" style={{ color: '#b91c1c' }}>{fmtINR(kpiTotal)}</div>
             <div className="pay-kpi-sub">All-time disbursements</div>
           </div>
@@ -248,7 +257,7 @@ export default function PaymentOutPage() {
         <div className="pay-kpi-card">
           <div className="pay-kpi-icon amber"><IndianRupee size={20} /></div>
           <div className="pay-kpi-body">
-            <div className="pay-kpi-label">This Month</div>
+            <div className="pay-kpi-label">This Month (Current Page)</div>
             <div className="pay-kpi-value" style={{ color: '#b45309' }}>{fmtINR(kpiThisMonth)}</div>
             <div className="pay-kpi-sub">
               {new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}
@@ -336,7 +345,7 @@ export default function PaymentOutPage() {
 
       {/* Table */}
       <div className="data-card">
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="data-empty">No payment records match your filters.</div>
         ) : (
           <>
@@ -357,10 +366,10 @@ export default function PaymentOutPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageRows.map((r, i) => (
+                  {rows.map((r, i) => (
                     <tr key={r.id}>
                       <td style={{ color: 'var(--gray-400)', fontSize: '.8rem' }}>
-                        {(safePage - 1) * pageSize + i + 1}
+                        {(page - 1) * pageSize + i + 1}
                       </td>
                       <td><span className="db-file-id">{r.file_number}</span></td>
                       <td>{toBadge(r.payment_to)}</td>
@@ -396,8 +405,8 @@ export default function PaymentOutPage() {
               </table>
             </div>
             <Pagination
-              total={filtered.length}
-              page={safePage}
+              total={totalRows}
+              page={page}
               pageSize={pageSize}
               onPage={setPage}
               onPageSize={setPageSize}
@@ -417,7 +426,6 @@ export default function PaymentOutPage() {
             <form onSubmit={(e) => { e.preventDefault(); handleAdd() }}>
               <div className="modal-body">
                 <div className="modal-grid-2">
-                  {/* ─ File & Payee ─ */}
                   <div className="modal-section-label">File &amp; Payee Info</div>
 
                   <div className="form-group">
@@ -428,9 +436,9 @@ export default function PaymentOutPage() {
                       value={form.file_number}
                       onChange={(e) => updateForm('file_number', e.target.value)}
                     >
-                      <option value="">Select file…</option>
-                      {mockFiles.map((f) => (
-                        <option key={f.id} value={f.id}>{f.id} – {f.customer}</option>
+                      <option value="">Select active file…</option>
+                      {availableFiles.map((f) => (
+                        <option key={f.id} value={f.id}>{f.file_number} – {f.customer}</option>
                       ))}
                     </select>
                     {errors.file_number && <span className="form-error">{errors.file_number}</span>}
@@ -461,7 +469,6 @@ export default function PaymentOutPage() {
                     {errors.payee_name && <span className="form-error">{errors.payee_name}</span>}
                   </div>
 
-                  {/* ─ Amount & Mode ─ */}
                   <div className="modal-section-label">Amount &amp; Mode</div>
 
                   <div className="form-group">
@@ -515,7 +522,6 @@ export default function PaymentOutPage() {
                     </select>
                   </div>
 
-                  {/* ─ Cheque / DD ─ */}
                   {isChequeLike && (
                     <>
                       <div className="modal-section-label">
@@ -568,7 +574,6 @@ export default function PaymentOutPage() {
                     </>
                   )}
 
-                  {/* ─ NEFT / RTGS ─ */}
                   {isTransfer && (
                     <>
                       <div className="modal-section-label">Transfer Details</div>
@@ -586,7 +591,6 @@ export default function PaymentOutPage() {
                     </>
                   )}
 
-                  {/* ─ Remarks ─ */}
                   <div className="modal-section-label">Additional Notes</div>
                   <div className="form-group modal-full">
                     <label className="form-label">Remarks</label>
@@ -620,7 +624,7 @@ export default function PaymentOutPage() {
         <div className="modal-backdrop" onClick={() => setViewRow(null)}>
           <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Payment OUT — {viewRow.id}</h3>
+              <h3>Payment OUT</h3>
               <button className="btn btn-ghost btn-sm" onClick={() => setViewRow(null)}><X size={16} /></button>
             </div>
             <div className="modal-body">
@@ -648,10 +652,6 @@ export default function PaymentOutPage() {
                 <div className="pay-detail-item">
                   <div className="pay-detail-key">Payment Date</div>
                   <div className="pay-detail-val">{viewRow.payment_date}</div>
-                </div>
-                <div className="pay-detail-item">
-                  <div className="pay-detail-key">Company Bank</div>
-                  <div className="pay-detail-val">{COMPANY_BANKS.find(b => b.id === viewRow.company_bank_id)?.label ?? '—'}</div>
                 </div>
                 {viewRow.cheque_no && <>
                   <div className="pay-detail-item">
