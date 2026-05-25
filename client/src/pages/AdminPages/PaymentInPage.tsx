@@ -1,13 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   TrendingUp, IndianRupee, Clock, Plus, X, Eye,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
 } from 'lucide-react'
-import { mockPaymentsIn, mockFiles } from '../../lib/mockData'
+import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
-
-// ─── Types ────────────────────────────────────────────────────────────────
-type PaymentIn = typeof mockPaymentsIn[number]
+import { paymentsInApi, filesApi } from '../../api/services'
 
 const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 const PAYMENT_FROM  = ['Customer', 'Bank', 'Insurer', 'Other'] as const
@@ -16,9 +14,8 @@ const COMPANY_BANKS = [
   { id: 'CB002', label: 'ICICI Bank – Operations' },
 ]
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
 function fmtINR(n: number) {
-  return '₹' + n.toLocaleString('en-IN')
+  return '₹' + Number(n).toLocaleString('en-IN')
 }
 
 function modeBadge(mode: string) {
@@ -37,7 +34,6 @@ function fromBadge(from: string) {
   return <span className={`from-badge ${cls[from] ?? 'from-other'}`}>{from}</span>
 }
 
-// ─── Empty form state ─────────────────────────────────────────────────────
 const EMPTY_FORM = {
   file_number: '',
   payment_amount: '',
@@ -56,7 +52,6 @@ const EMPTY_FORM = {
   remarks: '',
 }
 
-// ─── Pagination component ─────────────────────────────────────────────────
 function Pagination({
   total, page, pageSize, onPage, onPageSize,
 }: {
@@ -82,7 +77,7 @@ function Pagination({
     <div className="pagination-bar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span className="pagination-info">
-          Showing {start}–{end} of {total} records
+          Showing {total === 0 ? 0 : start}–{end} of {total} records
         </span>
         <select
           className="page-size-select"
@@ -119,11 +114,12 @@ function Pagination({
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────
 export default function PaymentInPage() {
-  const [rows, setRows]           = useState<PaymentIn[]>(mockPaymentsIn as PaymentIn[])
+  const [rows, setRows]           = useState<any[]>([])
+  const [totalRows, setTotalRows] = useState(0)
+  const [availableFiles, setAvailableFiles] = useState<any[]>([])
   const [showAdd, setShowAdd]     = useState(false)
-  const [viewRow, setViewRow]     = useState<PaymentIn | null>(null)
+  const [viewRow, setViewRow]     = useState<any | null>(null)
   const [form, setForm]           = useState({ ...EMPTY_FORM })
   const [errors, setErrors]       = useState<Record<string, string>>({})
 
@@ -138,42 +134,52 @@ export default function PaymentInPage() {
   const [page, setPage]           = useState(1)
   const [pageSize, setPageSize]   = useState(10)
 
-  // ── Derived data ────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      if (search) {
-        const q = search.toLowerCase()
-        if (
-          !r.file_number.toLowerCase().includes(q) &&
-          !r.customer.toLowerCase().includes(q) &&
-          !(r.remarks ?? '').toLowerCase().includes(q)
-        ) return false
-      }
-      if (filterMode && r.payment_mode !== filterMode) return false
-      if (filterFrom && r.payment_from !== filterFrom) return false
-      if (filterDateFrom && r.payment_date < filterDateFrom) return false
-      if (filterDateTo   && r.payment_date > filterDateTo)   return false
-      return true
-    })
-  }, [rows, search, filterMode, filterFrom, filterDateFrom, filterDateTo])
+  // Fetch Payments from DB
+  const loadPayments = async () => {
+    try {
+      const response = await paymentsInApi.list({
+        page, 
+        limit: pageSize, 
+        search: search || undefined, 
+        payment_mode: filterMode || undefined, 
+        payment_from: filterFrom || undefined,
+        date_from: filterDateFrom || undefined, 
+        date_to: filterDateTo || undefined
+      })
+      setRows(response.data)
+      setTotalRows(response.total)
+    } catch (err) {
+      message.error("Failed to load payments")
+    }
+  }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const safePage   = Math.min(page, totalPages)
-  const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+  // Fetch Files for dropdown
+  const loadFilesDropdown = async () => {
+    try {
+      const response = await filesApi.list(1, 1000) // fetch all for dropdown
+      setAvailableFiles(response.data)
+    } catch (err) { }
+  }
 
-  // ── KPI summaries ────────────────────────────────────────────────────────
-  const kpiBilled    = rows.reduce((s, r) => s + r.payment_amount, 0)
-  const kpiReceived  = rows.reduce((s, r) => s + r.paid_amount, 0)
-  const kpiRemaining = rows.reduce((s, r) => s + r.remaining_amount, 0)
+  useEffect(() => {
+    loadPayments()
+  }, [page, pageSize, search, filterMode, filterFrom, filterDateFrom, filterDateTo])
 
-  // ── Form helpers ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (showAdd) loadFilesDropdown()
+  }, [showAdd])
+
+  // KPIs (Calculated based on current page data)
+  const kpiBilled    = rows.reduce((s, r) => s + Number(r.payment_amount), 0)
+  const kpiReceived  = rows.reduce((s, r) => s + Number(r.paid_amount), 0)
+  const kpiRemaining = rows.reduce((s, r) => s + Number(r.remaining_amount), 0)
+
   const isChequeLike = form.payment_mode === 'Cheque' || form.payment_mode === 'DD'
   const isTransfer   = form.payment_mode === 'NEFT' || form.payment_mode === 'RTGS'
 
   function updateForm(field: string, value: unknown) {
     setForm((prev) => {
       const next = { ...prev, [field]: value }
-      // Auto-calculate remaining
       if (field === 'payment_amount' || field === 'paid_amount') {
         const total = parseFloat(String(field === 'payment_amount' ? value : next.payment_amount)) || 0
         const paid  = parseFloat(String(field === 'paid_amount'    ? value : next.paid_amount))    || 0
@@ -198,32 +204,36 @@ export default function PaymentInPage() {
     return Object.keys(e).length === 0
   }
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!validate()) return
-    const newRow = {
-      id: `PI${String(rows.length + 1).padStart(3, '0')}`,
-      file_number: form.file_number,
-      customer: mockFiles.find((f) => f.id === form.file_number)?.customer ?? form.file_number,
-      payment_amount:  Number(form.payment_amount),
-      paid_amount:     Number(form.paid_amount),
+    
+    const payload = {
+      file_id: form.file_number, // User selects the UUID from dropdown
+      payment_amount: Number(form.payment_amount),
+      paid_amount: Number(form.paid_amount),
       remaining_amount: Number(form.remaining_amount),
       round_up: form.round_up,
       payment_mode: form.payment_mode,
       payment_date: form.payment_date,
       payment_from: form.payment_from,
       cheque_bank_name: form.cheque_bank_name || null,
-      branch_name:      form.branch_name      || null,
-      cheque_no:        form.cheque_no        || null,
-      cheque_date:      form.cheque_date      || null,
-      utr_no:           form.utr_no           || null,
-      company_bank_id:  form.company_bank_id  || null,
-      remarks:          form.remarks          || null,
-    } as unknown as PaymentIn
-    setRows([newRow, ...rows])
-    setForm({ ...EMPTY_FORM })
-    setErrors({})
-    setShowAdd(false)
-    setPage(1)
+      branch_name: form.branch_name || null,
+      cheque_no: form.cheque_no || null,
+      cheque_date: form.cheque_date || null,
+      utr_no: form.utr_no || null,
+      company_bank_id: form.company_bank_id || null, 
+      remarks: form.remarks || null,
+    }
+
+    try {
+      await paymentsInApi.create(payload)
+      message.success("Payment recorded successfully")
+      setShowAdd(false)
+      setForm({ ...EMPTY_FORM })
+      loadPayments()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || "Failed to save payment")
+    }
   }
 
   function resetFilters() {
@@ -233,7 +243,6 @@ export default function PaymentInPage() {
 
   const hasFilters = search || filterMode || filterFrom || filterDateFrom || filterDateTo
 
-  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <>
       <PageHeader title="Payment IN" subtitle="Inward payment ledger — all receipts linked to files" />
@@ -243,7 +252,7 @@ export default function PaymentInPage() {
         <div className="pay-kpi-card">
           <div className="pay-kpi-icon green"><IndianRupee size={20} /></div>
           <div className="pay-kpi-body">
-            <div className="pay-kpi-label">Total Billed</div>
+            <div className="pay-kpi-label">Total Billed (Current Page)</div>
             <div className="pay-kpi-value">{fmtINR(kpiBilled)}</div>
             <div className="pay-kpi-sub">{rows.length} transactions</div>
           </div>
@@ -253,7 +262,7 @@ export default function PaymentInPage() {
           <div className="pay-kpi-body">
             <div className="pay-kpi-label">Total Received</div>
             <div className="pay-kpi-value" style={{ color: '#15803d' }}>{fmtINR(kpiReceived)}</div>
-            <div className="pay-kpi-sub">{Math.round((kpiReceived / kpiBilled) * 100) || 0}% of billed</div>
+            <div className="pay-kpi-sub">{Math.round((kpiReceived / (kpiBilled || 1)) * 100)}% of billed</div>
           </div>
         </div>
         <div className="pay-kpi-card">
@@ -339,7 +348,7 @@ export default function PaymentInPage() {
 
       {/* Table */}
       <div className="data-card">
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="data-empty">No payment records match your filters.</div>
         ) : (
           <>
@@ -362,10 +371,10 @@ export default function PaymentInPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageRows.map((r, i) => (
+                  {rows.map((r, i) => (
                     <tr key={r.id}>
                       <td style={{ color: 'var(--gray-400)', fontSize: '.8rem' }}>
-                        {(safePage - 1) * pageSize + i + 1}
+                        {(page - 1) * pageSize + i + 1}
                       </td>
                       <td>
                         <span className="db-file-id">{r.file_number}</span>
@@ -410,8 +419,8 @@ export default function PaymentInPage() {
               </table>
             </div>
             <Pagination
-              total={filtered.length}
-              page={safePage}
+              total={totalRows}
+              page={page}
               pageSize={pageSize}
               onPage={setPage}
               onPageSize={setPageSize}
@@ -442,9 +451,9 @@ export default function PaymentInPage() {
                       value={form.file_number}
                       onChange={(e) => updateForm('file_number', e.target.value)}
                     >
-                      <option value="">Select file…</option>
-                      {mockFiles.map((f) => (
-                        <option key={f.id} value={f.id}>{f.id} – {f.customer}</option>
+                      <option value="">Select active file…</option>
+                      {availableFiles.map((f) => (
+                        <option key={f.id} value={f.id}>{f.file_number} – {f.customer}</option>
                       ))}
                     </select>
                     {errors.file_number && <span className="form-error">{errors.file_number}</span>}
@@ -663,7 +672,7 @@ export default function PaymentInPage() {
         <div className="modal-backdrop" onClick={() => setViewRow(null)}>
           <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Payment IN — {viewRow.id}</h3>
+              <h3>Payment IN</h3>
               <button className="btn btn-ghost btn-sm" onClick={() => setViewRow(null)}><X size={16} /></button>
             </div>
             <div className="modal-body">

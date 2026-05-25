@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Date, text, Numeric, Integer
+from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Date, text, DECIMAL
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from backend.database import Base
@@ -60,7 +60,6 @@ class MasterBroker(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
     broker_name = Column(String(255), nullable=False)
 
-# Update FileRecord class
 class FileRecord(Base):
     __tablename__ = "file_record"
     
@@ -79,25 +78,35 @@ class FileRecord(Base):
     customer = relationship("Customer")
     creator = relationship("SystemUser", foreign_keys=[created_by_user_id])
     assignee = relationship("SystemUser", foreign_keys=[assigned_to])
-    finance_info = relationship("FinanceInfo", uselist=False)
 
-class MasterBank(Base):
-    __tablename__ = "master_bank"
-
+class MasterCompanyBank(Base):
+    __tablename__ = "master_company_bank"
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
     bank_name = Column(String(255), nullable=False)
+    area = Column(String(255))
+    account_number = Column(String(50), nullable=False, unique=True)
+    ifsc_code = Column(String(20), nullable=False)
 
-
-class FinanceInfo(Base):
-    __tablename__ = "finance_info"
-
+class PaymentIn(Base):
+    __tablename__ = "payment_in"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
-    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=False, unique=True)
-    lan_number = Column(String(100))
-    loan_amount = Column(Numeric(15, 2))
-    no_of_months = Column(Integer)
-    emi_amount = Column(Numeric(15, 2))
-    bank_id = Column(UUID(as_uuid=True), ForeignKey("master_bank.id"))
-    irr_percentage = Column(Numeric(5, 2))
-
-    bank = relationship("MasterBank")
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=False)
+    payment_amount = Column(DECIMAL(15,2), nullable=False)
+    paid_amount = Column(DECIMAL(15,2))
+    remaining_amount = Column(DECIMAL(15,2))
+    round_up = Column(Boolean, default=False)
+    payment_mode = Column(String, nullable=False)
+    payment_date = Column(Date, nullable=False)
+    payment_from = Column(String)
+    cheque_bank_name = Column(String(255))
+    branch_name = Column(String(255))
+    cheque_no = Column(String(50))
+    cheque_date = Column(Date)
+    cheque_amount = Column(DECIMAL(15,2))
+    utr_no = Column(String(100))
+    company_bank_id = Column(UUID(as_uuid=True), ForeignKey("master_company_bank.id"))
+    remarks = Column(String)
+    # Relationships to fetch joined data easily
+    file = relationship("FileRecord")
+    company_bank = relationship("MasterCompanyBank")

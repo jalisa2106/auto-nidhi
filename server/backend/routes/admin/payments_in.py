@@ -4,20 +4,19 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.utils import get_current_admin
+from backend.models import PaymentIn, FileRecord, Customer
 
 router = APIRouter(prefix="/api/v1/payments/in", tags=["Admin Payments IN"])
-
 
 class PaymentInCreate(BaseModel):
     file_id: UUID
     payment_amount: float
     paid_amount: Optional[float] = None
     remaining_amount: Optional[float] = None
+    round_up: Optional[bool] = False
     payment_mode: str
     payment_date: date
     payment_from: Optional[str] = None
@@ -29,91 +28,72 @@ class PaymentInCreate(BaseModel):
     company_bank_id: Optional[UUID] = None
     remarks: Optional[str] = None
 
-
-class PaymentInOut(BaseModel):
-    id: UUID
-    file_id: UUID
-    payment_amount: float
-    paid_amount: Optional[float] = None
-    remaining_amount: Optional[float] = None
-    payment_mode: str
-    payment_date: date
-    payment_from: Optional[str] = None
-    remarks: Optional[str] = None
-    utr_no: Optional[str] = None
-
-    class Config:
-        orm_mode = True
-
-
-@router.get("/", response_model=List[PaymentInOut])
+@router.get("/")
 def list_payments_in(
     page: int = 1,
     limit: int = 20,
-    file_id: Optional[UUID] = None,
-    db: Session = Depends(get_db),
-    current_admin = Depends(get_current_admin),
+    search: Optional[str] = None,
+    payment_mode: Optional[str] = None,
+    payment_from: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: Session = Depends(get_db)
 ):
-    query = "SELECT id, file_id, payment_amount, paid_amount, remaining_amount, payment_mode, payment_date, payment_from, remarks, utr_no FROM payment_in"
-    params = {}
-    if file_id:
-        query += " WHERE file_id = :file_id"
-        params["file_id"] = str(file_id)
-    query += " ORDER BY payment_date DESC LIMIT :limit OFFSET :offset"
-    params["limit"] = limit
-    params["offset"] = (page - 1) * limit
+    query = db.query(PaymentIn).join(FileRecord).join(Customer)
 
-    result = db.execute(text(query), params)
-    return [dict(row) for row in result.mappings().all()]
+    # Filtering Logic matching the frontend dropdowns
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            FileRecord.file_number.ilike(search_term) |
+            Customer.full_name.ilike(search_term) |
+            PaymentIn.remarks.ilike(search_term)
+        )
+    if payment_mode:
+        query = query.filter(PaymentIn.payment_mode == payment_mode)
+    if payment_from:
+        query = query.filter(PaymentIn.payment_from == payment_from)
+    if date_from:
+        query = query.filter(PaymentIn.payment_date >= date_from)
+    if date_to:
+        query = query.filter(PaymentIn.payment_date <= date_to)
+
+    total = query.count()
+    payments = query.order_by(PaymentIn.payment_date.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    # Map the response perfectly to what PaymentInPage.tsx expects
+    data = [{
+        "id": str(p.id),
+        "file_id": str(p.file_id),
+        "file_number": p.file.file_number if p.file else "N/A",
+        "customer": p.file.customer.full_name if p.file and p.file.customer else "N/A",
+        "payment_amount": float(p.payment_amount),
+        "paid_amount": float(p.paid_amount) if p.paid_amount else 0.0,
+        "remaining_amount": float(p.remaining_amount) if p.remaining_amount else 0.0,
+        "round_up": p.round_up,
+        "payment_mode": p.payment_mode,
+        "payment_date": p.payment_date.strftime("%Y-%m-%d"),
+        "payment_from": p.payment_from,
+        "cheque_bank_name": p.cheque_bank_name,
+        "branch_name": p.branch_name,
+        "cheque_no": p.cheque_no,
+        "cheque_date": p.cheque_date.strftime("%Y-%m-%d") if p.cheque_date else None,
+        "utr_no": p.utr_no,
+        "company_bank_id": str(p.company_bank_id) if p.company_bank_id else None,
+        "remarks": p.remarks
+    } for p in payments]
+
+    return {"data": data, "total": total, "page": page, "limit": limit}
 
 
-@router.post("/", response_model=PaymentInOut, status_code=status.HTTP_201_CREATED)
-def create_payment_in(
-    payload: PaymentInCreate,
-    db: Session = Depends(get_db),
-    current_admin = Depends(get_current_admin),
-):
-    insert_sql = text(
-        """
-        INSERT INTO payment_in (
-            file_id, payment_amount, paid_amount, remaining_amount,
-            payment_mode, payment_date, payment_from, cheque_bank_name,
-            branch_name, cheque_no, cheque_date, utr_no, company_bank_id,
-            remarks
-        ) VALUES (
-            :file_id, :payment_amount, :paid_amount, :remaining_amount,
-            :payment_mode, :payment_date, :payment_from, :cheque_bank_name,
-            :branch_name, :cheque_no, :cheque_date, :utr_no, :company_bank_id,
-            :remarks
-        ) RETURNING id, file_id, payment_amount, paid_amount, remaining_amount,
-                  payment_mode, payment_date, payment_from, remarks, utr_no
-        """
-    )
-
-    params = {
-        "file_id": str(payload.file_id),
-        "payment_amount": payload.payment_amount,
-        "paid_amount": payload.paid_amount,
-        "remaining_amount": payload.remaining_amount,
-        "payment_mode": payload.payment_mode,
-        "payment_date": payload.payment_date,
-        "payment_from": payload.payment_from,
-        "cheque_bank_name": payload.cheque_bank_name,
-        "branch_name": payload.branch_name,
-        "cheque_no": payload.cheque_no,
-        "cheque_date": payload.cheque_date,
-        "utr_no": payload.utr_no,
-        "company_bank_id": str(payload.company_bank_id) if payload.company_bank_id else None,
-        "remarks": payload.remarks,
-    }
-
+@router.post("/", status_code=status.HTTP_201_CREATED)
+def create_payment_in(payload: PaymentInCreate, db: Session = Depends(get_db)):
+    new_payment = PaymentIn(**payload.dict(exclude_none=True))
+    db.add(new_payment)
     try:
-        result = db.execute(insert_sql, params)
         db.commit()
-        created = result.mappings().first()
-        if not created:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create payment")
-        return dict(created)
+        db.refresh(new_payment)
+        return {"status": "success", "id": str(new_payment.id)}
     except Exception as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc))

@@ -72,9 +72,13 @@ export const filesApi = {
   },
 }
 
-export const paymentsApi = {
-  list: async () => {
-    const { data } = await api.get('/payments')
+export const paymentsInApi = {
+  list: async (params: any) => {
+    const { data } = await api.get('/payments/in', { params })
+    return data
+  },
+  create: async (payload: any) => {
+    const { data } = await api.post('/payments/in', payload)
     return data
   },
 }
