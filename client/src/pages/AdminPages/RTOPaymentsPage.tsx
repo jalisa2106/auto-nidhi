@@ -270,26 +270,8 @@ export default function RTOPaymentsPage() {
   const handleEdit = async () => {
     try {
       setLoading(true)
-      const payload = {
-        file_id: form.file_number,
-        payment_date: form.payment_date,
-        payment_mode: form.payment_mode,
-        amount: form.amount,
-        payee_dealer_id: form.payee_dealer_name ? form.payee_dealer_name : undefined,
-        payee_broker_id: form.payee_broker_name ? form.payee_broker_name : undefined,
-        bank_account_no: form.bank_account_no,
-        ifsc_code: form.ifsc_code,
-        cheque_bank_name: form.cheque_bank_name,
-        branch_name: form.branch_name,
-        cheque_no: form.cheque_no,
-        cheque_date: form.cheque_date,
-        cheque_amount: form.cheque_amount,
-        utr_no: form.utr_no,
-        remarks: form.remarks,
-      }
-      
-      // API endpoint would be: PATCH /api/rto-payments/:id
-      // For now, using rtoPaymentsApi.create as placeholder - backend should implement PATCH endpoint
+      // API endpoint: PATCH /api/rto-payments/:id (backend PATCH not yet implemented)
+      // Optimistic local update only for now
       setRows(prev => prev.map(r => r.id === selected!.id ? { ...r, ...form } : r))
       setSelected(prev => prev ? { ...prev, ...form } : prev)
       setEditOpen(false)
