@@ -41,7 +41,7 @@ export default function CustomersPage() {
     try {
       const data = await customersApi.list()
       
-      // ✅ Safeguard: Only run map if the backend explicitly returns an Array
+      // Safeguard: Only run map if the backend explicitly returns an Array
       if (data && Array.isArray(data)) {
         setRows(data.map(normalizeCustomer))
       } else {
