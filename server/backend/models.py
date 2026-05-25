@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Date, text
+from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Date, text, Numeric, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from backend.database import Base
@@ -79,3 +79,25 @@ class FileRecord(Base):
     customer = relationship("Customer")
     creator = relationship("SystemUser", foreign_keys=[created_by_user_id])
     assignee = relationship("SystemUser", foreign_keys=[assigned_to])
+    finance_info = relationship("FinanceInfo", uselist=False)
+
+class MasterBank(Base):
+    __tablename__ = "master_bank"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    bank_name = Column(String(255), nullable=False)
+
+
+class FinanceInfo(Base):
+    __tablename__ = "finance_info"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=False, unique=True)
+    lan_number = Column(String(100))
+    loan_amount = Column(Numeric(15, 2))
+    no_of_months = Column(Integer)
+    emi_amount = Column(Numeric(15, 2))
+    bank_id = Column(UUID(as_uuid=True), ForeignKey("master_bank.id"))
+    irr_percentage = Column(Numeric(5, 2))
+
+    bank = relationship("MasterBank")
