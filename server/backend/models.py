@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Date, text, DECIMAL
+from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Date, text, DECIMAL, Numeric, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from backend.database import Base
@@ -72,12 +72,14 @@ class FileRecord(Base):
     file_type = Column(String) 
     status = Column(String, nullable=False, default='draft')
     remarks = Column(String)
+    is_deleted = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
 
     customer = relationship("Customer")
     creator = relationship("SystemUser", foreign_keys=[created_by_user_id])
     assignee = relationship("SystemUser", foreign_keys=[assigned_to])
+    finance_info = relationship("FinanceInfo", uselist=False)
 
 class MasterCompanyBank(Base):
     __tablename__ = "master_company_bank"
@@ -110,6 +112,23 @@ class PaymentIn(Base):
     # Relationships to fetch joined data easily
     file = relationship("FileRecord")
     company_bank = relationship("MasterCompanyBank")
+
+class FinanceInfo(Base):
+    __tablename__ = "finance_info"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=False, unique=True)
+
+    lan_number = Column(String(100))
+    loan_amount = Column(DECIMAL(15,2))
+    emi_amount = Column(DECIMAL(15,2))
+    no_of_months = Column(Integer)
+    irr_percentage = Column(DECIMAL(5,2))
+
+    company_bank_id = Column(UUID(as_uuid=True), ForeignKey("master_company_bank.id"))
+
+    bank = relationship("MasterCompanyBank")
+    file = relationship("FileRecord")
 
 class PaymentOut(Base):
     __tablename__ = "payment_out"

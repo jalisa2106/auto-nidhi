@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   PiggyBank, CheckCircle2, AlertTriangle,
   LayoutList, Search, X, TrendingUp,
@@ -6,6 +6,7 @@ import {
   Phone, MapPin, Banknote, Clock, Hash,
   Pencil, Trash2,
 } from 'lucide-react'
+import { loansApi } from '../../api/services'
 import Modal from '../../components/app/Modal'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -69,29 +70,6 @@ function calcCompletedMonths(docketDate: string): number {
   )
 }
 
-const mockLoans: LoanRecord[] = [
-  { file_number:'FILE-001', lan_number:'LAN-HDFC-4521',  full_name:'Arjun Mehta',    mobile_1:'9876543210', city:'Ahmedabad',     bank_name:'HDFC Bank',      loan_amount:850000,  docket_date:'2023-06-15', no_of_months:60, emi_amount:18200, status:'disbursed', irr_percentage:10.5,  created_by_name:'Ravi',   remarks:'' },
-  { file_number:'FILE-002', lan_number:'LAN-SBI-8832',   full_name:'Priya Sharma',   mobile_1:'9123456789', city:'Surat',         bank_name:'SBI',            loan_amount:500000,  docket_date:'2022-03-10', no_of_months:48, emi_amount:12500, status:'completed', irr_percentage:9.8,   created_by_name:'Meena',  remarks:'' },
-  { file_number:'FILE-003', lan_number:'LAN-ICICI-2201', full_name:'Rahul Patel',    mobile_1:'9988776655', city:'Vadodara',      bank_name:'ICICI Bank',     loan_amount:1200000, docket_date:'2023-11-01', no_of_months:84, emi_amount:19500, status:'disbursed', irr_percentage:11.2,  created_by_name:'Ravi',   remarks:'' },
-  { file_number:'FILE-004', lan_number:'LAN-AXIS-3310',  full_name:'Sneha Joshi',    mobile_1:'9765432100', city:'Rajkot',        bank_name:'Axis Bank',      loan_amount:350000,  docket_date:'2021-08-20', no_of_months:36, emi_amount:11100, status:'completed', irr_percentage:10.0,  created_by_name:'Meena',  remarks:'' },
-  { file_number:'FILE-005', lan_number:'LAN-KOTAK-5590', full_name:'Vikram Singh',   mobile_1:'9654321098', city:'Gandhinagar',   bank_name:'Kotak Bank',     loan_amount:750000,  docket_date:'2022-12-05', no_of_months:60, emi_amount:16200, status:'cancelled', irr_percentage:10.75, created_by_name:'Ravi',   remarks:'Customer requested premature closure' },
-  { file_number:'FILE-006', lan_number:'LAN-PNB-6612',   full_name:'Kavita Desai',   mobile_1:'9543210987', city:'Anand',         bank_name:'PNB',            loan_amount:425000,  docket_date:'2023-04-18', no_of_months:48, emi_amount:10800, status:'disbursed', irr_percentage:9.5,   created_by_name:'Suresh', remarks:'' },
-  { file_number:'FILE-007', lan_number:'LAN-BOB-7721',   full_name:'Deepak Nair',    mobile_1:'9432109876', city:'Bharuch',       bank_name:'Bank of Baroda', loan_amount:620000,  docket_date:'2022-07-30', no_of_months:60, emi_amount:13400, status:'disbursed', irr_percentage:10.2,  created_by_name:'Ravi',   remarks:'' },
-  { file_number:'FILE-008', lan_number:'LAN-UBI-8830',   full_name:'Anjali Rao',     mobile_1:'9321098765', city:'Mehsana',       bank_name:'Union Bank',     loan_amount:280000,  docket_date:'2020-11-11', no_of_months:36, emi_amount:8900,  status:'completed', irr_percentage:9.0,   created_by_name:'Meena',  remarks:'' },
-  { file_number:'FILE-009', lan_number:'LAN-HDFC-9943',  full_name:'Suresh Kumar',   mobile_1:'9210987654', city:'Bhavnagar',     bank_name:'HDFC Bank',      loan_amount:950000,  docket_date:'2024-01-20', no_of_months:84, emi_amount:16800, status:'disbursed', irr_percentage:11.0,  created_by_name:'Suresh', remarks:'' },
-  { file_number:'FILE-010', lan_number:'LAN-ICICI-1056', full_name:'Meena Trivedi',  mobile_1:'9109876543', city:'Jamnagar',      bank_name:'ICICI Bank',     loan_amount:390000,  docket_date:'2021-05-22', no_of_months:48, emi_amount:9800,  status:'cancelled', irr_percentage:10.5,  created_by_name:'Ravi',   remarks:'' },
-  { file_number:'FILE-011', lan_number:'LAN-SBI-1123',   full_name:'Rohit Verma',    mobile_1:'9098765432', city:'Nadiad',        bank_name:'SBI',            loan_amount:700000,  docket_date:'2023-09-01', no_of_months:60, emi_amount:15200, status:'disbursed', irr_percentage:9.75,  created_by_name:'Meena',  remarks:'' },
-  { file_number:'FILE-012', lan_number:'LAN-AXIS-1245',  full_name:'Nisha Gupta',    mobile_1:'8987654321', city:'Ankleshwar',    bank_name:'Axis Bank',      loan_amount:540000,  docket_date:'2022-10-10', no_of_months:60, emi_amount:11600, status:'completed', irr_percentage:10.25, created_by_name:'Suresh', remarks:'' },
-  { file_number:'FILE-013', lan_number:'LAN-KOTAK-1360', full_name:'Amit Shah',      mobile_1:'8876543210', city:'Morbi',         bank_name:'Kotak Bank',     loan_amount:1100000, docket_date:'2023-03-15', no_of_months:84, emi_amount:18400, status:'disbursed', irr_percentage:10.9,  created_by_name:'Ravi',   remarks:'' },
-  { file_number:'FILE-014', lan_number:'LAN-PNB-1478',   full_name:'Pooja Bhat',     mobile_1:'8765432109', city:'Botad',         bank_name:'PNB',            loan_amount:310000,  docket_date:'2021-02-28', no_of_months:36, emi_amount:9800,  status:'completed', irr_percentage:9.25,  created_by_name:'Meena',  remarks:'' },
-  { file_number:'FILE-015', lan_number:'LAN-BOB-1589',   full_name:'Kiran Pillai',   mobile_1:'8654321098', city:'Surendranagar', bank_name:'Bank of Baroda', loan_amount:830000,  docket_date:'2024-02-10', no_of_months:72, emi_amount:14800, status:'disbursed', irr_percentage:10.8,  created_by_name:'Suresh', remarks:'' },
-  { file_number:'FILE-016', lan_number:'LAN-HDFC-1603',  full_name:'Ravi Chandran',  mobile_1:'8543210987', city:'Patan',         bank_name:'HDFC Bank',      loan_amount:480000,  docket_date:'2022-04-20', no_of_months:48, emi_amount:12100, status:'disbursed', irr_percentage:10.4,  created_by_name:'Ravi',   remarks:'' },
-  { file_number:'FILE-017', lan_number:'LAN-ICICI-1712', full_name:'Swati Mishra',   mobile_1:'8432109876', city:'Dahod',         bank_name:'ICICI Bank',     loan_amount:260000,  docket_date:'2020-09-05', no_of_months:36, emi_amount:8300,  status:'completed', irr_percentage:9.0,   created_by_name:'Meena',  remarks:'' },
-  { file_number:'FILE-018', lan_number:'LAN-UBI-1821',   full_name:'Gaurav Tiwari',  mobile_1:'8321098765', city:'Valsad',        bank_name:'Union Bank',     loan_amount:920000,  docket_date:'2023-08-12', no_of_months:84, emi_amount:16000, status:'disbursed', irr_percentage:11.1,  created_by_name:'Suresh', remarks:'' },
-  { file_number:'FILE-019', lan_number:'LAN-SBI-1934',   full_name:'Divya Pillai',   mobile_1:'8210987654', city:'Navsari',       bank_name:'SBI',            loan_amount:375000,  docket_date:'2021-12-15', no_of_months:48, emi_amount:9500,  status:'cancelled', irr_percentage:9.8,   created_by_name:'Ravi',   remarks:'' },
-  { file_number:'FILE-020', lan_number:'LAN-AXIS-2046',  full_name:'Manoj Kapoor',   mobile_1:'8109876543', city:'Amreli',        bank_name:'Axis Bank',      loan_amount:650000,  docket_date:'2023-01-08', no_of_months:60, emi_amount:14000, status:'disbursed', irr_percentage:10.6,  created_by_name:'Suresh', remarks:'' },
-]
-
 const fmt = (n: number) =>
   '₹' + (n >= 100000 ? (n / 100000).toFixed(1) + 'L' : n.toLocaleString('en-IN'))
 
@@ -137,7 +115,7 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function LoansPage() {
-  const [rows,         setRows]         = useState<LoanRecord[]>(mockLoans)
+  const [rows,         setRows]         = useState<LoanRecord[]>([])
   const [search,       setSearch]       = useState('')
   const [selected,     setSelected]     = useState<LoanRecord | null>(null)
   const [filterStatus, setFilterStatus] = useState<'All' | LoanRecord['status']>('All')
@@ -145,6 +123,15 @@ export default function LoansPage() {
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState<{ remarks: string; status: LoanRecord['status'] }>({ remarks: '', status: 'disbursed' })
+
+  useEffect(() => {
+    const loadLoans = async () => {
+      const data = await loansApi.list()
+      setRows(data?.data ?? [])
+    }
+
+    void loadLoans()
+  }, [])
 
   // ── Stats ──
   const running   = rows.filter(l => l.status === 'disbursed').length
@@ -165,25 +152,44 @@ export default function LoansPage() {
     setEditOpen(true)
   }
 
-  const handleEdit = () => {
-    // PATCH /api/loans/:file_number  →  body: { remarks, status }
-    setRows(prev => prev.map(l =>
-      l.file_number === selected!.file_number ? { ...l, ...editForm } : l
-    ))
-    setSelected(prev => prev ? { ...prev, ...editForm } : prev)
-    setEditOpen(false)
+  const handleEdit = async () => {
+    try {
+      // PATCH /api/loans/:file_number  →  body: { remarks, status }
+      await loansApi.update(selected!.file_number, editForm)
+
+      setRows(prev => prev.map(l =>
+        l.file_number === selected!.file_number ? { ...l, ...editForm } : l
+      ))
+      setSelected(prev => prev ? { ...prev, ...editForm } : prev)
+      setEditOpen(false)
+    } catch (err) {
+      console.error(err)
+      alert('Failed to update loan')
+    }
   }
 
-  const handleDelete = (_fileNumber: string) => {
-    // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
-    // Before uncommenting: add this column to DB:
-    //   ALTER TABLE file_record ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
-    // API call: PATCH /api/loans/:file_number  →  body: { is_deleted: true }
-    //
-    // setRows(prev => prev.filter(l => l.file_number !== _fileNumber))
-    // setSelected(null)
-    // ─────────────────────────────────────────────────────────────────────────
-    alert('Soft delete is pending. Backend needs to add is_deleted column to file_record table.')
+  // const handleDelete = (_fileNumber: string) => {
+  //   // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
+  //   // Before uncommenting: add this column to DB:
+  //   //   ALTER TABLE file_record ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
+  //   // API call: PATCH /api/loans/:file_number  →  body: { is_deleted: true }
+  //   //
+  //   // setRows(prev => prev.filter(l => l.file_number !== _fileNumber))
+  //   // setSelected(null)
+  //   // ─────────────────────────────────────────────────────────────────────────
+  //   alert('Soft delete is pending. Backend needs to add is_deleted column to file_record table.')
+  // }
+  
+  const handleDelete = async (_fileNumber: string) => {
+    try {
+      await loansApi.softDelete(_fileNumber)
+
+      setRows(prev => prev.filter(l => l.file_number !== _fileNumber))
+      setSelected(null)
+    } catch (err) {
+      console.error(err)
+      alert('Failed to delete loan')
+    }
   }
 
   const filterPills = [

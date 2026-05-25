@@ -26,7 +26,8 @@ LEFT JOIN master_insurance_company ic ON ic.id = ii.insurance_company_id
 LEFT JOIN master_dealer    d   ON d.id  = f.reference_dealer_id
 LEFT JOIN master_broker    b   ON b.id  = f.reference_broker_id
 LEFT JOIN system_user      u   ON u.id  = f.created_by_user_id
-LEFT JOIN system_user      au  ON au.id = f.assigned_to;
+LEFT JOIN system_user      au  ON au.id = f.assigned_to
+WHERE f.is_deleted = FALSE;
 
 -- FIXED: party_type/party_id removed from advances, now uses dealer_id/broker_id
 CREATE VIEW v_advance_balances AS
@@ -54,7 +55,8 @@ JOIN  customer             c   ON c.id  = f.customer_id
 JOIN  insurance_info       ii  ON ii.file_id = f.id
 LEFT JOIN master_insurance_company ic ON ic.id = ii.insurance_company_id
 LEFT JOIN system_user      u   ON u.id  = f.created_by_user_id
-WHERE ii.valid_to IS NOT NULL AND ii.valid_to >= CURRENT_DATE;
+WHERE f.is_deleted = FALSE
+AND ii.valid_to IS NOT NULL AND ii.valid_to >= CURRENT_DATE;
 
 -- Monthly Cashflow
 CREATE VIEW v_monthly_cashflow AS

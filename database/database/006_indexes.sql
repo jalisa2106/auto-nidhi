@@ -13,6 +13,7 @@ CREATE INDEX idx_file_record_created_by   ON file_record(created_by_user_id);
 CREATE INDEX idx_file_record_assigned_to  ON file_record(assigned_to);
 CREATE INDEX idx_file_record_status       ON file_record(status);
 CREATE INDEX idx_file_record_file_type    ON file_record(file_type);
+CREATE INDEX idx_file_record_is_deleted   ON file_record(is_deleted);
 
 -- Sub-Modules
 CREATE INDEX idx_vehicle_info_file_id    ON vehicle_info(file_id);

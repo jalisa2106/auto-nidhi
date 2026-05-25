@@ -14,7 +14,7 @@ def list_files(
     file_type: Optional[str] = None, 
     db: Session = Depends(get_db)
 ):
-    query = db.query(FileRecord)
+    query = db.query(FileRecord).filter(FileRecord.is_deleted == False)
     
     if status:
         query = query.filter(FileRecord.status == status)

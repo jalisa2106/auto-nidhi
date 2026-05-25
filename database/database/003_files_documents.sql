@@ -36,6 +36,7 @@ CREATE TABLE file_record (
   reference_dealer_id UUID REFERENCES master_dealer(id),
   reference_broker_id UUID REFERENCES master_broker(id),
   remarks             TEXT,
+  is_deleted          BOOLEAN NOT NULL DEFAULT FALSE,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

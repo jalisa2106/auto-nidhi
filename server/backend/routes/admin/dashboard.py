@@ -40,6 +40,7 @@ def _get_stats(db: Session):
                     COUNT(*) FILTER (WHERE file_type = 'used_vehicle' AND status NOT IN ('completed', 'cancelled')) AS used_files,
                     COUNT(*) FILTER (WHERE file_type = 'renewal' AND status NOT IN ('completed', 'cancelled')) AS renewal_files
                 FROM file_record
+                WHERE is_deleted = FALSE
             ),
             customer_counts AS (
                 SELECT COUNT(*) AS total_customers FROM customer
@@ -81,7 +82,8 @@ def _get_pipeline(db: Session):
             END AS label,
             COUNT(*) AS count
         FROM file_record
-        WHERE status IN ('draft', 'login', 'under_process', 'sanctioned', 'disbursed')
+        WHERE is_deleted = FALSE
+        AND status IN ('draft', 'login', 'under_process', 'sanctioned', 'disbursed')
         GROUP BY status
         ORDER BY CASE status::text
             WHEN 'draft' THEN 1
@@ -127,6 +129,7 @@ def _get_recent_files(db: Session, limit: int = 5):
         FROM file_record f
         JOIN customer c ON c.id = f.customer_id
         LEFT JOIN system_user assigned ON assigned.id = f.assigned_to
+        WHERE f.is_deleted = FALSE
         ORDER BY f.created_at DESC
         LIMIT :limit
         """,
@@ -214,7 +217,8 @@ def _get_insurance_expiring(db: Session, days: int = 30):
         JOIN customer c ON c.id = f.customer_id
         JOIN insurance_info ii ON ii.file_id = f.id
         LEFT JOIN master_insurance_type mit ON mit.id = ii.insurance_type_id
-        WHERE ii.valid_to IS NOT NULL
+        WHERE f.is_deleted = FALSE
+        AND ii.valid_to IS NOT NULL
         AND ii.valid_to >= CURRENT_DATE
         AND ii.valid_to <= CURRENT_DATE + (:days * INTERVAL '1 day')
         ORDER BY ii.valid_to ASC
