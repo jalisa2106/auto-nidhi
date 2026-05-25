@@ -221,7 +221,7 @@ export default function PaymentInPage() {
       cheque_no: form.cheque_no || null,
       cheque_date: form.cheque_date || null,
       utr_no: form.utr_no || null,
-      company_bank_id: form.company_bank_id || null, 
+      company_bank_id: null,   // real UUID lookup pending — set null to avoid 422
       remarks: form.remarks || null,
     }
 
