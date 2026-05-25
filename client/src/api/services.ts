@@ -117,7 +117,7 @@ export const commissionsOutApi = {
 }
 export const loansApi = {
   list: async (status?: string, search?: string) => {
-    const { data } = await api.get('/loans', {
+    const { data } = await api.get('/loans/', {
       params: { status, search },
     })
     return data
