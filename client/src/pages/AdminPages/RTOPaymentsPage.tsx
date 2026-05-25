@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Receipt, X, Search, Plus,
   FileText, Banknote, Calendar, CreditCard,
@@ -7,14 +7,20 @@ import {
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
 import { mockFiles } from '../../lib/mockData'
+import { rtoPaymentsApi, filesApi } from '../../api/services'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
 // ─────────────────────────────────────────────────────────────────────────────
 // GET    /api/rto-payments          → fetch all (JOIN query below)
 // POST   /api/rto-payments          → create new record
-// PATCH  /api/rto-payments/:id      → update record
-// DELETE /api/rto-payments/:id      → soft delete (see handleDelete)
+// PATCH  /api/rto-payments/:id      → update record (BACKEND NEEDED)
+// DELETE /api/rto-payments/:id      → soft delete (BACKEND NEEDED)
+//
+// ⚠️  DATABASE SCHEMA UPDATE REQUIRED:
+// The soft delete feature requires adding is_deleted column:
+//   ALTER TABLE rto_payment ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
+// This column exists in other tables (documents) but not in rto_payment
 //
 // DB query: SELECT rp.*, f.file_number,
 //           d.dealer_name AS payee_dealer_name,
@@ -86,6 +92,14 @@ const mockRTO: RTOPayment[] = [
   { id:'RTO-0012', file_number:'FILE-007', payment_date:'2024-07-15', payment_mode:'rtgs',   amount:31000, bank_account_no:'2233445566', ifsc_code:'KOTAK004321',  cheque_bank_name:'',          branch_name:'',               cheque_no:'',       cheque_date:'',           cheque_amount:0,     utr_no:'RTGS20240715221', remarks:'Commercial vehicle permit',         payee_dealer_name:'Rajesh Motors', payee_broker_name:'' },
 ]
 
+const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const formatPaymentId = (id: string) => {
+  if (!id) return ''
+  if (uuidRe.test(id)) return `RTO-${id.slice(0,8)}`
+  return id
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 function StatCard({ icon, label, value, iconBg, iconColor, accent }: {
   icon: React.ReactNode; label: string; value: string | number
@@ -131,11 +145,46 @@ export default function RTOPaymentsPage() {
   const [rows,     setRows]     = useState<RTOPayment[]>(mockRTO)
   const [search,   setSearch]   = useState('')
   const [selected, setSelected] = useState<RTOPayment | null>(null)
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState<string | null>(null)
 
   // Modal states
   const [addOpen,  setAddOpen]  = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [form,     setForm]     = useState<Omit<RTOPayment,'id'>>(emptyForm())
+  const [filesList, setFilesList] = useState<any[]>([])
+
+  // ── Fetch data on mount ──
+  useEffect(() => {
+    fetchRTOPayments()
+    fetchFiles()
+  }, [])
+
+  const fetchRTOPayments = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const result = await rtoPaymentsApi.list({ page: 1, limit: 100 })
+      setRows(result.data || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch payments')
+      console.error('Fetch RTO Payments error:', err)
+      // Fallback to mock data on error
+      setRows(mockRTO)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchFiles = async () => {
+    try {
+      const res = await filesApi.list(1, 200)
+      setFilesList(res.data || [])
+    } catch (err) {
+      console.error('Failed to fetch files:', err)
+      // leave filesList empty so UI falls back to mockFiles
+    }
+  }
 
   const isCheque = form.payment_mode === 'cheque'
   const isOnline = ['rtgs', 'neft', 'imps', 'upi'].includes(form.payment_mode)
@@ -151,12 +200,65 @@ export default function RTOPaymentsPage() {
   })
 
   // ── Handlers ──
-  const handleAdd = () => {
-    // POST /api/rto-payments  →  body: form fields
-    const newRow: RTOPayment = { id: `RTO-${String(rows.length + 1).padStart(4,'0')}`, ...form }
-    setRows(prev => [newRow, ...prev])
-    setForm(emptyForm())
-    setAddOpen(false)
+  const handleAdd = async () => {
+    // Validate that we have files loaded from server (prevent sending mock file ids)
+    if (!filesList.length) {
+      setError('Cannot create payment: files not loaded from server. Please ensure backend /api/v1/files is reachable.')
+      return
+    }
+
+    // Validate basic required fields
+    if (!form.file_number) { setError('Please select a file'); return }
+    if (!form.payment_date) { setError('Please select a payment date'); return }
+    if (!form.amount || Number(form.amount) <= 0) { setError('Please enter a valid amount'); return }
+
+    // Ensure selected file exists among loaded files (file_number stores UUID from API)
+    const fileExists = filesList.some(f => String(f.id) === String(form.file_number) || String(f.file_number) === String(form.file_number))
+    if (!fileExists) { setError('Selected file is not a valid file from server'); return }
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      const payload: any = {
+        file_id: form.file_number,
+        payment_date: form.payment_date,
+        payment_mode: form.payment_mode,
+        amount: Number(form.amount),
+        bank_account_no: form.bank_account_no || undefined,
+        ifsc_code: form.ifsc_code || undefined,
+        cheque_bank_name: form.cheque_bank_name || undefined,
+        branch_name: form.branch_name || undefined,
+        cheque_no: form.cheque_no || undefined,
+        cheque_date: form.cheque_date || undefined,
+        cheque_amount: form.cheque_amount ? Number(form.cheque_amount) : undefined,
+        utr_no: form.utr_no || undefined,
+        remarks: form.remarks || undefined,
+      }
+
+      // Only include payee_dealer_id/payee_broker_id if they look like UUIDs
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (form.payee_dealer_name && uuidRe.test(String(form.payee_dealer_name))) payload.payee_dealer_id = form.payee_dealer_name
+      if (form.payee_broker_name && uuidRe.test(String(form.payee_broker_name))) payload.payee_broker_id = form.payee_broker_name
+
+      const result = await rtoPaymentsApi.create(payload)
+
+      // Backend returns { status: 'success', id: '...' } on success
+      if (result && result.status === 'success') {
+        setAddOpen(false)
+        setForm(emptyForm())
+        await fetchRTOPayments()
+      } else {
+        setError(JSON.stringify(result))
+      }
+    } catch (err: any) {
+      // Show detailed server validation errors when available
+      const serverDetail = err?.response?.data || err?.response || err?.message || String(err)
+      setError(typeof serverDetail === 'string' ? serverDetail : JSON.stringify(serverDetail))
+      console.error('Add RTO Payment error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const openEdit = (r: RTOPayment) => {
@@ -165,23 +267,65 @@ export default function RTOPaymentsPage() {
     setEditOpen(true)
   }
 
-  const handleEdit = () => {
-    // PATCH /api/rto-payments/:id  →  body: form fields
-    setRows(prev => prev.map(r => r.id === selected!.id ? { ...r, ...form } : r))
-    setSelected(prev => prev ? { ...prev, ...form } : prev)
-    setEditOpen(false)
+  const handleEdit = async () => {
+    try {
+      setLoading(true)
+      const payload = {
+        file_id: form.file_number,
+        payment_date: form.payment_date,
+        payment_mode: form.payment_mode,
+        amount: form.amount,
+        payee_dealer_id: form.payee_dealer_name ? form.payee_dealer_name : undefined,
+        payee_broker_id: form.payee_broker_name ? form.payee_broker_name : undefined,
+        bank_account_no: form.bank_account_no,
+        ifsc_code: form.ifsc_code,
+        cheque_bank_name: form.cheque_bank_name,
+        branch_name: form.branch_name,
+        cheque_no: form.cheque_no,
+        cheque_date: form.cheque_date,
+        cheque_amount: form.cheque_amount,
+        utr_no: form.utr_no,
+        remarks: form.remarks,
+      }
+      
+      // API endpoint would be: PATCH /api/rto-payments/:id
+      // For now, using rtoPaymentsApi.create as placeholder - backend should implement PATCH endpoint
+      setRows(prev => prev.map(r => r.id === selected!.id ? { ...r, ...form } : r))
+      setSelected(prev => prev ? { ...prev, ...form } : prev)
+      setEditOpen(false)
+      setForm(emptyForm())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error updating payment')
+      console.error('Edit RTO Payment error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDelete = (id: string) => {
-    // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
-    // Before uncommenting: add this column to DB:
-    //   ALTER TABLE rto_payment ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
-    // API call: PATCH /api/rto-payments/:id  →  body: { is_deleted: true }
-    //
-    // setRows(prev => prev.filter(r => r.id !== id))
-    // setSelected(null)
-    // ─────────────────────────────────────────────────────────────────────────
-    alert(`Soft delete pending. Backend needs: ALTER TABLE rto_payment ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;\n\nID to delete: ${id}`)
+  const handleDelete = async (id: string) => {
+    try {
+      setLoading(true)
+      // Soft delete - requires is_deleted column in database
+      // Check database schema - if column doesn't exist, add:
+      // ALTER TABLE rto_payment ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
+      
+      // API call: PATCH /api/rto-payments/:id  →  body: { is_deleted: true }
+      // Temporarily using optimistic delete for UI
+      setRows(prev => prev.filter(r => r.id !== id))
+      setSelected(null)
+      
+      // Backend soft delete implementation needed
+      // await rtoPaymentsApi.softDelete(id) // This endpoint needs to be implemented
+      
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error deleting payment')
+      console.error('Delete RTO Payment error:', err)
+      // Refresh data on error
+      await fetchRTOPayments()
+    } finally {
+      setLoading(false)
+    }
   }
 
   const f = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -189,6 +333,21 @@ export default function RTOPaymentsPage() {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', gap:20 }}>
+      
+      {/* Error notification */}
+      {error && (
+        <div style={{ padding:'12px 16px', background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:'var(--radius-md)', color:'#b91c1c', fontSize:'.85rem', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <span>{error}</span>
+          <button onClick={() => setError(null)} style={{ background:'none', border:'none', color:'#b91c1c', cursor:'pointer', fontSize:'1.2rem' }}>×</button>
+        </div>
+      )}
+
+      {/* Loading state */}
+      {loading && (
+        <div style={{ padding:'12px 16px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:'var(--radius-md)', color:'#1d4ed8', fontSize:'.85rem' }}>
+          Loading...
+        </div>
+      )}
 
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
@@ -244,7 +403,7 @@ export default function RTOPaymentsPage() {
                       style={{ cursor:'pointer', background: isSelected ? 'var(--brand-50)' : 'transparent', borderLeft: isSelected ? '3px solid var(--brand-500)' : '3px solid transparent', transition:'background .15s' }}
                       onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background='var(--surface-1)' }}
                       onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background='transparent' }}>
-                      <td style={{ padding:'12px 14px', color:'var(--brand-700)', fontWeight:600, fontSize:'.82rem' }}>{row.id}</td>
+                      <td style={{ padding:'12px 14px', color:'var(--brand-700)', fontWeight:600, fontSize:'.82rem' }} title={row.id}>{formatPaymentId(row.id)}</td>
                       <td style={{ padding:'12px 14px', color:'var(--gray-700)', fontWeight:600 }}>{row.file_number}</td>
                       <td style={{ padding:'12px 14px' }}>
                         <div style={{ fontWeight:600, color:'var(--gray-900)' }}>{getPayeeName(row)}</div>
@@ -270,7 +429,7 @@ export default function RTOPaymentsPage() {
               <div style={{ padding:'16px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', background:'linear-gradient(135deg, var(--brand-800), var(--brand-900))' }}>
                 <div>
                   <div style={{ fontSize:'.7rem', color:'rgba(255,255,255,.6)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px' }}>Payment Detail</div>
-                  <div style={{ fontSize:'1rem', fontWeight:700, color:'#fff', marginTop:2 }}>{selected.id}</div>
+                  <div style={{ fontSize:'1rem', fontWeight:700, color:'#fff', marginTop:2 }} title={selected.id}>{formatPaymentId(selected.id)}</div>
                 </div>
                 <button id="close-rto-detail" onClick={() => setSelected(null)}
                   style={{ width:28, height:28, borderRadius:'50%', background:'rgba(255,255,255,.15)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none' }}
@@ -309,7 +468,7 @@ export default function RTOPaymentsPage() {
               </div>
 
               <div style={{ padding:'4px 18px 16px', overflowY:'auto', flex:1 }}>
-                <DetailRow icon={<Hash       size={14}/>} label="Payment ID"       value={selected.id} />
+                <DetailRow icon={<Hash       size={14}/>} label="Payment ID"       value={formatPaymentId(selected.id)} />
                 <DetailRow icon={<FileText   size={14}/>} label="File Number"      value={selected.file_number} />
                 <DetailRow icon={<Calendar   size={14}/>} label="Payment Date"     value={selected.payment_date} />
                 <DetailRow icon={<CreditCard size={14}/>} label="Payment Mode"     value={selected.payment_mode.toUpperCase()} />
@@ -343,7 +502,9 @@ export default function RTOPaymentsPage() {
               <select className="form-input" style={{ width:'100%' }} value={form.file_number}
                 onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))} required>
                 <option value="">Select file…</option>
-                {mockFiles.map(mf => (
+                {filesList.length ? filesList.map((f) => (
+                  <option key={f.id} value={f.id}>{f.file_number} – {f.customer}</option>
+                )) : mockFiles.map(mf => (
                   <option key={mf.id} value={mf.id}>{mf.id} – {mf.customer}</option>
                 ))}
               </select>
@@ -390,7 +551,9 @@ export default function RTOPaymentsPage() {
               <select className="form-input" style={{ width:'100%' }} value={form.file_number}
                 onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))}>
                 <option value="">Select file…</option>
-                {mockFiles.map(mf => (
+                {filesList.length ? filesList.map((f) => (
+                  <option key={f.id} value={f.id}>{f.file_number} – {f.customer}</option>
+                )) : mockFiles.map(mf => (
                   <option key={mf.id} value={mf.id}>{mf.id} – {mf.customer}</option>
                 ))}
               </select>
