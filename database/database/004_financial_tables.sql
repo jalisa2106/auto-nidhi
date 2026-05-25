@@ -95,7 +95,8 @@ CREATE TABLE rto_payment (
   cheque_date      DATE,
   cheque_amount    DECIMAL(15,2),
   utr_no           VARCHAR(100),
-  remarks          TEXT
+  remarks          TEXT,
+  is_deleted       BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE insurance_payment (
