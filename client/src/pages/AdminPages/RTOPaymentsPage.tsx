@@ -6,6 +6,7 @@ import {
   TrendingUp, Landmark, Pencil, Trash2,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
+import { mockFiles } from '../../lib/mockData'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
@@ -332,10 +333,18 @@ export default function RTOPaymentsPage() {
       </div>
 
       {/* ── Add Modal ── */}
-      <Modal open={addOpen} title="Add RTO Payment" onClose={() => setAddOpen(false)} onSubmit={handleAdd} submitLabel="Add Payment">
+      <Modal open={addOpen} title="Add RTO Payment" onClose={() => setAddOpen(false)} onSubmit={handleAdd} submitLabel="Add Payment" maxWidth="760px">
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            <FormField label="File Number *"><input className="form-input" value={form.file_number} onChange={f('file_number')} placeholder="FILE-001" required /></FormField>
+            <FormField label="File Number *">
+              <select className="form-input" style={{ width:'100%' }} value={form.file_number}
+                onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))} required>
+                <option value="">Select file…</option>
+                {mockFiles.map(mf => (
+                  <option key={mf.id} value={mf.id}>{mf.id} – {mf.customer}</option>
+                ))}
+              </select>
+            </FormField>
             <FormField label="Payment Date *"><input className="form-input" type="date" value={form.payment_date} onChange={f('payment_date')} required /></FormField>
             <FormField label="Amount (₹) *"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required /></FormField>
             <FormField label="Payment Mode *">
@@ -359,10 +368,18 @@ export default function RTOPaymentsPage() {
       </Modal>
 
       {/* ── Edit Modal ── */}
-      <Modal open={editOpen} title={`Edit Payment — ${selected?.id}`} onClose={() => setEditOpen(false)} onSubmit={handleEdit} submitLabel="Save Changes">
+      <Modal open={editOpen} title={`Edit Payment — ${selected?.id}`} onClose={() => setEditOpen(false)} onSubmit={handleEdit} submitLabel="Save Changes" maxWidth="760px">
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            <FormField label="File Number"><input className="form-input" value={form.file_number} onChange={f('file_number')} /></FormField>
+            <FormField label="File Number">
+              <select className="form-input" style={{ width:'100%' }} value={form.file_number}
+                onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))}>
+                <option value="">Select file…</option>
+                {mockFiles.map(mf => (
+                  <option key={mf.id} value={mf.id}>{mf.id} – {mf.customer}</option>
+                ))}
+              </select>
+            </FormField>
             <FormField label="Payment Date"><input className="form-input" type="date" value={form.payment_date} onChange={f('payment_date')} /></FormField>
             <FormField label="Amount (₹)"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} /></FormField>
             <FormField label="Payment Mode">
