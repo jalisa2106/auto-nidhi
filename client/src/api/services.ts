@@ -93,3 +93,14 @@ export const paymentsOutApi = {
     return data
   },
 }
+
+export const rtoPaymentsApi = {
+  list: async (params: any) => {
+    const { data } = await api.get('/rto-payments', { params })
+    return data
+  },
+  create: async (payload: any) => {
+    const { data } = await api.post('/rto-payments', payload)
+    return data
+  },
+}
