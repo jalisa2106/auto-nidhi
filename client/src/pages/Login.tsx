@@ -58,7 +58,7 @@ const Login: React.FC = () => {
       message.success('Login successful! Welcome back.')
       
       if (data.user.role === 'customer') {
-        navigate('/customer')
+        navigate('/portal')
       } else {
         navigate('/dashboard')
       }

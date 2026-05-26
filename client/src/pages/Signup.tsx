@@ -88,7 +88,7 @@ const Signup: React.FC = () => {
       message.success('Account created successfully! Welcome.')
       
       if (data.user.role === 'customer') {
-        navigate('/customer')
+        navigate('/portal')
       } else {
         navigate('/dashboard')
       }
