@@ -58,6 +58,29 @@ export const customersApi = {
   },
 }
 
+export const brokersApi = {
+  list: async (search = '') => {
+    const { data } = await api.get('/brokers', {
+      params: { search: search || undefined },
+    })
+    return data
+  },
+
+  create: async (payload: { broker_name: string; area?: string; district?: string; phone?: string }) => {
+    const { data } = await api.post('/brokers', payload)
+    return data
+  },
+
+  update: async (id: string, payload: { broker_name?: string; area?: string; district?: string; phone?: string }) => {
+    const { data } = await api.put(`/brokers/${id}`, payload)
+    return data
+  },
+
+  remove: async (id: string) => {
+    await api.delete(`/brokers/${id}`)
+  },
+}
+
 export const filesApi = {
   list: async (page = 1, limit = 20, status?: string, file_type?: string) => {
     const { data } = await api.get('/files', {
