@@ -1,8 +1,10 @@
 // Base Axios instance — all requests go through /api (proxied by Vite in dev)
 import axios from 'axios'
 
+const isProd = import.meta.env.PROD;
+
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: isProd ? 'https://autonidhi-backend.onrender.com/api/v1' : '/api/v1',
   headers: { 'Content-Type': 'application/json' },
   withCredentials: false,
 })
