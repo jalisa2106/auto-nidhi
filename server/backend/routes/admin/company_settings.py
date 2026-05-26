@@ -78,8 +78,8 @@ def _serialize(p: MasterCompanyProfile) -> dict:
 
 @router.get("/")
 def get_company_profile(db: Session = Depends(get_db)):
-    """Fetch the first (and only) company profile record."""
-    profile = db.query(MasterCompanyProfile).first()
+    """Fetch the latest company profile record."""
+    profile = db.query(MasterCompanyProfile).order_by(MasterCompanyProfile.updated_at.desc()).first()
     if not profile:
         return {}
     return _serialize(profile)
@@ -90,10 +90,17 @@ def create_company_profile(payload: CompanyProfileCreate, db: Session = Depends(
     """Create company profile. Only one record is expected."""
     existing = db.query(MasterCompanyProfile).first()
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Company profile already exists. Use PUT to update.",
-        )
+        # Instead of failing, update the latest one to prevent UI from being stuck
+        latest = db.query(MasterCompanyProfile).order_by(MasterCompanyProfile.updated_at.desc()).first()
+        for field, value in payload.dict().items():
+            setattr(latest, field, value)
+        try:
+            db.commit()
+            db.refresh(latest)
+            return _serialize(latest)
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=str(exc))
     profile = MasterCompanyProfile(**payload.dict())
     db.add(profile)
     try:
