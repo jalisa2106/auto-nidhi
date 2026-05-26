@@ -108,6 +108,13 @@ class FileRecord(Base):
     assignee = relationship("SystemUser", foreign_keys=[assigned_to])
     finance_info = relationship("FinanceInfo", uselist=False)
 
+class MasterBank(Base):
+    __tablename__ = "master_bank"
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    bank_name = Column(String(255), nullable=False)
+    area = Column(String(255))
+    contact_no = Column(String(15))
+
 class MasterCompanyBank(Base):
     __tablename__ = "master_company_bank"
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
@@ -152,9 +159,10 @@ class FinanceInfo(Base):
     no_of_months = Column(Integer)
     irr_percentage = Column(DECIMAL(5,2))
 
-    company_bank_id = Column(UUID(as_uuid=True), ForeignKey("master_company_bank.id"))
+    # Points to master_bank (external finance bank), NOT master_company_bank
+    bank_id = Column(UUID(as_uuid=True), ForeignKey("master_bank.id"))
 
-    bank = relationship("MasterCompanyBank")
+    bank = relationship("MasterBank")
     file = relationship("FileRecord")
 
 class PaymentOut(Base):

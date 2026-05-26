@@ -215,3 +215,26 @@ export const usersSettingsApi = {
     return data
   },
 }
+
+export const financeBanksApi = {
+  list: async (page = 1, limit = 20, search = '') => {
+    const { data } = await api.get('/finance-banks', { params: { page, limit, search: search || undefined } })
+    return data
+  },
+  listAll: async () => {
+    const { data } = await api.get('/finance-banks/all')
+    return data
+  },
+  create: async (payload: { bank_name: string; area?: string; contact_no?: string }) => {
+    const { data } = await api.post('/finance-banks', payload)
+    return data
+  },
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/finance-banks/${id}`, payload)
+    return data
+  },
+  remove: async (id: string) => {
+    await api.delete(`/finance-banks/${id}`)
+  },
+}
+

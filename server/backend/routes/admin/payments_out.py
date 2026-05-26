@@ -8,8 +8,39 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import PaymentOut, FileRecord, Customer, MasterCompanyBank
+from backend.utils import get_current_admin
 
 router = APIRouter(prefix="/api/v1/payments/out", tags=["Admin Payments OUT"])
+
+# ── DB Enum Normalizers ──────────────────────────────────────────────────────
+# DB payment_mode enum: cash | cheque | rtgs | neft | imps | upi
+def norm_mode(v: str) -> str:
+    """Normalize any frontend payment mode string to DB enum lowercase value."""
+    mapping = {
+        "Cash": "cash", "CASH": "cash",
+        "Cheque": "cheque", "CHEQUE": "cheque", "DD": "cheque", "Dd": "cheque",
+        "RTGS": "rtgs", "Rtgs": "rtgs",
+        "NEFT": "neft", "Neft": "neft",
+        "IMPS": "imps", "Imps": "imps",
+        "UPI": "upi", "Upi": "upi",
+    }
+    return mapping.get(v, v.lower())
+
+# DB payment_to_enum: customer | dealer | broker
+# Frontend sends: Customer, Dealer, Broker, Agent, Other
+PAYMENT_TO_MAP = {
+    "customer": "customer", "Customer": "customer",
+    "dealer": "dealer",     "Dealer": "dealer",
+    "broker": "broker",     "Broker": "broker",
+    "agent": "broker",      "Agent": "broker", # map Agent to broker
+    "other": "broker",      "Other": "broker", # map Other to broker
+}
+
+def norm_to(v: Optional[str]) -> Optional[str]:
+    if not v:
+        return None
+    return PAYMENT_TO_MAP.get(v, "broker")
+
 
 class PaymentOutCreate(BaseModel):
     file_id: UUID
@@ -25,6 +56,7 @@ class PaymentOutCreate(BaseModel):
     cheque_date: Optional[date] = None
     utr_no: Optional[str] = None
     remarks: Optional[str] = None
+
 
 @router.get("/")
 def list_payments_out(
@@ -46,9 +78,9 @@ def list_payments_out(
             PaymentOut.remarks.ilike(search_term)
         )
     if payment_mode:
-        query = query.filter(PaymentOut.payment_mode == payment_mode)
+        query = query.filter(PaymentOut.payment_mode == norm_mode(payment_mode))
     if payment_to:
-        query = query.filter(PaymentOut.payment_to == payment_to)
+        query = query.filter(PaymentOut.payment_to == norm_to(payment_to))
     if date_from:
         query = query.filter(PaymentOut.payment_date >= date_from)
     if date_to:
@@ -112,9 +144,9 @@ def create_payment_out(payload: PaymentOutCreate, db: Session = Depends(get_db))
     new_payment = PaymentOut(
         file_id=payload.file_id,
         amount=payload.amount,
-        payment_mode=payload.payment_mode.lower(),
+        payment_mode=norm_mode(payload.payment_mode),   # normalize: NEFT -> neft
         payment_date=payload.payment_date,
-        payment_to=payload.payment_to.lower() if payload.payment_to else None,
+        payment_to=norm_to(payload.payment_to),         # normalize: Dealer -> dealer
         company_bank_id=payload.company_bank_id,
         cheque_bank_name=payload.cheque_bank_name,
         branch_name=payload.branch_name,
