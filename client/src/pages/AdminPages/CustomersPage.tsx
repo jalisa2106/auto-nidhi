@@ -1,263 +1,427 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import PageHeader from '../../components/app/PageHeader'
-import DataTable from '../../components/app/DataTable'
-import Modal from '../../components/app/Modal'
-import { customersApi } from '../../api/services'
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import PageHeader from "../../components/app/PageHeader";
+import DataTable from "../../components/app/DataTable";
+import Modal from "../../components/app/Modal";
+import { customersApi } from "../../api/services";
 
-// ✅ Aligned with your exact PostgreSQL DB Schema & Spec metrics
 const normalizeCustomer = (customer: any) => ({
   id: customer.id,
   name: customer.full_name,
   mobile: customer.mobile_1,
-  email: customer.email || '-',
-  city: customer.city || '',
-  files: customer.active_files_count ?? 0, // Maps to aggregate database count view
-  created: customer.created_at ? customer.created_at.slice(0, 10) : '',
-  type: customer.customer_type || 'Individual',
-})
+  email: customer.email || "-",
+  city: customer.city || "",
+  pan: customer.pan_number || "-",
+  files: customer.active_files_count ?? 0,
+  created: customer.created_at ? customer.created_at.slice(0, 10) : "",
+  type: customer.customer_type || "Individual",
+});
+
+const emptyForm = () => ({
+  name: "",
+  mobile: "",
+  mobile_2: "",
+  email: "",
+  address: "",
+  city: "",
+  state: "",
+  pincode: "",
+  date_of_birth: "",
+  aadhar_number: "",
+  pan_number: "",
+  customer_type: "individual",
+});
 
 export default function CustomersPage() {
-  const navigate = useNavigate()
-  const [rows, setRows] = useState<any[]>([])
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [formError, setFormError] = useState('')
-  const [form, setForm] = useState({ name: '', mobile: '', city: '' })
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const navigate = useNavigate();
+  const [rows, setRows] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [form, setForm] = useState(emptyForm());
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const loadCustomers = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
-      // API now returns the list directly as an array
-      const data = await customersApi.list()
+      const data = await customersApi.list();
       if (Array.isArray(data)) {
-        setRows(data.map(normalizeCustomer))
+        setRows(data.map(normalizeCustomer));
       } else {
-        throw new Error('Unexpected response format')
+        throw new Error("Unexpected response format");
       }
     } catch (err: any) {
-      setError(extractError(err) || 'Unable to load customers')
+      setError(extractError(err) || "Unable to load customers");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadCustomers()
-  }, [])
+    loadCustomers();
+  }, []);
 
-  const updateForm = (field: 'name' | 'mobile' | 'city', value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }))
+  const updateForm = (field: string, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
     if (formErrors[field]) {
       setFormErrors((prev) => {
-        const next = { ...prev }
-        delete next[field]
-        return next
-      })
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
     }
-    if (formError) setFormError('')
-  }
+    if (formError) setFormError("");
+  };
 
   const validateForm = () => {
-    const nextErrors: Record<string, string> = {}
-    const trimmedName = form.name.trim()
-    const trimmedCity = form.city.trim()
-    const mobileClean = form.mobile.replace(/\D/g, '')
+    const nextErrors: Record<string, string> = {};
+    const trimmedName = form.name.trim();
+    const mobileClean = form.mobile.replace(/\D/g, "");
 
-    if (!trimmedName) {
-      nextErrors.name = 'Name is required'
-    } else if (!/^[A-Za-z ]+$/.test(trimmedName)) {
-      nextErrors.name = 'Name must contain letters and spaces only'
-    }
+    if (!trimmedName) nextErrors.name = "Name is required";
+    else if (!/^[A-Za-z ]+$/.test(trimmedName)) nextErrors.name = "Name must contain letters and spaces only";
 
-    if (!form.mobile.trim()) {
-      nextErrors.mobile = 'Mobile number is required'
-    } else if (!/^\d{10}$/.test(mobileClean)) {
-      nextErrors.mobile = 'Mobile number must be exactly 10 digits'
-    }
+    if (!form.mobile.trim()) nextErrors.mobile = "Mobile number is required";
+    else if (!/^\d{10}$/.test(mobileClean)) nextErrors.mobile = "Mobile number must be exactly 10 digits";
 
-    if (form.city && !trimmedCity) {
-      nextErrors.city = 'City cannot be empty'
-    } else if (trimmedCity && !/^[A-Za-z ]+$/.test(trimmedCity)) {
-      nextErrors.city = 'City must contain letters and spaces only'
-    }
+    if (!form.email.trim()) nextErrors.email = "Email is required";
+    if (!form.date_of_birth) nextErrors.date_of_birth = "DOB is required";
+    if (!form.aadhar_number.trim()) nextErrors.aadhar_number = "Aadhar is required";
+    if (!form.city.trim()) nextErrors.city = "City is required";
+    if (!form.pincode.trim()) nextErrors.pincode = "Pincode is required";
+    if (!form.address.trim()) nextErrors.address = "Address is required";
+    if (!form.state.trim()) nextErrors.state = "State is required";
 
-    setFormErrors(nextErrors)
-    return Object.keys(nextErrors).length === 0
-  }
-
-  const mapApiErrorsToFields = (err: any) => {
-    const detail = err?.response?.data?.detail
-    if (!Array.isArray(detail)) return {}
-
-    const nextErrors: Record<string, string> = {}
-    for (const item of detail) {
-      const field = item?.loc?.[item.loc.length - 1]
-      if (field === 'full_name') nextErrors.name = item.msg
-      if (field === 'mobile_1') nextErrors.mobile = item.msg
-      if (field === 'city') nextErrors.city = item.msg
-    }
-    return nextErrors
-  }
+    setFormErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   const handleCreate = async () => {
-    setFormError('')
-    if (!validateForm()) return
+    setFormError("");
+    if (!validateForm()) return;
 
-    const trimmedName = form.name.trim()
-    const trimmedCity = form.city.trim()
-    const mobileClean = form.mobile.replace(/\D/g, '')
-
-    setLoading(true)
+    setLoading(true);
     try {
-      const created = await customersApi.create({
-        full_name: trimmedName,
-        mobile_1: mobileClean,
-        city: trimmedCity || undefined,
-      })
-      setRows([normalizeCustomer(created), ...rows])
-      setForm({ name: '', mobile: '', city: '' })
-      setFormErrors({})
-      setFormError('')
-      setOpen(false)
-    } catch (err: any) {
-      const apiFieldErrors = mapApiErrorsToFields(err)
-      if (Object.keys(apiFieldErrors).length > 0) {
-        setFormErrors(apiFieldErrors)
-      } else {
-        setFormError(extractError(err) || 'Unable to create customer')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
+      const payload: any = {
+        full_name: form.name.trim(),
+        mobile_1: form.mobile.replace(/\D/g, ""),
+        customer_type: form.customer_type,
+        email: form.email.trim(),
+        address: form.address.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(), 
+        pincode: form.pincode.trim(),
+        date_of_birth: form.date_of_birth,
+        aadhar_number: form.aadhar_number.trim(),
+      };
 
-  // Extract user-friendly error message from API / axios errors
-  function extractError(err: any): string | undefined {
-    const resp = err?.response?.data
-    if (!resp) return err?.message
-    const detail = resp.detail ?? resp.message
-    if (!detail) return typeof resp === 'string' ? resp : JSON.stringify(resp)
-    if (typeof detail === 'string') return detail
-    if (Array.isArray(detail)) {
-      // Pydantic validation errors: [{loc, msg, type}, ...]
-      return detail.map((d: any) => d?.msg || (typeof d === 'string' ? d : JSON.stringify(d))).join('; ')
+      if (form.mobile_2) payload.mobile_2 = form.mobile_2.replace(/\D/g, "");
+      if (form.email) payload.email = form.email.trim();
+      if (form.address) payload.address = form.address.trim();
+      if (form.city) payload.city = form.city.trim();
+      if (form.state) payload.state = form.state.trim();
+      if (form.pincode) payload.pincode = form.pincode.trim();
+      if (form.date_of_birth) payload.date_of_birth = form.date_of_birth;
+      if (form.aadhar_number) payload.aadhar_number = form.aadhar_number.trim();
+      if (form.pan_number)
+        payload.pan_number = form.pan_number.trim().toUpperCase();
+
+      const created = await customersApi.create(payload);
+      setRows([normalizeCustomer(created), ...rows]);
+      setForm(emptyForm());
+      setFormErrors({});
+      setFormError("");
+      setOpen(false);
+    } catch (err: any) {
+      setFormError(extractError(err) || "Unable to create customer");
+    } finally {
+      setLoading(false);
     }
-    // Fallback
-    return String(detail)
+  };
+
+  function extractError(err: any): string | undefined {
+    const resp = err?.response?.data;
+    if (!resp) return err?.message;
+    const detail = resp.detail ?? resp.message;
+    if (!detail) return typeof resp === "string" ? resp : JSON.stringify(resp);
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map(
+          (d: any) => d?.msg || (typeof d === "string" ? d : JSON.stringify(d)),
+        )
+        .join("; ");
+    }
+    return String(detail);
   }
 
   return (
     <>
-      <PageHeader title="Customers" subtitle="All registered customers and client accounts within the system" />
-      
+      <PageHeader
+        title="Customers"
+        subtitle="All registered customers and client accounts within the system"
+      />
+
       {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', padding: '12px 16px', borderRadius: 8, marginBottom: 20, fontSize: '0.875rem' }}>
+        <div
+          style={{
+            background: "#fef2f2",
+            border: "1px solid #fca5a5",
+            color: "#b91c1c",
+            padding: "12px 16px",
+            borderRadius: 8,
+            marginBottom: 20,
+            fontSize: "0.875rem",
+          }}
+        >
           {error}
         </div>
       )}
 
-      {/* ── Main Data View Grid (Restored!) ── */}
       {loading ? (
-        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--gray-400)', fontWeight: 500 }}>
+        <div
+          style={{
+            padding: "40px 0",
+            textAlign: "center",
+            color: "var(--gray-400)",
+            fontWeight: 500,
+          }}
+        >
           Loading customer pipeline directory...
         </div>
       ) : (
         <DataTable
           rows={rows}
-          searchKeys={['name', 'mobile', 'city', 'email']}
+          searchKeys={["name", "mobile", "city", "email", "pan"]}
           onAdd={() => setOpen(true)}
           addLabel="New customer"
           columns={[
-            { 
-              key: 'id', 
-              label: 'ID',
+            {
+              key: "id",
+              label: "ID",
               render: (r) => (
-                <span style={{ fontFamily: 'monospace', color: 'var(--gray-400)', fontSize: '0.8rem' }} title={r.id}>
+                <span
+                  style={{
+                    fontFamily: "monospace",
+                    color: "var(--gray-400)",
+                    fontSize: "0.8rem",
+                  }}
+                  title={r.id}
+                >
                   #{r.id.slice(0, 6)}
                 </span>
-              )
+              ),
             },
             {
-              key: 'name', label: 'Customer Name',
+              key: "name",
+              label: "Customer Name",
               render: (r) => (
-                <span 
-                  style={{ color: 'var(--brand-600)', fontWeight: 600, cursor: 'pointer' }} 
+                <span
+                  style={{
+                    color: "var(--brand-600)",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
                   onClick={() => navigate(`/customers/${r.id}`)}
                 >
                   {r.name}
                 </span>
               ),
             },
-            { key: 'mobile', label: 'Mobile Number' },
-            { key: 'email', label: 'Email Address' },
-            { key: 'city', label: 'City' },
-            { 
-              key: 'files', 
-              label: 'Active Files',
+            { key: "mobile", label: "Mobile" },
+            { key: "city", label: "City" },
+            { key: "pan", label: "PAN Number" },
+            {
+              key: "files",
+              label: "Active Files",
               render: (r) => (
-                <span style={{ 
-                  background: r.files > 0 ? 'var(--brand-50)' : 'var(--gray-50)', 
-                  color: r.files > 0 ? 'var(--brand-700)' : 'var(--gray-400)',
-                  padding: '4px 8px', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem'
-                }}>
+                <span
+                  style={{
+                    background:
+                      r.files > 0 ? "var(--brand-50)" : "var(--gray-50)",
+                    color: r.files > 0 ? "var(--brand-700)" : "var(--gray-400)",
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    fontWeight: 600,
+                    fontSize: "0.8rem",
+                  }}
+                >
                   {r.files} active
                 </span>
-              )
+              ),
             },
-            { key: 'created', label: 'Created Date' },
           ]}
         />
       )}
 
-      {/* ── Safe, Form-Intercepted Creation Dialog Modal ── */}
       <Modal
         open={open}
-        title="Create customer"
-        onClose={() => {
-          setOpen(false)
-          setFormErrors({})
-          setFormError('')
-        }}
+        title="Register New Customer"
+        onClose={() => setOpen(false)}
         onSubmit={handleCreate}
+        maxWidth="760px"
       >
         {formError && <div className="form-error">{formError}</div>}
-        <div className="form-group">
-          <label className="form-label">Full name<span className="req">*</span></label>
-          <input
-            className={`form-input ${formErrors.name ? 'error' : ''}`}
-            value={form.name}
-            onChange={(e) => updateForm('name', e.target.value)}
-            required
-          />
-          {formErrors.name && <span className="form-error">{formErrors.name}</span>}
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Mobile<span className="req">*</span></label>
-            <input
-              className={`form-input ${formErrors.mobile ? 'error' : ''}`}
-              value={form.mobile}
-              onChange={(e) => updateForm('mobile', e.target.value)}
-              required
-            />
-            {formErrors.mobile && <span className="form-error">{formErrors.mobile}</span>}
+
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
+        >
+          {/* Column 1 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="form-group">
+              <label className="form-label">
+                Full Name <span className="req">*</span>
+              </label>
+              <input
+                className={`form-input ${formErrors.name ? "error" : ""}`}
+                value={form.name}
+                onChange={(e) => updateForm("name", e.target.value)}
+                required
+              />
+              {formErrors.name && <span className="form-error">{formErrors.name}</span>}
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                Mobile Number <span className="req">*</span>
+              </label>
+              <input
+                className={`form-input ${formErrors.mobile ? "error" : ""}`}
+                value={form.mobile}
+                onChange={(e) => updateForm("mobile", e.target.value)}
+                placeholder="10 digits"
+                required
+              />
+              {formErrors.mobile && <span className="form-error">{formErrors.mobile}</span>}
+            </div>
+            <div className="form-group">
+              <label className="form-label">Alt Mobile Number</label>
+              <input
+                className="form-input"
+                value={form.mobile_2}
+                onChange={(e) => updateForm("mobile_2", e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                Email Address <span className="req">*</span>
+              </label>
+              <input
+                type="email"
+                className={`form-input ${formErrors.email ? "error" : ""}`}
+                value={form.email}
+                onChange={(e) => updateForm("email", e.target.value)}
+              />
+              {formErrors.email && <span className="form-error">{formErrors.email}</span>}
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                Date of Birth <span className="req">*</span>
+              </label>
+              <input
+                type="date"
+                className={`form-input ${formErrors.date_of_birth ? "error" : ""}`}
+                value={form.date_of_birth}
+                onChange={(e) => updateForm("date_of_birth", e.target.value)}
+              />
+              {formErrors.date_of_birth && <span className="form-error">{formErrors.date_of_birth}</span>}
+            </div>
           </div>
-          <div className="form-group">
-            <label className="form-label">City</label>
-            <input
-              className={`form-input ${formErrors.city ? 'error' : ''}`}
-              value={form.city}
-              onChange={(e) => updateForm('city', e.target.value)}
-            />
-            {formErrors.city && <span className="form-error">{formErrors.city}</span>}
+
+          {/* Column 2 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="form-group">
+              <label className="form-label">Customer Type</label>
+              <select
+                className="form-select"
+                value={form.customer_type}
+                onChange={(e) => updateForm("customer_type", e.target.value)}
+              >
+                <option value="individual">Individual</option>
+                <option value="business">Business</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                Aadhar Number <span className="req">*</span>
+              </label>
+              <input
+                className={`form-input ${formErrors.aadhar_number ? "error" : ""}`}
+                value={form.aadhar_number}
+                onChange={(e) => updateForm("aadhar_number", e.target.value)}
+                placeholder="12 digits"
+              />
+              {formErrors.aadhar_number && <span className="form-error">{formErrors.aadhar_number}</span>}
+            </div>
+            <div className="form-group">
+              <label className="form-label">PAN Number</label>
+              <input
+                className="form-input"
+                value={form.pan_number}
+                onChange={(e) => updateForm("pan_number", e.target.value)}
+                placeholder="ABCDE1234F"
+                style={{ textTransform: "uppercase" }}
+              />
+            </div>
+            <div
+              className="form-group"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 10,
+              }}
+            >
+              <div className="form-group">
+                <label className="form-label">
+                  State <span className="req">*</span>
+                </label>
+                <input
+                  className={`form-input ${formErrors.state ? "error" : ""}`}
+                  value={form.state}
+                  onChange={(e) => updateForm("state", e.target.value)}
+                />
+                {formErrors.state && <span className="form-error">{formErrors.state}</span>}
+              </div>
+              <div>
+                <label className="form-label">
+                  City <span className="req">*</span>
+                </label>
+                <input
+                  className={`form-input ${formErrors.city ? "error" : ""}`}
+                  value={form.city}
+                  onChange={(e) => updateForm("city", e.target.value)}
+                />
+                {formErrors.city && <span className="form-error">{formErrors.city}</span>}
+              </div>
+              <div>
+                <label className="form-label">
+                  Pincode <span className="req">*</span>
+                </label>
+                <input
+                  className={`form-input ${formErrors.pincode ? "error" : ""}`}
+                  value={form.pincode}
+                  onChange={(e) => updateForm("pincode", e.target.value)}
+                />
+                {formErrors.pincode && <span className="form-error">{formErrors.pincode}</span>}
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                Full Address <span className="req">*</span>
+              </label>
+              <textarea
+                className={`form-input ${formErrors.address ? "error" : ""}`}
+                rows={1}
+                value={form.address}
+                onChange={(e) => updateForm("address", e.target.value)}
+                style={{ resize: "vertical" }}
+              />
+              {formErrors.address && <span className="form-error">{formErrors.address}</span>}
+            </div>
           </div>
         </div>
       </Modal>
     </>
-  )
-}
-
+  );
+} 
