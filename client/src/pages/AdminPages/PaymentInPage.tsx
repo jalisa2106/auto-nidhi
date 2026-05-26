@@ -5,14 +5,10 @@ import {
 } from 'lucide-react'
 import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
-import { paymentsInApi, filesApi } from '../../api/services'
+import { paymentsInApi, filesApi, bankAccountsApi } from '../../api/services'
 
 const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 const PAYMENT_FROM  = ['Customer', 'Bank', 'Insurer', 'Other'] as const
-const COMPANY_BANKS = [
-  { id: 'CB001', label: 'HDFC Bank – Main A/C' },
-  { id: 'CB002', label: 'ICICI Bank – Operations' },
-]
 
 function fmtINR(n: number) {
   return '₹' + Number(n).toLocaleString('en-IN')
@@ -118,6 +114,7 @@ export default function PaymentInPage() {
   const [rows, setRows]           = useState<any[]>([])
   const [totalRows, setTotalRows] = useState(0)
   const [availableFiles, setAvailableFiles] = useState<any[]>([])
+  const [companyBanks, setCompanyBanks] = useState<{ id: string; label: string }[]>([])
   const [showAdd, setShowAdd]     = useState(false)
   const [viewRow, setViewRow]     = useState<any | null>(null)
   const [form, setForm]           = useState({ ...EMPTY_FORM })
@@ -164,6 +161,16 @@ export default function PaymentInPage() {
   useEffect(() => {
     loadPayments()
   }, [page, pageSize, search, filterMode, filterFrom, filterDateFrom, filterDateTo])
+
+  useEffect(() => {
+    // Load company banks once on mount for the dropdown
+    bankAccountsApi.list(1, 200).then(res => {
+      setCompanyBanks((res.data || []).map((b: any) => ({
+        id: b.id,
+        label: `${b.bank_name} – ${b.account_number}`,
+      })))
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (showAdd) loadFilesDropdown()
@@ -221,7 +228,7 @@ export default function PaymentInPage() {
       cheque_no: form.cheque_no || null,
       cheque_date: form.cheque_date || null,
       utr_no: form.utr_no || null,
-      company_bank_id: null,   // real UUID lookup pending — set null to avoid 422
+      company_bank_id: form.company_bank_id || null,
       remarks: form.remarks || null,
     }
 
@@ -563,7 +570,10 @@ export default function PaymentInPage() {
                       onChange={(e) => updateForm('company_bank_id', e.target.value)}
                     >
                       <option value="">— Select account —</option>
-                      {COMPANY_BANKS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+                      {companyBanks.length === 0
+                        ? <option disabled>No bank accounts — add in Settings first</option>
+                        : companyBanks.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)
+                      }
                     </select>
                   </div>
 
@@ -717,7 +727,7 @@ export default function PaymentInPage() {
                 </div>
                 <div className="pay-detail-item">
                   <div className="pay-detail-key">Company Bank</div>
-                  <div className="pay-detail-val">{COMPANY_BANKS.find(b => b.id === viewRow.company_bank_id)?.label ?? '—'}</div>
+                  <div className="pay-detail-val">{companyBanks.find(b => b.id === viewRow.company_bank_id)?.label ?? viewRow.company_bank_label ?? '—'}</div>
                 </div>
                 {viewRow.cheque_no && <>
                   <div className="pay-detail-item">

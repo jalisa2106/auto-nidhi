@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
-import { commissionsOutApi, filesApi } from '../../api/services'
+import { commissionsOutApi, filesApi, bankAccountsApi } from '../../api/services'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 type CommissionOut = {
@@ -30,10 +30,6 @@ type CommissionOut = {
 
 const PAYMENT_MODES   = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 const PAYEE_TYPES     = ['Dealer', 'Broker', 'Agent', 'Other'] as const
-const COMPANY_BANKS   = [
-  { id: 'CB001', label: 'HDFC Bank – Main A/C' },
-  { id: 'CB002', label: 'ICICI Bank – Operations' },
-]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 function fmtINR(n: number) {
@@ -155,6 +151,7 @@ function Pagination({
 export default function CommissionOutPage() {
   const [rows, setRows]         = useState<CommissionOut[]>([])
   const [availableFiles, setAvailableFiles] = useState<any[]>([])
+  const [companyBanks, setCompanyBanks] = useState<{ id: string; label: string }[]>([])
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<CommissionOut | null>(null)
   const [form, setForm]         = useState({ ...EMPTY_FORM })
@@ -227,6 +224,13 @@ export default function CommissionOutPage() {
 
   useEffect(() => {
     loadCommissions()
+    // Load company banks once on mount for the dropdown
+    bankAccountsApi.list(1, 200).then(res => {
+      setCompanyBanks((res.data || []).map((b: any) => ({
+        id: b.id,
+        label: `${b.bank_name} – ${b.account_number}`,
+      })))
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -268,7 +272,7 @@ export default function CommissionOutPage() {
       cheque_no: form.cheque_no || null,
       cheque_date: form.cheque_date || null,
       utr_no: form.utr_no || null,
-      company_bank_id: isUuid(form.company_bank_id) ? form.company_bank_id : null,
+      company_bank_id: form.company_bank_id || null,
       remarks: form.remarks || null,
     }
 
@@ -613,7 +617,10 @@ export default function CommissionOutPage() {
                       onChange={(e) => updateForm('company_bank_id', e.target.value)}
                     >
                       <option value="">— Select account —</option>
-                      {COMPANY_BANKS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+                      {companyBanks.length === 0
+                        ? <option disabled>No bank accounts — add in Settings first</option>
+                        : companyBanks.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)
+                      }
                     </select>
                   </div>
 
@@ -768,7 +775,7 @@ export default function CommissionOutPage() {
                 <div className="pay-detail-item">
                   <div className="pay-detail-key">Company Bank</div>
                   <div className="pay-detail-val">
-                    {COMPANY_BANKS.find((b) => b.id === viewRow.company_bank_id)?.label ?? '—'}
+                    {companyBanks.find((b) => b.id === viewRow.company_bank_id)?.label ?? viewRow.company_bank_label ?? '—'}
                   </div>
                 </div>
                 {viewRow.cheque_no && <>

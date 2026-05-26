@@ -153,12 +153,65 @@ export const rtoPaymentsApi = {
     const { data } = await api.post('/rto-payments', payload)
     return data
   },
-  delete: async (id: string) => {
-    const { data } = await api.delete(`/rto-payments/${id}`)
+}
+
+// ── Settings APIs ────────────────────────────────────────────────────────────
+
+export const companySettingsApi = {
+  get: async () => {
+    const { data } = await api.get('/settings/company')
     return data
   },
-  update: async (id: string, payload: any) => {
-    const { data } = await api.patch(`/rto-payments/${id}`, payload)
+  create: async (payload: Record<string, any>) => {
+    const { data } = await api.post('/settings/company', payload)
+    return data
+  },
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/settings/company/${id}`, payload)
+    return data
+  },
+}
+
+export const bankAccountsApi = {
+  list: async (page = 1, limit = 50) => {
+    const { data } = await api.get('/settings/banks', { params: { page, limit } })
+    return data
+  },
+  create: async (payload: { bank_name: string; account_number: string; ifsc_code: string; area?: string }) => {
+    const { data } = await api.post('/settings/banks', payload)
+    return data
+  },
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/settings/banks/${id}`, payload)
+    return data
+  },
+  remove: async (id: string) => {
+    await api.delete(`/settings/banks/${id}`)
+  },
+}
+
+export const rolesApi = {
+  list: async () => {
+    const { data } = await api.get('/settings/roles')
+    return data
+  },
+}
+
+export const usersSettingsApi = {
+  list: async (page = 1, limit = 50, search = '') => {
+    const { data } = await api.get('/settings/users', { params: { page, limit, search: search || undefined } })
+    return data
+  },
+  create: async (payload: Record<string, any>) => {
+    const { data } = await api.post('/settings/users', payload)
+    return data
+  },
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/settings/users/${id}`, payload)
+    return data
+  },
+  toggleActive: async (id: string) => {
+    const { data } = await api.patch(`/settings/users/${id}/toggle-active`)
     return data
   },
 }
