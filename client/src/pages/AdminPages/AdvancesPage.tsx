@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   TrendingDown, TrendingUp, Clock,
   Search, Plus, X, Pencil, Trash2,
@@ -6,7 +6,8 @@ import {
   CreditCard, CheckCircle2, AlertCircle, RefreshCw,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
-import { mockAdvances, mockDealers, mockBrokers } from '../../lib/mockData'
+import { mockDealers } from '../../lib/mockData'
+import { advancesApi, brokersApi } from '../../api/services'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
@@ -46,6 +47,14 @@ interface Advance {
   remarks           : string   // advances.remarks
 }
 
+interface Broker {
+  id: string
+  broker_name: string
+  area?: string
+  district?: string
+  phone?: string
+}
+
 type PartyType = 'dealer' | 'broker'
 type Mode = Advance['mode']
 type RecoveryStatus = Advance['recovery_status']
@@ -53,7 +62,7 @@ type RecoveryStatus = Advance['recovery_status']
 const MODES: Mode[] = ['cash', 'cheque', 'rtgs', 'neft', 'imps', 'upi']
 
 const emptyForm = () => ({
-  party_type        : 'dealer' as PartyType,
+  party_type        : 'broker' as PartyType,
   dealer_id         : '',
   broker_id         : '',
   advance_date      : '',
@@ -127,7 +136,10 @@ function FormField({ label, children, error }: { label: string; children: React.
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdvancesPage() {
-  const [rows,     setRows]     = useState<Advance[]>(mockAdvances as Advance[])
+  const [rows, setRows] = useState<Advance[]>([])
+  const [brokers, setBrokers] = useState<Broker[]>([])
+  const [loading, setLoading] = useState(false)
+
   const [search,   setSearch]   = useState('')
   const [selected, setSelected] = useState<Advance | null>(null)
 
@@ -152,6 +164,32 @@ export default function AdvancesPage() {
     )
   })
 
+  const loadAdvances = async () => {
+    setLoading(true)
+    try {
+      const data = await advancesApi.list()
+      setRows(data)
+    } catch (err) {
+      console.error('Failed to load advances', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadBrokers = async () => {
+    try {
+      const data = await brokersApi.list()
+      setBrokers(data)
+    } catch (err) {
+      console.error('Failed to load brokers', err)
+    }
+  }
+
+  useEffect(() => {
+    loadAdvances()
+    loadBrokers()
+  }, [])
+
   // ── Validation ──
   const validate = (isEdit = false) => {
     const e: Record<string, string> = {}
@@ -169,45 +207,29 @@ export default function AdvancesPage() {
     return Object.keys(e).length === 0
   }
 
-  // ── Derive party name from selected IDs ──
-  const getPartyName = (f: typeof form): string => {
-    if (f.party_type === 'dealer') {
-      return mockDealers.find(d => d.id === f.dealer_id)?.name || ''
-    }
-    return mockBrokers.find(b => b.id === f.broker_id)?.broker_name || ''
-  }
-
-  // ── Derive recovery_status from amounts ──
-  const deriveStatus = (amount: number, recovered: number): RecoveryStatus => {
-    if (recovered <= 0)      return 'pending'
-    if (recovered >= amount) return 'fully_recovered'
-    return 'partial'
-  }
-
   // ── Handlers ──
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!validate(false)) return
-    // POST /api/advances  →  body: { dealer_id, broker_id, advance_date, amount, mode, utr_cheque_number, purpose, remarks }
-    const partyName = getPartyName(form)
-    const newRow: Advance = {
-      id               : `A${String(rows.length + 1).padStart(3, '0')}`,
-      dealer_id        : form.party_type === 'dealer' ? form.dealer_id : null,
-      broker_id        : form.party_type === 'broker' ? form.broker_id : null,
-      party_type       : form.party_type,
-      party_name       : partyName,
-      advance_date     : form.advance_date,
-      amount           : form.amount,
-      mode             : form.mode,
-      utr_cheque_number: form.utr_cheque_number,
-      purpose          : form.purpose,
-      recovery_status  : 'pending',
-      amount_recovered : 0,
-      remarks          : form.remarks,
+
+    try {
+      const created = await advancesApi.create({
+        dealer_id: form.party_type === 'dealer' ? form.dealer_id : null,
+        broker_id: form.party_type === 'broker' ? form.broker_id : null,
+        advance_date: form.advance_date,
+        amount: form.amount,
+        mode: form.mode,
+        utr_cheque_number: form.utr_cheque_number,
+        purpose: form.purpose,
+        remarks: form.remarks,
+      })
+
+      setRows(prev => [created, ...prev])
+      setForm(emptyForm())
+      setErrors({})
+      setAddOpen(false)
+    } catch (err) {
+      console.error('Failed to create advance', err)
     }
-    setRows(prev => [newRow, ...prev])
-    setForm(emptyForm())
-    setErrors({})
-    setAddOpen(false)
   }
 
   const openEdit = (r: Advance) => {
@@ -228,29 +250,43 @@ export default function AdvancesPage() {
     setEditOpen(true)
   }
 
-  const handleEdit = () => {
-    // PATCH /api/advances/:id  →  body: { amount_recovered, remarks }
-    if (!validate(true)) return
-    const newStatus = deriveStatus(selected!.amount, form.amount_recovered)
-    setRows(prev => prev.map(r =>
-      r.id === selected!.id
-        ? { ...r, amount_recovered: form.amount_recovered, remarks: form.remarks, recovery_status: newStatus }
-        : r
-    ))
-    setSelected(prev => prev ? { ...prev, amount_recovered: form.amount_recovered, remarks: form.remarks, recovery_status: newStatus } : prev)
-    setEditOpen(false)
+  const handleEdit = async () => {
+    if (!validate(true) || !selected) return
+
+    try {
+      const updated = await advancesApi.update(selected.id, {
+        amount_recovered: form.amount_recovered,
+        remarks: form.remarks,
+      })
+
+      setRows(prev => prev.map(r => r.id === selected.id ? updated : r))
+      setSelected(updated)
+      setEditOpen(false)
+    } catch (err) {
+      console.error('Failed to update advance', err)
+    }
   }
 
-  const handleDelete = (id: string) => {
-    // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
-    // Before uncommenting: add this column to DB:
-    //   ALTER TABLE advances ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
-    // API call: PATCH /api/advances/:id  →  body: { is_deleted: true }
-    //
-    // setRows(prev => prev.filter(r => r.id !== id))
-    // setSelected(null)
-    // ─────────────────────────────────────────────────────────────────────────
-    alert(`Soft delete pending backend column.\nAdvance ID: ${id}\n\nRequired: ALTER TABLE advances ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;`)
+  // const handleDelete = (id: string) => {
+  //   // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
+  //   // Before uncommenting: add this column to DB:
+  //   //   ALTER TABLE advances ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+  //   // API call: PATCH /api/advances/:id  →  body: { is_deleted: true }
+  //   //
+  //   // setRows(prev => prev.filter(r => r.id !== id))
+  //   // setSelected(null)
+  //   // ─────────────────────────────────────────────────────────────────────────
+  //   alert(`Soft delete pending backend column.\nAdvance ID: ${id}\n\nRequired: ALTER TABLE advances ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;`)
+  // }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await advancesApi.remove(id)
+      setRows(prev => prev.filter(r => r.id !== id))
+      setSelected(null)
+    } catch (err) {
+      console.error('Failed to delete advance', err)
+    }
   }
 
   const upd = (key: keyof typeof form, val: string | number) => {
@@ -312,7 +348,9 @@ export default function AdvancesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {loading ? (
+                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading advances...</td></tr>
+                ) : filtered.length === 0 ? (
                   <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No advances match your search.</td></tr>
                 ) : filtered.map(row => {
                   const isSelected = selected?.id === row.id
@@ -444,8 +482,8 @@ export default function AdvancesPage() {
           <FormField label="Party Type *">
             <select id="advance-add-party-type" className="form-select" style={{ width: '100%' }}
               value={form.party_type}
-              onChange={e => { upd('party_type', e.target.value); upd('dealer_id', ''); upd('broker_id', '') }}>
-              <option value="dealer">Dealer</option>
+              onChange={e => { upd('party_type', e.target.value as PartyType); upd('dealer_id', ''); upd('broker_id', '') }}>
+              <option value="dealer" disabled>Dealer</option>
               <option value="broker">Broker</option>
             </select>
           </FormField>
@@ -464,7 +502,11 @@ export default function AdvancesPage() {
               <select id="advance-add-broker" className={`form-input ${errors.broker_id ? 'error' : ''}`} style={{ width: '100%' }}
                 value={form.broker_id} onChange={e => upd('broker_id', e.target.value)}>
                 <option value="">Select broker…</option>
-                {mockBrokers.map(b => <option key={b.id} value={b.id}>{b.broker_name} — {b.district}</option>)}
+                {brokers.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {b.broker_name} — {b.district}
+                  </option>
+                ))}
               </select>
             </FormField>
           )}
@@ -482,7 +524,7 @@ export default function AdvancesPage() {
           <FormField label="Payment Mode *">
             <select id="advance-add-mode" className="form-select" style={{ width: '100%' }}
               value={form.mode}
-              onChange={e => { upd('mode', e.target.value); upd('utr_cheque_number', '') }}>
+              onChange={e => { upd('mode', e.target.value as Mode); upd('utr_cheque_number', '') }}>
               {MODES.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
             </select>
           </FormField>

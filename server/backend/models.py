@@ -92,6 +92,32 @@ class MasterBroker(Base):
     is_deleted = Column(Boolean, nullable=False, default=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
+class Advance(Base):
+    __tablename__ = "advances"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    dealer_id = Column(UUID(as_uuid=True), ForeignKey("master_dealer.id"), nullable=True)
+    broker_id = Column(UUID(as_uuid=True), ForeignKey("master_broker.id"), nullable=True)
+    advance_date = Column(Date, nullable=False)
+    amount = Column(DECIMAL(15, 2), nullable=False)
+    mode = Column(String, nullable=False)
+    utr_cheque_number = Column(String(50))
+    purpose = Column(String(500))
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=True)
+    recovery_status = Column(String, nullable=False, default="pending")
+    amount_recovered = Column(DECIMAL(15, 2), nullable=False, default=0)
+    remarks = Column(Text)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("system_user.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    is_deleted = Column(Boolean, nullable=False, default=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    dealer = relationship("MasterDealer", foreign_keys=[dealer_id])
+    broker = relationship("MasterBroker", foreign_keys=[broker_id])
+    file = relationship("FileRecord", foreign_keys=[file_id])
+    creator = relationship("SystemUser", foreign_keys=[created_by])
+
 class FileRecord(Base):
     __tablename__ = "file_record"
     

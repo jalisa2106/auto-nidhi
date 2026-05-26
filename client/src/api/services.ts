@@ -361,3 +361,37 @@ export const financeBanksApi = {
   },
 }
 
+export const advancesApi = {
+  list: async (search = '') => {
+    const { data } = await api.get('/advances', {
+      params: { search: search || undefined },
+    })
+    return data
+  },
+
+  create: async (payload: {
+    dealer_id?: string | null
+    broker_id?: string | null
+    advance_date: string
+    amount: number
+    mode: string
+    utr_cheque_number?: string
+    purpose?: string
+    remarks?: string
+  }) => {
+    const { data } = await api.post('/advances', payload)
+    return data
+  },
+
+  update: async (
+    id: string,
+    payload: { amount_recovered: number; remarks?: string }
+  ) => {
+    const { data } = await api.patch(`/advances/${id}`, payload)
+    return data
+  },
+
+  remove: async (id: string) => {
+    await api.delete(`/advances/${id}`)
+  },
+}

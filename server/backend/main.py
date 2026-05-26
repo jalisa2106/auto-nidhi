@@ -16,6 +16,7 @@ from backend.routes.admin.rto_payments import router as rto_payments_router
 from backend.routes.admin.commissions_in import router as commissions_in_router
 from backend.routes.admin.commissions_out import router as commissions_out_router
 from backend.routes.admin.expenses import router as expenses_router
+from backend.routes.admin.advances import router as advances_router
 
 #Masters Routes
 from backend.routes.admin.brokers import router as brokers_router
@@ -63,6 +64,9 @@ app.include_router(commissions_out_router)
 app.include_router(payments_out_router)
 app.include_router(rto_payments_router)
 app.include_router(expenses_router)
+app.include_router(commissions_out_router)
+app.include_router(expenses_router)
+app.include_router(advances_router)
 
 # Masters   
 app.include_router(brokers_router)
