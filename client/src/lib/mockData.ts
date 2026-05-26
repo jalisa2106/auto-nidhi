@@ -453,9 +453,43 @@ export const mockRTOPayments = [
 ]
 
 export const mockInsurancePayments = [
-  { id: 'IP001', file: 'F1003', payee: 'New India Assurance', amount: 12200, mode: 'NEFT', date: '2025-10-13' },
-  { id: 'IP002', file: 'F1007', payee: 'ICICI Lombard',       amount: 8500,  mode: 'UPI',  date: '2025-10-23' },
-]
+  {
+    id: "IP001",
+    file_number: "F1003",
+    payee_name: "New India Assurance",
+    amount: 12200,
+    mode: "NEFT" as const,
+    payment_date: "2025-10-13",
+    valid_to: "2026-05-20", // Lapsed state condition check target
+    company_bank_id: "CB001",
+    remarks: "Comprehensive auto collision asset policy cover",
+    is_deleted: false
+  },
+  {
+    id: "IP002",
+    file_number: "F1007",
+    payee_name: "ICICI Lombard",
+    amount: 8500,
+    mode: "UPI" as const,
+    payment_date: "2025-10-23",
+    valid_to: "2027-10-22", // Active safe tracking state
+    company_bank_id: "CB002",
+    remarks: "Zero-depreciation bumper add-on supplement tier",
+    is_deleted: false
+  },
+  {
+    id: "IP003",
+    file_number: "F1009",
+    payee_name: "GoDigit General Insurance",
+    amount: 14200,
+    mode: "RTGS" as const,
+    payment_date: "2025-06-01",
+    valid_to: "2026-06-01", // Imminent warning lookahead flag threshold item
+    company_bank_id: "CB001",
+    remarks: "Commercial haul transit safety premium block",
+    is_deleted: false
+  }
+];
 
 export const mockExpenses = [
   { id: 'E001', category: 'Office Rent', amount: 35000, date: '2025-10-01' },
@@ -549,3 +583,4 @@ export const mockInsuranceExpiring = [
 ]
 
 export const fileStatuses = ['Draft', 'Login', 'Under Process', 'Sanctioned', 'Disbursed', 'Completed', 'Cancelled'] as const
+
