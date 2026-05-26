@@ -195,52 +195,60 @@ export default function FilesPage() {
       />
 
       <Modal open={addOpen} title="Create New File" onClose={() => setAddOpen(false)} onSubmit={handleCreate} maxWidth="500px">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="form-group">
-            <label className="form-label">Customer <span className="req">*</span></label>
-            <select className="form-input" value={form.customer_id} onChange={(e) => setForm(p => ({ ...p, customer_id: e.target.value }))} required>
-              <option value="">-- Select Customer --</option>
-              {customers.map((c) => <option key={c.id} value={c.id}>{c.full_name} ({c.mobile_1})</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Bank <span className="req">*</span></label>
-            <select className="form-input" value={form.bank_id} onChange={(e) => setForm(p => ({ ...p, bank_id: e.target.value }))} required>
-              <option value="">-- Select Bank --</option>
-              {banks.map((b) => <option key={b.id} value={b.id}>{b.bank_name}</option>)}
-            </select>
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="form-group">
-              <label className="form-label">File Type <span className="req">*</span></label>
-              <select className="form-select" value={form.file_type} onChange={(e) => setForm(p => ({ ...p, file_type: e.target.value }))} required>
-                <option value="">-- Select Type --</option>
-                <option value="new_vehicle">New Vehicle</option>
-                <option value="used_vehicle">Used Vehicle</option>
-                <option value="renewal">Renewal</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Status <span className="req">*</span></label>
-              <select className="form-select" value={form.status} onChange={(e) => setForm(p => ({ ...p, status: e.target.value }))} required>
-                <option value="">-- Select Status --</option>
-                <option value="draft">Draft</option>
-                <option value="login">Login</option>
-                <option value="under_process">Under Process</option>
-                <option value="sanctioned">Sanctioned</option>
-                <option value="disbursed">Disbursed</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Remarks</label>
-            <textarea className="form-input" rows={2} value={form.remarks} onChange={(e) => setForm(p => ({ ...p, remarks: e.target.value }))} style={{ resize: 'vertical' }} />
-          </div>
-        </div>
-      </Modal>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="form-group">
+      <label className="form-label">
+        Customer <span style={{ color: '#dc2626' }}>*</span>
+      </label>
+      <select className="form-input" value={form.customer_id} onChange={(e) => setForm(p => ({ ...p, customer_id: e.target.value }))} required>
+        <option value="">-- Select Customer --</option>
+        {customers.map((c) => <option key={c.id} value={c.id}>{c.full_name} ({c.mobile_1})</option>)}
+      </select>
+    </div>
+    <div className="form-group">
+      <label className="form-label">
+        Bank <span style={{ color: '#dc2626' }}>*</span>
+      </label>
+      <select className="form-input" value={form.bank_id} onChange={(e) => setForm(p => ({ ...p, bank_id: e.target.value }))} required>
+        <option value="">-- Select Bank --</option>
+        {banks.map((b) => <option key={b.id} value={b.id}>{b.bank_name}</option>)}
+      </select>
+    </div>
+    
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="form-group">
+        <label className="form-label">
+          File Type <span style={{ color: '#dc2626' }}>*</span>
+        </label>
+        <select className="form-select" value={form.file_type} onChange={(e) => setForm(p => ({ ...p, file_type: e.target.value }))} required>
+          <option value="">-- Select Type --</option>
+          <option value="new_vehicle">New Vehicle</option>
+          <option value="used_vehicle">Used Vehicle</option>
+          <option value="renewal">Renewal</option>
+        </select>
+      </div>
+      <div className="form-group">
+        <label className="form-label">
+          Status <span style={{ color: '#dc2626' }}>*</span>
+        </label>
+        <select className="form-select" value={form.status} onChange={(e) => setForm(p => ({ ...p, status: e.target.value }))} required>
+          <option value="">-- Select Status --</option>
+          <option value="draft">Draft</option>
+          <option value="login">Login</option>
+          <option value="under_process">Under Process</option>
+          <option value="sanctioned">Sanctioned</option>
+          <option value="disbursed">Disbursed</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div className="form-group">
+      <label className="form-label">Remarks</label>
+      <textarea className="form-input" rows={2} value={form.remarks} onChange={(e) => setForm(p => ({ ...p, remarks: e.target.value }))} style={{ resize: 'vertical' }} />
+    </div>
+  </div>
+</Modal>
     </>
   );
 }
