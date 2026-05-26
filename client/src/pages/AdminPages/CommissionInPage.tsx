@@ -204,9 +204,6 @@ export default function CommissionInPage() {
   const isChequeLike = form.mode === 'Cheque' || form.mode === 'DD'
   const isTransfer   = form.mode === 'NEFT'   || form.mode === 'RTGS'
 
-  const isUuid = (val: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val)
-
   const loadCommissions = async () => {
     try {
       // keep the existing UI pagination/filtering behavior client-side

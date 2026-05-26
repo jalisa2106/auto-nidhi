@@ -3,7 +3,7 @@ import { message } from 'antd'
 import {
   Plus, X, Pencil, PowerOff, Power,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  Users, Search, RotateCcw, Eye, EyeOff,
+  RotateCcw, Eye, EyeOff,
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import { usersSettingsApi, rolesApi } from '../../api/services'

@@ -5,9 +5,15 @@ import Home   from './pages/Home'
 import Login  from './pages/Login'
 import Signup from './pages/Signup'
 
-// Role router + Customer dashboard
+// Role router
 import RoleBasedRouter  from './pages/RoleBasedRouter'
-import CustomerDashboard from './pages/Dashboard/CustomerDashboard'
+
+// ── Customer portal ─────────────────────────────────────────────────
+import CustomerLayout           from './pages/CustomerPages/CustomerLayout'
+import CustomerPortalPage       from './pages/CustomerPages/CustomerPortalPage'
+import CustomerFilesPage        from './pages/CustomerPages/CustomerFilesPage'
+import CustomerNotificationsPage from './pages/CustomerPages/CustomerNotificationsPage'
+import CustomerProfilePage      from './pages/CustomerPages/CustomerProfilePage'
 
 // Admin layout (sidebar + topbar + Outlet)
 import AdminLayout from './pages/Dashboard/AdminDashboard'
@@ -44,8 +50,13 @@ function App() {
         <Route path="/login"  element={<Login />}  />
         <Route path="/signup" element={<Signup />} />
 
-        {/* ── Customer portal ── */}
-        <Route path="/customer" element={<CustomerDashboard />} />
+        {/* ── Customer portal (sidebar layout) ── */}
+        <Route element={<CustomerLayout />}>
+          <Route path="/portal"               element={<CustomerPortalPage />}        />
+          <Route path="/portal/files"          element={<CustomerFilesPage />}         />
+          <Route path="/portal/notifications"  element={<CustomerNotificationsPage />} />
+          <Route path="/portal/profile"        element={<CustomerProfilePage />}       />
+        </Route>
 
         {/* ── Role-based redirect on /dashboard ── */}
         <Route path="/dashboard-redirect" element={<RoleBasedRouter />} />

@@ -23,7 +23,7 @@ export default function RoleBasedRouter() {
     case 'data_entry':
       return <Navigate to="/dashboard" replace />
     case 'customer':
-      return <Navigate to="/customer" replace />
+      return <Navigate to="/portal" replace />
     default:
       return <Navigate to="/login" replace />
   }
