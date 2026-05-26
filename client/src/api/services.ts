@@ -75,8 +75,7 @@ const requestJson = async <T>(url: string, options: RequestInit = {}): Promise<T
 
 export const authApi = {
   login: async (payload: LoginPayload): Promise<TokenResponse> => {
-    const { data } = await api.post<TokenResponse>('/auth/login', payload)
-    // Store tokens
+    const { data } = await api.post<TokenResponse>('/auth/login/', payload)
     localStorage.setItem('access_token', data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
     return data
@@ -89,94 +88,100 @@ export const authApi = {
   },
 
   me: async () => {
-    const { data } = await api.get('/auth/me')
+    const { data } = await api.get('/auth/me/')
     return data
   },
 }
 
 export const dashboardApi = {
   getStats: async () => {
-    const { data } = await api.get('/dashboard/stats')
+    const { data } = await api.get('/dashboard/stats/')
     return data
   },
 }
 
 export const customersApi = {
   list: async (page = 1, limit = 20, search = '') => {
-    const { data } = await api.get('/customers', {
+    const { data } = await api.get('/customers/', {
       params: { page, limit, search },
     })
     return data
   },
 
   get: async (id: string) => {
-    const { data } = await api.get(`/customers/${id}`)
+    const { data } = await api.get(`/customers/${id}/`)
     return data
   },
 
-  create: async (payload: { full_name: string; mobile_1: string; email?: string; city?: string }) => {
-    const { data } = await api.post('/customers', payload)
+  create: async (payload: any) => {
+    const { data } = await api.post('/customers/', payload)
     return data
   },
 }
 
 export const filesApi = {
   list: async (page = 1, limit = 20, status?: string, file_type?: string) => {
-    const { data } = await api.get('/files', {
+    const { data } = await api.get('/files/', {
       params: { page, limit, status, file_type },
     })
     return data
   },
 
   get: async (id: string) => {
-    const { data } = await api.get(`/files/${id}`)
+    const { data } = await api.get(`/files/${id}/`)
     return data
   },
+
+  create: async (payload: any) => {
+    const { data } = await api.post('/files/', payload)
+    return data
+  }
 }
 
 export const paymentsInApi = {
   list: async (params: any) => {
-    const { data } = await api.get('/payments/in', { params })
+    const { data } = await api.get('/payments/in/', { params })
     return data
   },
   create: async (payload: any) => {
-    const { data } = await api.post('/payments/in', payload)
+    const { data } = await api.post('/payments/in/', payload)
     return data
   },
 }
 
 export const paymentsOutApi = {
   list: async (params: any) => {
-    const { data } = await api.get('/payments/out', { params })
+    const { data } = await api.get('/payments/out/', { params })
     return data
   },
   create: async (payload: any) => {
-    const { data } = await api.post('/payments/out', payload)
+    const { data } = await api.post('/payments/out/', payload)
     return data
   },
 }
 
 export const commissionsInApi = {
   list: async (params: any) => {
-    const { data } = await api.get('/commissions/in', { params })
+    const { data } = await api.get('/commissions/in/', { params })
     return data
   },
   create: async (payload: any) => {
-    const { data } = await api.post('/commissions/in', payload)
+    const { data } = await api.post('/commissions/in/', payload)
     return data
   },
 }
 
 export const commissionsOutApi = {
   list: async (params: any) => {
-    const { data } = await api.get('/commissions/out', { params })
+    const { data } = await api.get('/commissions/out/', { params })
     return data
   },
   create: async (payload: any) => {
-    const { data } = await api.post('/commissions/out', payload)
+    const { data } = await api.post('/commissions/out/', payload)
     return data
   },
 }
+
 export const loansApi = {
   list: async (status?: string, search?: string) => {
     const { data } = await api.get('/loans/', {
@@ -186,7 +191,7 @@ export const loansApi = {
   },
 
   getStats: async () => {
-    const { data } = await api.get('/loans/stats')
+    const { data } = await api.get('/loans/stats/')
     return data
   },
 
@@ -194,14 +199,12 @@ export const loansApi = {
     file_number: string,
     payload: { remarks?: string; status?: string }
   ) => {
-    const { data } = await api.patch(`/loans/${file_number}`, payload)
+    const { data } = await api.patch(`/loans/${file_number}/`, payload)
     return data
   },
 
   softDelete: async (file_number: string) => {
-    const { data } = await api.patch(
-      `/loans/${file_number}/delete`
-    )
+    const { data } = await api.patch(`/loans/${file_number}/delete/`)
     return data
   },
 }
@@ -213,6 +216,14 @@ export const rtoPaymentsApi = {
   },
   create: async (payload: any) => {
     const { data } = await api.post('/rto-payments', payload)
+    return data
+  },
+  delete: async (id: string) => {
+    const { data } = await api.delete(`/rto-payments/${id}`)
+    return data
+  },
+  update: async (id: string, payload: any) => {
+    const { data } = await api.patch(`/rto-payments/${id}`, payload)
     return data
   },
 }
@@ -296,11 +307,11 @@ export const usersSettingsApi = {
     return data
   },
   update: async (id: string, payload: Record<string, any>) => {
-    const { data } = await api.put(`/settings/users/${id}`, payload)
+    const { data } = await api.put(`/settings/users/${id}/`, payload)
     return data
   },
   toggleActive: async (id: string) => {
-    const { data } = await api.patch(`/settings/users/${id}/toggle-active`)
+    const { data } = await api.patch(`/settings/users/${id}//toggle-active`)
     return data
   },
 }
