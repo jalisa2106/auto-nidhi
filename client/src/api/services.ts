@@ -1,3 +1,4 @@
+import API_BASE from '../lib/apiConfig'
 import api from './axios'
 
 interface LoginPayload {
@@ -9,6 +10,67 @@ interface TokenResponse {
   access_token: string
   refresh_token: string
   token_type: string
+}
+
+interface Expense {
+  id: string
+  amount: number
+  expense_date: string
+  remarks: string | null
+  created_at: string
+  expense_category_name: string
+  file_number: string
+  created_by_name: string
+}
+
+interface ExpenseCreatePayload {
+  amount: number
+  expense_date: string
+  remarks?: string | null
+  expense_category_id: string
+  file_id?: string | null
+  created_by: string
+}
+
+interface ExpenseUpdatePayload {
+  amount?: number
+  expense_date?: string
+  remarks?: string | null
+  expense_category_id?: string
+  file_id?: string | null
+  created_by?: string
+}
+
+interface ExpenseActionResponse {
+  message: string
+  id?: string
+}
+
+const expensesBaseUrl = `${API_BASE}/api/expenses`
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('access_token')
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
+const requestJson = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...getAuthHeaders(),
+      ...(options.headers || {}),
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Request failed')
+  }
+
+  return response.json() as Promise<T>
 }
 
 export const authApi = {
@@ -160,5 +222,31 @@ export const rtoPaymentsApi = {
   update: async (id: string, payload: any) => {
     const { data } = await api.patch(`/rto-payments/${id}`, payload)
     return data
+  },
+}
+
+export const expensesApi = {
+  list: async (): Promise<Expense[]> => {
+    return requestJson<Expense[]>(expensesBaseUrl)
+  },
+
+  create: async (payload: ExpenseCreatePayload): Promise<ExpenseActionResponse> => {
+    return requestJson<ExpenseActionResponse>(expensesBaseUrl, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  update: async (id: string, payload: ExpenseUpdatePayload): Promise<ExpenseActionResponse> => {
+    return requestJson<ExpenseActionResponse>(`${expensesBaseUrl}/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  delete: async (id: string): Promise<ExpenseActionResponse> => {
+    return requestJson<ExpenseActionResponse>(`${expensesBaseUrl}/${id}`, {
+      method: 'DELETE',
+    })
   },
 }

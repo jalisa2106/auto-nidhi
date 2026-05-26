@@ -13,7 +13,7 @@ from backend.models import (
     SystemUser
 )
 
-router = APIRouter()
+router = APIRouter(tags=["Admin Expenses"])
 
 # ─────────────────────────────────────────────
 # Schemas
@@ -186,7 +186,8 @@ def update_expense(expense_id: str, payload: ExpenseUpdate, db: Session = Depend
 def delete_expense(expense_id: str, db: Session = Depends(get_db)):
     try:
         expense = db.query(ExpenseLedger).filter(
-            ExpenseLedger.id == expense_id
+            ExpenseLedger.id == expense_id,
+            ExpenseLedger.is_deleted == False
         ).first()
 
         if not expense:
