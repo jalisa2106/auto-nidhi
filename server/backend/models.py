@@ -279,4 +279,6 @@ class MasterExpenseCategory(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
     expense_name = Column(String(255), nullable=False)
+    company_bank_id = Column(String, ForeignKey("master_company_bank.id"), nullable=True)
+    
     company_bank = relationship("MasterCompanyBank", foreign_keys=[company_bank_id])
