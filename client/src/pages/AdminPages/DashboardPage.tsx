@@ -247,8 +247,8 @@ export default function DashboardPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <Link to="/files/new" className="btn btn-primary btn-sm">+ New File</Link>
-              <Link to="/customers/new" className="btn btn-outline btn-sm">+ New Customer</Link>
+              <Link to="/files" className="btn btn-primary btn-sm">Manage Files</Link>
+              <Link to="/customers" className="btn btn-outline btn-sm">Manage Customers</Link>
             </div>
           </div>
 
