@@ -153,4 +153,12 @@ export const rtoPaymentsApi = {
     const { data } = await api.post('/rto-payments', payload)
     return data
   },
+  delete: async (id: string) => {
+    const { data } = await api.delete(`/rto-payments/${id}`)
+    return data
+  },
+  update: async (id: string, payload: any) => {
+    const { data } = await api.patch(`/rto-payments/${id}`, payload)
+    return data
+  },
 }

@@ -260,6 +260,4 @@ export default function CustomersPage() {
     </>
   )
 }
-
-const labelStyle = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--gray-700)', marginBottom: 6 };
-const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--gray-200)', fontSize: '0.9rem', outline: 'none', background: 'var(--surface-0)', boxSizing: 'border-box' as const };
+

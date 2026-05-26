@@ -8,6 +8,7 @@ import {
 import Modal from '../../components/app/Modal'
 import { mockFiles } from '../../lib/mockData'
 import { rtoPaymentsApi, filesApi } from '../../api/services'
+import { message } from 'antd' 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
@@ -270,32 +271,49 @@ export default function RTOPaymentsPage() {
   const handleEdit = async () => {
     try {
       setLoading(true)
-      const payload = {
-        file_id: form.file_number,
+      
+      const payload: any = {
         payment_date: form.payment_date,
         payment_mode: form.payment_mode,
-        amount: form.amount,
-        payee_dealer_id: form.payee_dealer_name ? form.payee_dealer_name : undefined,
-        payee_broker_id: form.payee_broker_name ? form.payee_broker_name : undefined,
-        bank_account_no: form.bank_account_no,
-        ifsc_code: form.ifsc_code,
-        cheque_bank_name: form.cheque_bank_name,
-        branch_name: form.branch_name,
-        cheque_no: form.cheque_no,
-        cheque_date: form.cheque_date,
-        cheque_amount: form.cheque_amount,
-        utr_no: form.utr_no,
-        remarks: form.remarks,
+        amount: Number(form.amount),
+        bank_account_no: form.bank_account_no || null,
+        ifsc_code: form.ifsc_code || null,
+        cheque_bank_name: form.cheque_bank_name || null,
+        branch_name: form.branch_name || null,
+        cheque_no: form.cheque_no || null,
+        cheque_date: form.cheque_date || null,
+        cheque_amount: form.cheque_amount ? Number(form.cheque_amount) : null,
+        utr_no: form.utr_no || null,
+        remarks: form.remarks || null,
       }
       
-      // API endpoint would be: PATCH /api/rto-payments/:id
-      // For now, using rtoPaymentsApi.create as placeholder - backend should implement PATCH endpoint
-      setRows(prev => prev.map(r => r.id === selected!.id ? { ...r, ...form } : r))
-      setSelected(prev => prev ? { ...prev, ...form } : prev)
+      // Handle the payee UUIDs based on the form input
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (form.payee_dealer_name && uuidRe.test(String(form.payee_dealer_name))) {
+          payload.payee_dealer_id = form.payee_dealer_name
+          payload.payee_broker_id = null
+      } else if (form.payee_broker_name && uuidRe.test(String(form.payee_broker_name))) {
+          payload.payee_broker_id = form.payee_broker_name
+          payload.payee_dealer_id = null
+      }
+
+      if (!selected) return;
+
+      // Make the actual API call
+      await rtoPaymentsApi.update(selected.id, payload)
+      
+      // Show success popup, close modal, and wipe any previous errors
+      message.success("Payment updated successfully")
       setEditOpen(false)
+      setError(null) 
       setForm(emptyForm())
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error updating payment')
+      
+      // Refresh the table instantly
+      await fetchRTOPayments()
+      
+    } catch (err: any) {
+      const serverDetail = err?.response?.data || err?.message || 'Error updating payment'
+      setError(typeof serverDetail === 'string' ? serverDetail : JSON.stringify(serverDetail))
       console.error('Edit RTO Payment error:', err)
     } finally {
       setLoading(false)
@@ -305,23 +323,20 @@ export default function RTOPaymentsPage() {
   const handleDelete = async (id: string) => {
     try {
       setLoading(true)
-      // Soft delete - requires is_deleted column in database
-      // Check database schema - if column doesn't exist, add:
-      // ALTER TABLE rto_payment ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
       
-      // API call: PATCH /api/rto-payments/:id  →  body: { is_deleted: true }
-      // Temporarily using optimistic delete for UI
+      // Make the actual API call to the backend
+      await rtoPaymentsApi.delete(id) 
+      
+      // Optimistically remove it from the UI so it feels instantaneous
       setRows(prev => prev.filter(r => r.id !== id))
       setSelected(null)
-      
-      // Backend soft delete implementation needed
-      // await rtoPaymentsApi.softDelete(id) // This endpoint needs to be implemented
-      
       setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error deleting payment')
+      
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err?.message || 'Error deleting payment')
       console.error('Delete RTO Payment error:', err)
-      // Refresh data on error
+      
+      // If it fails, refresh the data to restore the row
       await fetchRTOPayments()
     } finally {
       setLoading(false)
@@ -516,8 +531,8 @@ export default function RTOPaymentsPage() {
                 {MODES.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
               </select>
             </FormField>
-            <FormField label="Payee Dealer Name"><input className="form-input" value={form.payee_dealer_name} onChange={f('payee_dealer_name')} /></FormField>
-            <FormField label="Payee Broker Name"><input className="form-input" value={form.payee_broker_name} onChange={f('payee_broker_name')} /></FormField>
+            <FormField label="Payee Dealer Name"><input className="form-input" value={form.payee_dealer_name} onChange={f('payee_dealer_name')} placeholder="master_dealer.dealer_name" /></FormField>
+            <FormField label="Payee Broker Name"><input className="form-input" value={form.payee_broker_name} onChange={f('payee_broker_name')} placeholder="master_broker.broker_name" /></FormField>
             
             {/* Cheque specific fields */}
             {isCheque && (

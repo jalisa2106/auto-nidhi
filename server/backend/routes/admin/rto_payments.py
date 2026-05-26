@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
@@ -38,7 +38,8 @@ def list_rto_payments(
     date_to: Optional[date] = None,
     db: Session = Depends(get_db),
 ):
-    query = db.query(RTOPayment).join(FileRecord).join(Customer)
+    # Filter out soft-deleted records right away
+    query = db.query(RTOPayment).join(FileRecord).join(Customer).filter(RTOPayment.is_deleted == False)
 
     if search:
         search_term = f"%{search}%"
@@ -108,6 +109,63 @@ def create_rto_payment(payload: RTOPaymentCreate, db: Session = Depends(get_db))
         db.commit()
         db.refresh(new_payment)
         return {"status": "success", "id": str(new_payment.id)}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+# --- Soft Delete Route Added Here ---
+@router.delete("/{payment_id}", status_code=status.HTTP_200_OK)
+def delete_rto_payment(payment_id: UUID, db: Session = Depends(get_db)):
+    payment = db.query(RTOPayment).filter(RTOPayment.id == payment_id, RTOPayment.is_deleted == False).first()
+    
+    if not payment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+        
+    payment.is_deleted = True
+    payment.deleted_at = datetime.utcnow()
+    db.commit()
+    
+    return {"status": "success", "message": "Payment soft-deleted successfully"}
+
+class RTOPaymentUpdate(BaseModel):
+    payment_date: Optional[date] = None
+    payment_mode: Optional[str] = None
+    amount: Optional[float] = None
+    payee_dealer_id: Optional[UUID] = None
+    payee_broker_id: Optional[UUID] = None
+    bank_account_no: Optional[str] = None
+    ifsc_code: Optional[str] = None
+    cheque_bank_name: Optional[str] = None
+    branch_name: Optional[str] = None
+    cheque_no: Optional[str] = None
+    cheque_date: Optional[date] = None
+    cheque_amount: Optional[float] = None
+    utr_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+@router.patch("/{payment_id}", status_code=status.HTTP_200_OK)
+def update_rto_payment(payment_id: UUID, payload: RTOPaymentUpdate, db: Session = Depends(get_db)):
+    payment = db.query(RTOPayment).filter(RTOPayment.id == payment_id, RTOPayment.is_deleted == False).first()
+    
+    if not payment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+
+    # Get only the fields that were explicitly sent in the request
+    update_data = payload.dict(exclude_unset=True)
+    
+    # Handle the exclusive dealer/broker logic (nullify the other if one is provided)
+    if 'payee_dealer_id' in update_data and update_data['payee_dealer_id']:
+        update_data['payee_broker_id'] = None
+    elif 'payee_broker_id' in update_data and update_data['payee_broker_id']:
+        update_data['payee_dealer_id'] = None
+
+    for key, value in update_data.items():
+        setattr(payment, key, value)
+
+    try:
+        db.commit()
+        db.refresh(payment)
+        return {"status": "success", "message": "Payment updated successfully"}
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
