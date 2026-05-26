@@ -12,15 +12,14 @@ export default function FilesPage() {
   const [typeF, setTypeF] = useState("");
   const [statusF, setStatusF] = useState("");
 
-  // Fetch data from backend whenever filters change
   const loadFiles = async () => {
     setLoading(true);
     try {
       const response = await filesApi.list(
         1,
-        20,
+        100, // Fetching more to allow frontend filtering/searching
         statusF || undefined,
-        typeF || undefined,
+        typeF || undefined
       );
       setRows(response.data);
     } catch (err) {
@@ -32,21 +31,16 @@ export default function FilesPage() {
 
   useEffect(() => {
     loadFiles();
-  }, [typeF, statusF]); // Refetch when filters change
+  }, [typeF, statusF]);
 
   const statusBadge = (s: string) => {
-    // Standardizing case for badge matching
-    const status = s.toLowerCase();
+    const status = s?.toLowerCase() || "";
     const c =
-      status === "completed"
-        ? "badge-green"
-        : status === "cancelled"
-          ? "badge-red"
-          : status === "disbursed"
-            ? "badge-blue"
-            : status === "draft"
-              ? "badge-gray"
-              : "badge-gold";
+      status === "completed" ? "badge-green"
+      : status === "cancelled" ? "badge-red"
+      : status === "disbursed" ? "badge-blue"
+      : status === "draft" ? "badge-gray"
+      : "badge-gold";
     return <span className={`badge ${c}`}>{s}</span>;
   };
 
@@ -62,9 +56,7 @@ export default function FilesPage() {
         }
       />
 
-      <div
-        style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}
-      >
+      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
         <select
           className="form-select"
           style={{ maxWidth: 180 }}
@@ -72,8 +64,8 @@ export default function FilesPage() {
           onChange={(e) => setTypeF(e.target.value)}
         >
           <option value="">All types</option>
-          <option value="new_vehicle">New</option>
-          <option value="used_vehicle">Used</option>
+          <option value="new_vehicle">New Vehicle</option>
+          <option value="used_vehicle">Used Vehicle</option>
           <option value="renewal">Renewal</option>
         </select>
 
@@ -90,21 +82,22 @@ export default function FilesPage() {
           <option value="sanctioned">Sanctioned</option>
           <option value="disbursed">Disbursed</option>
           <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
         </select>
       </div>
 
       <DataTable
         rows={rows}
         loading={loading}
-        searchKeys={["file_number", "customer", "file_type"]}
+        searchKeys={["file_number", "customer", "bank", "assigned"]}
         columns={[
           {
-            key: "file_number", 
+            key: "file_number",
             label: "File #",
             render: (r) => (
               <a
                 className="auth-link"
-                style={{ cursor: "pointer" }}
+                style={{ cursor: "pointer", fontWeight: 600 }}
                 onClick={() => navigate(`/files/${r.id}`)}
               >
                 {r.file_number}
@@ -112,12 +105,14 @@ export default function FilesPage() {
             ),
           },
           { key: "customer", label: "Customer" },
-          { key: "file_type", label: "Type" }, 
+          { key: "type", label: "Type" },
           {
             key: "status",
             label: "Status",
             render: (r) => statusBadge(r.status),
           },
+          { key: "bank", label: "Bank" },
+          { key: "assigned", label: "Assigned" },
           { key: "created", label: "Created" },
         ]}
       />
