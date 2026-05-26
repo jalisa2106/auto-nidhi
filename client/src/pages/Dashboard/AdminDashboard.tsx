@@ -51,12 +51,35 @@ const adminNav: NavGroup[] = [
   },
 ]
 
+const staffNav: NavGroup[] = [
+  {
+    title: 'Overview', items: [
+      { to: '/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/customers',  label: 'Customers', icon: Users },
+      { to: '/files',      label: 'Files',     icon: FolderOpen },
+    ],
+  },
+  {
+    title: 'Finance', items: [
+      { to: '/payments/in',          label: 'Payment IN',          icon: ArrowDownToLine  },
+      { to: '/payments/out',         label: 'Payment OUT',         icon: ArrowUpFromLine  },
+      { to: '/rto-payments',         label: 'RTO Payments',        icon: Receipt          },
+      { to: '/insurance-payments',   label: 'Insurance Payments',  icon: ShieldCheck      },
+      { to: '/expenses',             label: 'Expenses',            icon: Wallet           },
+      { to: '/advances',             label: 'Advances',            icon: Landmark         },
+    ],
+  },
+]
+
 export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [userName, setUserName] = useState('Admin')
+  const [userRole, setUserRole] = useState('admin')
 
   useEffect(() => {
+    const role = localStorage.getItem('user_role') || 'admin'
+    setUserRole(role)
     try {
       const stored = localStorage.getItem('an_current_user')
       if (stored) {
@@ -103,7 +126,7 @@ export default function AdminLayout() {
           <div className="sb-brand">Auto<span>Nidhi</span></div>
         </div>
 
-        {adminNav.map((group) => (
+        {(userRole === 'admin' ? adminNav : staffNav).map((group) => (
           <div key={group.title}>
             <div className="sb-section">{group.title}</div>
             {group.items.map((item) => {
@@ -124,7 +147,7 @@ export default function AdminLayout() {
 
         <div className="sb-foot">
           Signed in as <strong style={{ color: '#fff' }}>{userName}</strong><br />
-          <span style={{ textTransform: 'capitalize' }}>Admin</span>
+          <span style={{ textTransform: 'capitalize' }}>{userRole.replace('_', ' ')}</span>
         </div>
       </aside>
 
