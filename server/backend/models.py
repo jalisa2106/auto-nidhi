@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Date, text, DECIMAL, Numeric, Integer
+from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Date, text, DECIMAL, Numeric, Integer, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from backend.database import Base
@@ -22,9 +22,36 @@ class SystemUser(Base):
     password_hash = Column(String(255), nullable=False)
     phone_number = Column(String(15))
     is_active = Column(Boolean, default=True, nullable=False)
+    last_login = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, nullable=False)
 
     role = relationship("MasterRole")
+
+class MasterCompanyProfile(Base):
+    __tablename__ = "master_company_profile"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    company_name = Column(String(255), nullable=False)
+    address_1 = Column(Text, nullable=False)
+    address_2 = Column(Text)
+    mobile_no = Column(String(15), nullable=False)
+    phone_no = Column(String(15))
+    country = Column(String(100))
+    state = Column(String(100))
+    city = Column(String(100))
+    pincode = Column(String(20))
+    email_address = Column(String(255))
+    fax_no = Column(String(50))
+    website = Column(String(255))
+    contact_person_1 = Column(String(255))
+    contact_person_2 = Column(String(255))
+    tin_no = Column(String(50))
+    gst_no = Column(String(50))
+    cst_no = Column(String(50))
+    pan_no = Column(String(50))
+    insurance_expiry_notification = Column(Text)
+    opening_balance = Column(DECIMAL(15, 2))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
 
 
 class Customer(Base):
@@ -81,6 +108,13 @@ class FileRecord(Base):
     assignee = relationship("SystemUser", foreign_keys=[assigned_to])
     finance_info = relationship("FinanceInfo", uselist=False)
 
+class MasterBank(Base):
+    __tablename__ = "master_bank"
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    bank_name = Column(String(255), nullable=False)
+    area = Column(String(255))
+    contact_no = Column(String(15))
+
 class MasterCompanyBank(Base):
     __tablename__ = "master_company_bank"
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
@@ -125,9 +159,10 @@ class FinanceInfo(Base):
     no_of_months = Column(Integer)
     irr_percentage = Column(DECIMAL(5,2))
 
-    company_bank_id = Column(UUID(as_uuid=True), ForeignKey("master_company_bank.id"))
+    # Points to master_bank (external finance bank), NOT master_company_bank
+    bank_id = Column(UUID(as_uuid=True), ForeignKey("master_bank.id"))
 
-    bank = relationship("MasterCompanyBank")
+    bank = relationship("MasterBank")
     file = relationship("FileRecord")
 
 class PaymentOut(Base):
@@ -149,11 +184,13 @@ class PaymentOut(Base):
     cheque_date = Column(Date)
     cheque_amount = Column(DECIMAL(15,2))
     utr_no = Column(String(100))
+    company_bank_id = Column(UUID(as_uuid=True), ForeignKey("master_company_bank.id"), nullable=True)
     remarks = Column(String)
     # Relationships
     file = relationship("FileRecord")
     payee_dealer = relationship("MasterDealer", foreign_keys=[payee_dealer_id])
     payee_broker = relationship("MasterBroker", foreign_keys=[payee_broker_id])
+    company_bank = relationship("MasterCompanyBank", foreign_keys=[company_bank_id])
 
 class RTOPayment(Base):
     __tablename__ = "rto_payment"
@@ -215,6 +252,7 @@ class CommissionOut(Base):
     cheque_date = Column(Date)
     cheque_amount = Column(DECIMAL(15, 2))
     utr_no = Column(String(100))
+    company_bank_id = Column(UUID(as_uuid=True), ForeignKey("master_company_bank.id"), nullable=True)
     remarks = Column(String)
 
     file = relationship("FileRecord")
@@ -241,3 +279,4 @@ class MasterExpenseCategory(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
     expense_name = Column(String(255), nullable=False)
+    company_bank = relationship("MasterCompanyBank", foreign_keys=[company_bank_id])

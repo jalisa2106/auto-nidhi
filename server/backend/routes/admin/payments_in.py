@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,9 +7,39 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import PaymentIn, FileRecord, Customer
+from backend.models import PaymentIn, FileRecord, Customer, MasterCompanyBank
 
 router = APIRouter(prefix="/api/v1/payments/in", tags=["Admin Payments IN"])
+
+# ── DB Enum Normalizers ──────────────────────────────────────────────────────
+# DB payment_mode enum: cash | cheque | rtgs | neft | imps | upi
+def norm_mode(v: str) -> str:
+    """Normalize any frontend payment mode string to DB enum lowercase value."""
+    mapping = {
+        "Cash": "cash", "CASH": "cash",
+        "Cheque": "cheque", "CHEQUE": "cheque", "DD": "cheque", "Dd": "cheque",
+        "RTGS": "rtgs", "Rtgs": "rtgs",
+        "NEFT": "neft", "Neft": "neft",
+        "IMPS": "imps", "Imps": "imps",
+        "UPI": "upi", "Upi": "upi",
+    }
+    return mapping.get(v, v.lower())
+
+# DB payment_from_enum: customer | company
+# Frontend may send: Customer, Bank, Insurer, Other, Company
+PAYMENT_FROM_MAP = {
+    "customer": "customer", "Customer": "customer",
+    "company": "company",   "Company": "company",
+    "Bank": "company",      "bank": "company",
+    "Insurer": "company",   "insurer": "company",
+    "Other": "company",     "other": "company",
+}
+
+def norm_from(v: Optional[str]) -> Optional[str]:
+    if not v:
+        return None
+    return PAYMENT_FROM_MAP.get(v, "company")
+
 
 class PaymentInCreate(BaseModel):
     file_id: UUID
@@ -28,6 +58,7 @@ class PaymentInCreate(BaseModel):
     company_bank_id: Optional[UUID] = None
     remarks: Optional[str] = None
 
+
 @router.get("/")
 def list_payments_in(
     page: int = 1,
@@ -41,7 +72,6 @@ def list_payments_in(
 ):
     query = db.query(PaymentIn).join(FileRecord).join(Customer)
 
-    # Filtering Logic matching the frontend dropdowns
     if search:
         search_term = f"%{search}%"
         query = query.filter(
@@ -50,9 +80,9 @@ def list_payments_in(
             PaymentIn.remarks.ilike(search_term)
         )
     if payment_mode:
-        query = query.filter(PaymentIn.payment_mode == payment_mode)
+        query = query.filter(PaymentIn.payment_mode == norm_mode(payment_mode))
     if payment_from:
-        query = query.filter(PaymentIn.payment_from == payment_from)
+        query = query.filter(PaymentIn.payment_from == norm_from(payment_from))
     if date_from:
         query = query.filter(PaymentIn.payment_date >= date_from)
     if date_to:
@@ -61,7 +91,6 @@ def list_payments_in(
     total = query.count()
     payments = query.order_by(PaymentIn.payment_date.desc()).offset((page - 1) * limit).limit(limit).all()
 
-    # Map the response perfectly to what PaymentInPage.tsx expects
     data = [{
         "id": str(p.id),
         "file_id": str(p.file_id),
@@ -80,6 +109,7 @@ def list_payments_in(
         "cheque_date": p.cheque_date.strftime("%Y-%m-%d") if p.cheque_date else None,
         "utr_no": p.utr_no,
         "company_bank_id": str(p.company_bank_id) if p.company_bank_id else None,
+        "company_bank_label": f"{p.company_bank.bank_name} – {p.company_bank.account_number}" if p.company_bank_id and p.company_bank else None,
         "remarks": p.remarks
     } for p in payments]
 
@@ -88,7 +118,23 @@ def list_payments_in(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_payment_in(payload: PaymentInCreate, db: Session = Depends(get_db)):
-    new_payment = PaymentIn(**payload.dict(exclude_none=True))
+    new_payment = PaymentIn(
+        file_id=payload.file_id,
+        payment_amount=payload.payment_amount,
+        paid_amount=payload.paid_amount,
+        remaining_amount=payload.remaining_amount,
+        round_up=payload.round_up or False,
+        payment_mode=norm_mode(payload.payment_mode),   # normalize: UPI -> upi
+        payment_date=payload.payment_date,
+        payment_from=norm_from(payload.payment_from),   # normalize: Customer -> customer
+        cheque_bank_name=payload.cheque_bank_name,
+        branch_name=payload.branch_name,
+        cheque_no=payload.cheque_no,
+        cheque_date=payload.cheque_date,
+        utr_no=payload.utr_no,
+        company_bank_id=payload.company_bank_id,
+        remarks=payload.remarks,
+    )
     db.add(new_payment)
     try:
         db.commit()

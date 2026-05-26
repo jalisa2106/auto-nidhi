@@ -17,12 +17,18 @@ from backend.routes.admin.commissions_in import router as commissions_in_router
 from backend.routes.admin.commissions_out import router as commissions_out_router
 from backend.routes.admin.expenses import router as expenses_router
 
+# Settings Routes
+from backend.routes.admin.company_settings import router as company_settings_router
+from backend.routes.admin.bank_accounts import router as bank_accounts_router
+from backend.routes.admin.users_settings import router as users_settings_router
+from backend.routes.admin.finance_banks import router as finance_banks_router
+
 app = FastAPI(title="AutoNidhi API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (including Vercel & localhost)
-    allow_credentials=False,  # Must be False when allow_origins=["*"]
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -54,3 +60,9 @@ app.include_router(commissions_out_router)
 app.include_router(payments_out_router)
 app.include_router(rto_payments_router)
 app.include_router(expenses_router)
+
+# Settings
+app.include_router(company_settings_router)
+app.include_router(bank_accounts_router)
+app.include_router(users_settings_router)
+app.include_router(finance_banks_router)

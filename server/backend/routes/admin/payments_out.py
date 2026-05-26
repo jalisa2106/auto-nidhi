@@ -7,9 +7,40 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import PaymentOut, FileRecord, Customer
+from backend.models import PaymentOut, FileRecord, Customer, MasterCompanyBank
+from backend.utils import get_current_admin
 
 router = APIRouter(prefix="/api/v1/payments/out", tags=["Admin Payments OUT"])
+
+# ── DB Enum Normalizers ──────────────────────────────────────────────────────
+# DB payment_mode enum: cash | cheque | rtgs | neft | imps | upi
+def norm_mode(v: str) -> str:
+    """Normalize any frontend payment mode string to DB enum lowercase value."""
+    mapping = {
+        "Cash": "cash", "CASH": "cash",
+        "Cheque": "cheque", "CHEQUE": "cheque", "DD": "cheque", "Dd": "cheque",
+        "RTGS": "rtgs", "Rtgs": "rtgs",
+        "NEFT": "neft", "Neft": "neft",
+        "IMPS": "imps", "Imps": "imps",
+        "UPI": "upi", "Upi": "upi",
+    }
+    return mapping.get(v, v.lower())
+
+# DB payment_to_enum: customer | dealer | broker
+# Frontend sends: Customer, Dealer, Broker, Agent, Other
+PAYMENT_TO_MAP = {
+    "customer": "customer", "Customer": "customer",
+    "dealer": "dealer",     "Dealer": "dealer",
+    "broker": "broker",     "Broker": "broker",
+    "agent": "broker",      "Agent": "broker", # map Agent to broker
+    "other": "broker",      "Other": "broker", # map Other to broker
+}
+
+def norm_to(v: Optional[str]) -> Optional[str]:
+    if not v:
+        return None
+    return PAYMENT_TO_MAP.get(v, "broker")
+
 
 class PaymentOutCreate(BaseModel):
     file_id: UUID
@@ -18,12 +49,14 @@ class PaymentOutCreate(BaseModel):
     amount: float
     payment_mode: str
     payment_date: date
+    company_bank_id: Optional[UUID] = None
     cheque_bank_name: Optional[str] = None
     branch_name: Optional[str] = None
     cheque_no: Optional[str] = None
     cheque_date: Optional[date] = None
     utr_no: Optional[str] = None
     remarks: Optional[str] = None
+
 
 @router.get("/")
 def list_payments_out(
@@ -45,9 +78,9 @@ def list_payments_out(
             PaymentOut.remarks.ilike(search_term)
         )
     if payment_mode:
-        query = query.filter(PaymentOut.payment_mode == payment_mode)
+        query = query.filter(PaymentOut.payment_mode == norm_mode(payment_mode))
     if payment_to:
-        query = query.filter(PaymentOut.payment_to == payment_to)
+        query = query.filter(PaymentOut.payment_to == norm_to(payment_to))
     if date_from:
         query = query.filter(PaymentOut.payment_date >= date_from)
     if date_to:
@@ -58,15 +91,22 @@ def list_payments_out(
 
     data = []
     for p in payments:
-        # Safely extract the payee_name we bundled into remarks
+        # Extract payee_name — stored as "[Payee: name] remarks" in older records
         extracted_payee = "Unknown"
         clean_remarks = p.remarks or ""
         if clean_remarks.startswith("[Payee: "):
             end_idx = clean_remarks.find("] ")
             if end_idx != -1:
                 extracted_payee = clean_remarks[8:end_idx]
-                clean_remarks = clean_remarks[end_idx+2:]
-        
+                clean_remarks = clean_remarks[end_idx + 2:]
+        else:
+            extracted_payee = clean_remarks  # For newer records, remarks is plain
+
+        # Resolve company bank label
+        company_bank_label = None
+        if p.company_bank_id and p.company_bank:
+            company_bank_label = f"{p.company_bank.bank_name} – {p.company_bank.account_number}"
+
         data.append({
             "id": str(p.id),
             "file_id": str(p.file_id),
@@ -77,33 +117,43 @@ def list_payments_out(
             "amount": float(p.amount),
             "payment_mode": p.payment_mode,
             "payment_date": p.payment_date.strftime("%Y-%m-%d"),
+            "company_bank_id": str(p.company_bank_id) if p.company_bank_id else None,
+            "company_bank_label": company_bank_label,
             "cheque_bank_name": p.cheque_bank_name,
             "branch_name": p.branch_name,
             "cheque_no": p.cheque_no,
             "cheque_date": p.cheque_date.strftime("%Y-%m-%d") if p.cheque_date else None,
             "utr_no": p.utr_no,
-            "remarks": clean_remarks
+            "remarks": clean_remarks if clean_remarks else None,
         })
 
     return {"data": data, "total": total, "page": page, "limit": limit}
 
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_payment_out(payload: PaymentOutCreate, db: Session = Depends(get_db)):
-    # Bundle payee_name into remarks to prevent breaking the SQL schema
+    # Validate company_bank_id if provided
+    if payload.company_bank_id:
+        bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == payload.company_bank_id).first()
+        if not bank:
+            raise HTTPException(status_code=400, detail="Invalid company bank account ID")
+
+    # Store payee_name directly in remarks field (prefixed) to avoid schema change for older compat
     bundled_remarks = f"[Payee: {payload.payee_name}] {payload.remarks or ''}".strip()
-    
+
     new_payment = PaymentOut(
         file_id=payload.file_id,
         amount=payload.amount,
-        payment_mode=payload.payment_mode,
+        payment_mode=norm_mode(payload.payment_mode),   # normalize: NEFT -> neft
         payment_date=payload.payment_date,
-        payment_to=payload.payment_to,
+        payment_to=norm_to(payload.payment_to),         # normalize: Dealer -> dealer
+        company_bank_id=payload.company_bank_id,
         cheque_bank_name=payload.cheque_bank_name,
         branch_name=payload.branch_name,
         cheque_no=payload.cheque_no,
         cheque_date=payload.cheque_date,
         utr_no=payload.utr_no,
-        remarks=bundled_remarks
+        remarks=bundled_remarks,
     )
     db.add(new_payment)
     try:
