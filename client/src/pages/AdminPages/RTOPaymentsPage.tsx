@@ -6,51 +6,26 @@ import {
   TrendingUp, Landmark, Pencil, Trash2,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
-import { mockFiles } from '../../lib/mockData'
 import { rtoPaymentsApi, filesApi } from '../../api/services'
-import { message } from 'antd' 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BACKEND INTEGRATION NOTES
-// ─────────────────────────────────────────────────────────────────────────────
-// GET    /api/rto-payments          → fetch all (JOIN query below)
-// POST   /api/rto-payments          → create new record
-// PATCH  /api/rto-payments/:id      → update record (BACKEND NEEDED)
-// DELETE /api/rto-payments/:id      → soft delete (BACKEND NEEDED)
-//
-// ⚠️  DATABASE SCHEMA UPDATE REQUIRED:
-// The soft delete feature requires adding is_deleted column:
-//   ALTER TABLE rto_payment ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
-// This column exists in other tables (documents) but not in rto_payment
-//
-// DB query: SELECT rp.*, f.file_number,
-//           d.dealer_name AS payee_dealer_name,
-//           b.broker_name AS payee_broker_name
-//           FROM rto_payment rp
-//           JOIN file_record f        ON f.id = rp.file_id
-//           LEFT JOIN master_dealer d ON d.id = rp.payee_dealer_id
-//           LEFT JOIN master_broker b ON b.id = rp.payee_broker_id
-//
-// payment_mode enum: 'cash'|'cheque'|'rtgs'|'neft'|'imps'|'upi'
-// ─────────────────────────────────────────────────────────────────────────────
+import { message } from 'antd'
 
 interface RTOPayment {
   id               : string
-  payment_date     : string   // rto_payment.payment_date
+  payment_date     : string
   payment_mode     : 'cash' | 'cheque' | 'rtgs' | 'neft' | 'imps' | 'upi'
-  amount           : number   // rto_payment.amount
-  bank_account_no  : string   // rto_payment.bank_account_no
-  ifsc_code        : string   // rto_payment.ifsc_code
-  cheque_bank_name : string   // rto_payment.cheque_bank_name
-  branch_name      : string   // rto_payment.branch_name
-  cheque_no        : string   // rto_payment.cheque_no
-  cheque_date      : string   // rto_payment.cheque_date
-  cheque_amount    : number   // rto_payment.cheque_amount
-  utr_no           : string   // rto_payment.utr_no
-  remarks          : string   // rto_payment.remarks
-  file_number      : string   // file_record.file_number (joined)
-  payee_dealer_name: string   // master_dealer.dealer_name (joined, nullable)
-  payee_broker_name: string   // master_broker.broker_name (joined, nullable)
+  amount           : number
+  bank_account_no  : string
+  ifsc_code        : string
+  cheque_bank_name : string
+  branch_name      : string
+  cheque_no        : string
+  cheque_date      : string
+  cheque_amount    : number
+  utr_no           : string
+  remarks          : string
+  file_number      : string
+  payee_dealer_name: string
+  payee_broker_name: string
 }
 
 type PaymentMode = RTOPayment['payment_mode']
@@ -78,21 +53,6 @@ const modeBadge: Record<PaymentMode, { bg: string; color: string }> = {
   upi   : { bg:'#f0fdf4', color:'#166534' },
 }
 
-const mockRTO: RTOPayment[] = [
-  { id:'RTO-0001', file_number:'FILE-001', payment_date:'2024-01-10', payment_mode:'cheque', amount:12500, bank_account_no:'1234567890', ifsc_code:'HDFC0001234', cheque_bank_name:'HDFC Bank',  branch_name:'Ahmedabad Main', cheque_no:'CHQ001', cheque_date:'2024-01-08', cheque_amount:12500, utr_no:'',                remarks:'RC transfer for Arjun Mehta',       payee_dealer_name:'Rajesh Motors', payee_broker_name:'' },
-  { id:'RTO-0002', file_number:'FILE-003', payment_date:'2024-02-14', payment_mode:'neft',   amount:8200,  bank_account_no:'9876543210', ifsc_code:'SBI00023456',  cheque_bank_name:'',          branch_name:'',               cheque_no:'',       cheque_date:'',           cheque_amount:0,     utr_no:'NEFT20240214001', remarks:'Ownership transfer fee',            payee_dealer_name:'',              payee_broker_name:'Mehul Broker' },
-  { id:'RTO-0003', file_number:'FILE-006', payment_date:'2024-02-20', payment_mode:'cash',   amount:5500,  bank_account_no:'',           ifsc_code:'',             cheque_bank_name:'',          branch_name:'',               cheque_no:'',       cheque_date:'',           cheque_amount:0,     utr_no:'',                remarks:'NOC charges paid in cash',          payee_dealer_name:'Soni Auto',     payee_broker_name:'' },
-  { id:'RTO-0004', file_number:'FILE-009', payment_date:'2024-03-05', payment_mode:'upi',    amount:3200,  bank_account_no:'',           ifsc_code:'',             cheque_bank_name:'',          branch_name:'',               cheque_no:'',       cheque_date:'',           cheque_amount:0,     utr_no:'UPI2024030500124', remarks:'Fitness certificate renewal',       payee_dealer_name:'',              payee_broker_name:'Patel Broker' },
-  { id:'RTO-0005', file_number:'FILE-011', payment_date:'2024-03-18', payment_mode:'rtgs',   amount:22000, bank_account_no:'1122334455', ifsc_code:'ICIC0005678',  cheque_bank_name:'',          branch_name:'',               cheque_no:'',       cheque_date:'',           cheque_amount:0,     utr_no:'RTGS202403180056', remarks:'Hypothecation removal',             payee_dealer_name:'Bhavna Motors', payee_broker_name:'' },
-  { id:'RTO-0006', file_number:'FILE-013', payment_date:'2024-04-02', payment_mode:'cheque', amount:9800,  bank_account_no:'5544332211', ifsc_code:'AXIS0009012',  cheque_bank_name:'Axis Bank', branch_name:'Surat Branch',   cheque_no:'CHQ006', cheque_date:'2024-04-01', cheque_amount:9800,  utr_no:'',                remarks:'Form 34 registration',              payee_dealer_name:'Raj Automobiles',payee_broker_name:'' },
-  { id:'RTO-0007', file_number:'FILE-015', payment_date:'2024-04-20', payment_mode:'imps',   amount:6400,  bank_account_no:'',           ifsc_code:'',             cheque_bank_name:'',          branch_name:'',               cheque_no:'',       cheque_date:'',           cheque_amount:0,     utr_no:'IMPS20240420789', remarks:'Smart card + RC book',             payee_dealer_name:'',              payee_broker_name:'Desai Broker' },
-  { id:'RTO-0008', file_number:'FILE-002', payment_date:'2024-05-07', payment_mode:'cash',   amount:4100,  bank_account_no:'',           ifsc_code:'',             cheque_bank_name:'',          branch_name:'',               cheque_no:'',       cheque_date:'',           cheque_amount:0,     utr_no:'',                remarks:'Duplicate RC charges',              payee_dealer_name:'Soni Auto',     payee_broker_name:'' },
-  { id:'RTO-0009', file_number:'FILE-016', payment_date:'2024-05-22', payment_mode:'neft',   amount:11700, bank_account_no:'6677889900', ifsc_code:'PNB00034567',  cheque_bank_name:'',          branch_name:'',               cheque_no:'',       cheque_date:'',           cheque_amount:0,     utr_no:'NEFT20240522334', remarks:'Transfer + permit fees',            payee_dealer_name:'',              payee_broker_name:'Mehul Broker' },
-  { id:'RTO-0010', file_number:'FILE-018', payment_date:'2024-06-11', payment_mode:'cheque', amount:17500, bank_account_no:'3344556677', ifsc_code:'HDFC0007654',  cheque_bank_name:'HDFC Bank', branch_name:'Vadodara',       cheque_no:'CHQ010', cheque_date:'2024-06-09', cheque_amount:17500, utr_no:'',                remarks:'Full RC transfer package',          payee_dealer_name:'Bhavna Motors', payee_broker_name:'' },
-  { id:'RTO-0011', file_number:'FILE-020', payment_date:'2024-06-28', payment_mode:'upi',    amount:2900,  bank_account_no:'',           ifsc_code:'',             cheque_bank_name:'',          branch_name:'',               cheque_no:'',       cheque_date:'',           cheque_amount:0,     utr_no:'UPI20240628992',  remarks:'NOC and endorsement',              payee_dealer_name:'',              payee_broker_name:'Patel Broker' },
-  { id:'RTO-0012', file_number:'FILE-007', payment_date:'2024-07-15', payment_mode:'rtgs',   amount:31000, bank_account_no:'2233445566', ifsc_code:'KOTAK004321',  cheque_bank_name:'',          branch_name:'',               cheque_no:'',       cheque_date:'',           cheque_amount:0,     utr_no:'RTGS20240715221', remarks:'Commercial vehicle permit',         payee_dealer_name:'Rajesh Motors', payee_broker_name:'' },
-]
-
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const formatPaymentId = (id: string) => {
@@ -101,7 +61,6 @@ const formatPaymentId = (id: string) => {
   return id
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
 function StatCard({ icon, label, value, iconBg, iconColor, accent }: {
   icon: React.ReactNode; label: string; value: string | number
   iconBg: string; iconColor: string; accent?: string
@@ -141,21 +100,18 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
   )
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
 export default function RTOPaymentsPage() {
-  const [rows,     setRows]     = useState<RTOPayment[]>(mockRTO)
+  const [rows,     setRows]     = useState<RTOPayment[]>([])
   const [search,   setSearch]   = useState('')
   const [selected, setSelected] = useState<RTOPayment | null>(null)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
 
-  // Modal states
   const [addOpen,  setAddOpen]  = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [form,     setForm]     = useState<Omit<RTOPayment,'id'>>(emptyForm())
   const [filesList, setFilesList] = useState<any[]>([])
 
-  // ── Fetch data on mount ──
   useEffect(() => {
     fetchRTOPayments()
     fetchFiles()
@@ -170,8 +126,6 @@ export default function RTOPaymentsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch payments')
       console.error('Fetch RTO Payments error:', err)
-      // Fallback to mock data on error
-      setRows(mockRTO)
     } finally {
       setLoading(false)
     }
@@ -183,14 +137,12 @@ export default function RTOPaymentsPage() {
       setFilesList(res.data || [])
     } catch (err) {
       console.error('Failed to fetch files:', err)
-      // leave filesList empty so UI falls back to mockFiles
     }
   }
 
   const isCheque = form.payment_mode === 'cheque'
   const isOnline = ['rtgs', 'neft', 'imps', 'upi'].includes(form.payment_mode)
 
-  // Stats
   const totalAmount  = rows.reduce((s, r) => s + r.amount, 0)
   const uniquePayees = new Set(rows.map(r => getPayeeName(r))).size
   const avgAmount    = rows.length ? Math.round(totalAmount / rows.length) : 0
@@ -200,20 +152,16 @@ export default function RTOPaymentsPage() {
     return r.id.toLowerCase().includes(q) || r.file_number.toLowerCase().includes(q) || getPayeeName(r).toLowerCase().includes(q) || r.payment_mode.toLowerCase().includes(q)
   })
 
-  // ── Handlers ──
   const handleAdd = async () => {
-    // Validate that we have files loaded from server (prevent sending mock file ids)
     if (!filesList.length) {
       setError('Cannot create payment: files not loaded from server. Please ensure backend /api/v1/files is reachable.')
       return
     }
 
-    // Validate basic required fields
     if (!form.file_number) { setError('Please select a file'); return }
     if (!form.payment_date) { setError('Please select a payment date'); return }
     if (!form.amount || Number(form.amount) <= 0) { setError('Please enter a valid amount'); return }
 
-    // Ensure selected file exists among loaded files (file_number stores UUID from API)
     const fileExists = filesList.some(f => String(f.id) === String(form.file_number) || String(f.file_number) === String(form.file_number))
     if (!fileExists) { setError('Selected file is not a valid file from server'); return }
 
@@ -237,23 +185,21 @@ export default function RTOPaymentsPage() {
         remarks: form.remarks || undefined,
       }
 
-      // Only include payee_dealer_id/payee_broker_id if they look like UUIDs
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
       if (form.payee_dealer_name && uuidRe.test(String(form.payee_dealer_name))) payload.payee_dealer_id = form.payee_dealer_name
       if (form.payee_broker_name && uuidRe.test(String(form.payee_broker_name))) payload.payee_broker_id = form.payee_broker_name
 
       const result = await rtoPaymentsApi.create(payload)
 
-      // Backend returns { status: 'success', id: '...' } on success
       if (result && result.status === 'success') {
         setAddOpen(false)
         setForm(emptyForm())
+        message.success("Payment added successfully")
         await fetchRTOPayments()
       } else {
         setError(JSON.stringify(result))
       }
     } catch (err: any) {
-      // Show detailed server validation errors when available
       const serverDetail = err?.response?.data || err?.response || err?.message || String(err)
       setError(typeof serverDetail === 'string' ? serverDetail : JSON.stringify(serverDetail))
       console.error('Add RTO Payment error:', err)
@@ -287,7 +233,6 @@ export default function RTOPaymentsPage() {
         remarks: form.remarks || null,
       }
       
-      // Handle the payee UUIDs based on the form input
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
       if (form.payee_dealer_name && uuidRe.test(String(form.payee_dealer_name))) {
           payload.payee_dealer_id = form.payee_dealer_name
@@ -299,16 +244,13 @@ export default function RTOPaymentsPage() {
 
       if (!selected) return;
 
-      // Make the actual API call
       await rtoPaymentsApi.update(selected.id, payload)
       
-      // Show success popup, close modal, and wipe any previous errors
       message.success("Payment updated successfully")
       setEditOpen(false)
       setError(null) 
       setForm(emptyForm())
       
-      // Refresh the table instantly
       await fetchRTOPayments()
       
     } catch (err: any) {
@@ -324,19 +266,17 @@ export default function RTOPaymentsPage() {
     try {
       setLoading(true)
       
-      // Make the actual API call to the backend
       await rtoPaymentsApi.delete(id) 
       
-      // Optimistically remove it from the UI so it feels instantaneous
       setRows(prev => prev.filter(r => r.id !== id))
       setSelected(null)
       setError(null)
+      message.success("Payment deleted successfully")
       
     } catch (err: any) {
       setError(err?.response?.data?.detail || err?.message || 'Error deleting payment')
       console.error('Delete RTO Payment error:', err)
       
-      // If it fails, refresh the data to restore the row
       await fetchRTOPayments()
     } finally {
       setLoading(false)
@@ -349,7 +289,6 @@ export default function RTOPaymentsPage() {
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', gap:20 }}>
       
-      {/* Error notification */}
       {error && (
         <div style={{ padding:'12px 16px', background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:'var(--radius-md)', color:'#b91c1c', fontSize:'.85rem', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <span>{error}</span>
@@ -357,24 +296,20 @@ export default function RTOPaymentsPage() {
         </div>
       )}
 
-      {/* Loading state */}
       {loading && (
         <div style={{ padding:'12px 16px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:'var(--radius-md)', color:'#1d4ed8', fontSize:'.85rem' }}>
           Loading...
         </div>
       )}
 
-      {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
         <StatCard icon={<Banknote size={20}/>}    label="Total RTO Payments"      value={fmt(totalAmount)} iconBg="#eff6ff" iconColor="#1d4ed8" accent="#1d4ed8" />
         <StatCard icon={<Users size={20}/>}        label="RTO Parties Worked With" value={uniquePayees}    iconBg="#f0fdf4" iconColor="#15803d" accent="#15803d" />
         <StatCard icon={<TrendingUp size={20}/>}   label="Avg. Payment Per File"   value={fmt(avgAmount)}  iconBg="#fef3c7" iconColor="#92400e" />
       </div>
 
-      {/* Main area */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:16, minHeight:0, flex:1 }}>
 
-        {/* Table */}
         <div style={{ background:'#fff', border:'1px solid var(--gray-100)', borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-sm)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid var(--gray-100)', gap:12, flexWrap:'wrap' }}>
             <div style={{ fontWeight:700, fontSize:'.95rem', color:'var(--gray-900)' }}>
@@ -437,7 +372,6 @@ export default function RTOPaymentsPage() {
           </div>
         </div>
 
-        {/* Detail panel */}
         <div style={{ background:'#fff', border:'1px solid var(--gray-100)', borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-sm)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
           {selected ? (
             <>
@@ -465,7 +399,6 @@ export default function RTOPaymentsPage() {
                   <div style={{ fontSize:'1.5rem', fontWeight:800, color:'var(--brand-700)' }}>{fmt(selected.amount)}</div>
                 </div>
 
-                {/* Edit & Delete */}
                 <div style={{ display:'flex', gap:8, marginTop:14 }}>
                   <button id={`rto-edit-${selected.id}`} onClick={() => openEdit(selected)}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--brand-200)', background:'var(--brand-50)', color:'var(--brand-700)', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
@@ -509,7 +442,6 @@ export default function RTOPaymentsPage() {
         </div>
       </div>
 
-      {/* ── Add Modal ── */}
       <Modal open={addOpen} title="Add RTO Payment" onClose={() => setAddOpen(false)} onSubmit={handleAdd} submitLabel="Add Payment" maxWidth="760px">
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
@@ -517,10 +449,8 @@ export default function RTOPaymentsPage() {
               <select className="form-input" style={{ width:'100%' }} value={form.file_number}
                 onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))} required>
                 <option value="">Select file…</option>
-                {filesList.length ? filesList.map((f) => (
+                {filesList.map((f) => (
                   <option key={f.id} value={f.id}>{f.file_number} – {f.customer}</option>
-                )) : mockFiles.map(mf => (
-                  <option key={mf.id} value={mf.id}>{mf.id} – {mf.customer}</option>
                 ))}
               </select>
             </FormField>
@@ -534,7 +464,6 @@ export default function RTOPaymentsPage() {
             <FormField label="Payee Dealer Name"><input className="form-input" value={form.payee_dealer_name} onChange={f('payee_dealer_name')} placeholder="master_dealer.dealer_name" /></FormField>
             <FormField label="Payee Broker Name"><input className="form-input" value={form.payee_broker_name} onChange={f('payee_broker_name')} placeholder="master_broker.broker_name" /></FormField>
             
-            {/* Cheque specific fields */}
             {isCheque && (
               <>
                 <FormField label="Cheque No. *"><input className="form-input" value={form.cheque_no} onChange={f('cheque_no')} placeholder="Cheque number" required /></FormField>
@@ -545,7 +474,6 @@ export default function RTOPaymentsPage() {
               </>
             )}
 
-            {/* Online specific fields */}
             {isOnline && (
               <>
                 <FormField label="UTR / Ref No. *"><input className="form-input" value={form.utr_no} onChange={f('utr_no')} placeholder="UTR or reference number" required /></FormField>
@@ -558,18 +486,15 @@ export default function RTOPaymentsPage() {
         </div>
       </Modal>
  
-      {/* ── Edit Modal ── */}
-      <Modal open={editOpen} title={`Edit Payment — ${selected?.id}`} onClose={() => setEditOpen(false)} onSubmit={handleEdit} submitLabel="Save Changes" maxWidth="760px">
+      <Modal open={editOpen} title={`Edit Payment — ${selected?.id ? formatPaymentId(selected.id) : ''}`} onClose={() => setEditOpen(false)} onSubmit={handleEdit} submitLabel="Save Changes" maxWidth="760px">
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <FormField label="File Number">
               <select className="form-input" style={{ width:'100%' }} value={form.file_number}
                 onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))}>
                 <option value="">Select file…</option>
-                {filesList.length ? filesList.map((f) => (
+                {filesList.map((f) => (
                   <option key={f.id} value={f.id}>{f.file_number} – {f.customer}</option>
-                )) : mockFiles.map(mf => (
-                  <option key={mf.id} value={mf.id}>{mf.id} – {mf.customer}</option>
                 ))}
               </select>
             </FormField>
@@ -583,7 +508,6 @@ export default function RTOPaymentsPage() {
             <FormField label="Payee Dealer"><input className="form-input" value={form.payee_dealer_name} onChange={f('payee_dealer_name')} /></FormField>
             <FormField label="Payee Broker"><input className="form-input" value={form.payee_broker_name} onChange={f('payee_broker_name')} /></FormField>
             
-            {/* Cheque specific fields */}
             {isCheque && (
               <>
                 <FormField label="Cheque No. *"><input className="form-input" value={form.cheque_no} onChange={f('cheque_no')} required /></FormField>
@@ -594,7 +518,6 @@ export default function RTOPaymentsPage() {
               </>
             )}
 
-            {/* Online specific fields */}
             {isOnline && (
               <>
                 <FormField label="UTR / Ref No. *"><input className="form-input" value={form.utr_no} onChange={f('utr_no')} required /></FormField>
