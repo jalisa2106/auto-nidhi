@@ -6,6 +6,7 @@ import {
   TrendingUp, Landmark, Pencil, Trash2,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
+import { mockDealers, mockBrokers } from '../../lib/mockData'
 import { rtoPaymentsApi, filesApi } from '../../api/services'
 import { message } from 'antd'
 
@@ -461,8 +462,20 @@ export default function RTOPaymentsPage() {
                 {MODES.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
               </select>
             </FormField>
-            <FormField label="Payee Dealer Name"><input className="form-input" value={form.payee_dealer_name} onChange={f('payee_dealer_name')} placeholder="master_dealer.dealer_name" /></FormField>
-            <FormField label="Payee Broker Name"><input className="form-input" value={form.payee_broker_name} onChange={f('payee_broker_name')} placeholder="master_broker.broker_name" /></FormField>
+            <FormField label="Payee Dealer">
+              <select className="form-input" style={{ width:'100%' }} value={form.payee_dealer_name}
+                onChange={e => setForm(prev => ({ ...prev, payee_dealer_name: e.target.value, payee_broker_name: '' }))}>
+                <option value="">None / Select dealer…</option>
+                {mockDealers.map(d => <option key={d.id} value={d.name}>{d.name} — {d.city}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Payee Broker">
+              <select className="form-input" style={{ width:'100%' }} value={form.payee_broker_name}
+                onChange={e => setForm(prev => ({ ...prev, payee_broker_name: e.target.value, payee_dealer_name: '' }))}>
+                <option value="">None / Select broker…</option>
+                {mockBrokers.map(b => <option key={b.id} value={b.broker_name}>{b.broker_name} — {b.district}</option>)}
+              </select>
+            </FormField>
             
             {isCheque && (
               <>
@@ -505,8 +518,20 @@ export default function RTOPaymentsPage() {
                 {MODES.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
               </select>
             </FormField>
-            <FormField label="Payee Dealer"><input className="form-input" value={form.payee_dealer_name} onChange={f('payee_dealer_name')} /></FormField>
-            <FormField label="Payee Broker"><input className="form-input" value={form.payee_broker_name} onChange={f('payee_broker_name')} /></FormField>
+            <FormField label="Payee Dealer">
+              <select className="form-input" style={{ width:'100%' }} value={form.payee_dealer_name}
+                onChange={e => setForm(prev => ({ ...prev, payee_dealer_name: e.target.value, payee_broker_name: '' }))}>
+                <option value="">None / Select dealer…</option>
+                {mockDealers.map(d => <option key={d.id} value={d.name}>{d.name} — {d.city}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Payee Broker">
+              <select className="form-input" style={{ width:'100%' }} value={form.payee_broker_name}
+                onChange={e => setForm(prev => ({ ...prev, payee_broker_name: e.target.value, payee_dealer_name: '' }))}>
+                <option value="">None / Select broker…</option>
+                {mockBrokers.map(b => <option key={b.id} value={b.broker_name}>{b.broker_name} — {b.district}</option>)}
+              </select>
+            </FormField>
             
             {isCheque && (
               <>

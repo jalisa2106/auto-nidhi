@@ -6,6 +6,7 @@ import {
 import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
 import { commissionsOutApi, filesApi, bankAccountsApi } from '../../api/services'
+import { mockBrokers } from '../../lib/mockData'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 type CommissionOut = {
@@ -528,13 +529,27 @@ export default function CommissionOutPage() {
 
                   <div className="form-group modal-full">
                     <label className="form-label">Payee Name <span style={{ color: 'var(--error)' }}>*</span></label>
-                    <input
-                      id="comm-out-payee-name"
-                      className={`form-input ${errors.payee_name ? 'error' : ''}`}
-                      placeholder="e.g. City Motors, Aditya Rao, S. Joshi Associates…"
-                      value={form.payee_name}
-                      onChange={(e) => updateForm('payee_name', e.target.value)}
-                    />
+                    {form.payee_type === 'Broker' ? (
+                      <select
+                        id="comm-out-payee-name"
+                        className={`form-input ${errors.payee_name ? 'error' : ''}`}
+                        value={form.payee_name}
+                        onChange={(e) => updateForm('payee_name', e.target.value)}
+                      >
+                        <option value="">Select broker…</option>
+                        {mockBrokers.map((b) => (
+                          <option key={b.id} value={b.broker_name}>{b.broker_name} — {b.district}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        id="comm-out-payee-name"
+                        className={`form-input ${errors.payee_name ? 'error' : ''}`}
+                        placeholder="e.g. City Motors, Aditya Rao…"
+                        value={form.payee_name}
+                        onChange={(e) => updateForm('payee_name', e.target.value)}
+                      />
+                    )}
                     {errors.payee_name && <span className="form-error">{errors.payee_name}</span>}
                   </div>
 
