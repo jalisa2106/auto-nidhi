@@ -463,9 +463,20 @@ export const mockExpenses = [
   { id: 'E003', category: 'Travel',      amount: 3400,  date: '2025-10-15' },
 ]
 
+// advances — maps to `advances` table
+// party_type enum: 'dealer' | 'broker' only (DB constraint)
+// recovery_status enum: 'pending' | 'partial' | 'fully_recovered'
 export const mockAdvances = [
-  { id: 'A001', party_type: 'Dealer', party: 'Auto Hub',    amount: 50000, recovered: 12000, date: '2025-09-05' },
-  { id: 'A002', party_type: 'Broker', party: 'S. Joshi',   amount: 15000, recovered: 15000, date: '2025-09-20' },
+  { id: 'A001', dealer_id: 'D001', broker_id: null, party_name: 'Auto Hub Pvt Ltd',      party_type: 'dealer', advance_date: '2025-09-05', amount: 50000, mode: 'cash',   utr_cheque_number: '',             purpose: 'Vehicle booking advance',          recovery_status: 'partial',          amount_recovered: 12000, remarks: 'Partial recovery via cheque' },
+  { id: 'A002', dealer_id: null,   broker_id: 'B001', party_name: 'S. Joshi Associates', party_type: 'broker', advance_date: '2025-09-20', amount: 15000, mode: 'upi',    utr_cheque_number: 'UPI20250920001', purpose: 'Operating cash advance',           recovery_status: 'fully_recovered',  amount_recovered: 15000, remarks: 'Fully settled' },
+  { id: 'A003', dealer_id: 'D002', broker_id: null, party_name: 'City Motors',           party_type: 'dealer', advance_date: '2025-10-01', amount: 10000, mode: 'neft',   utr_cheque_number: 'NFT20251001002', purpose: 'Showroom inspection advance',      recovery_status: 'pending',          amount_recovered: 0,     remarks: '' },
+  { id: 'A004', dealer_id: 'D001', broker_id: null, party_name: 'Auto Hub Pvt Ltd',      party_type: 'dealer', advance_date: '2025-10-08', amount: 30000, mode: 'cheque', utr_cheque_number: 'CHQ00112233',    purpose: 'Pre-delivery inspection charges',  recovery_status: 'fully_recovered',  amount_recovered: 30000, remarks: 'Recovered in full' },
+  { id: 'A005', dealer_id: null,   broker_id: 'B003', party_name: 'Ramesh Consultants',  party_type: 'broker', advance_date: '2025-10-15', amount: 8000,  mode: 'cash',   utr_cheque_number: '',             purpose: 'File processing advance',          recovery_status: 'partial',          amount_recovered: 5000,  remarks: 'Balance pending from broker' },
+  { id: 'A006', dealer_id: null,   broker_id: 'B002', party_name: 'Patel Broker Srvcs',  party_type: 'broker', advance_date: '2025-10-22', amount: 20000, mode: 'rtgs',   utr_cheque_number: 'RTG20251022099', purpose: 'Commission advance before loan close', recovery_status: 'pending',       amount_recovered: 0,     remarks: 'Loan disbursement pending' },
+  { id: 'A007', dealer_id: 'D002', broker_id: null, party_name: 'City Motors',           party_type: 'dealer', advance_date: '2025-10-28', amount: 25000, mode: 'upi',    utr_cheque_number: 'UPI20251028044', purpose: 'Accessory fitment advance',        recovery_status: 'fully_recovered',  amount_recovered: 25000, remarks: '' },
+  { id: 'A008', dealer_id: null,   broker_id: 'B001', party_name: 'S. Joshi Associates', party_type: 'broker', advance_date: '2025-11-02', amount: 12000, mode: 'imps',   utr_cheque_number: 'IMP20251102007', purpose: 'Broker operational expense float', recovery_status: 'partial',          amount_recovered: 4000,  remarks: 'Two instalments received' },
+  { id: 'A009', dealer_id: 'D001', broker_id: null, party_name: 'Auto Hub Pvt Ltd',      party_type: 'dealer', advance_date: '2025-11-05', amount: 18000, mode: 'cheque', utr_cheque_number: 'CHQ00998877',    purpose: 'New model launch booking',        recovery_status: 'pending',          amount_recovered: 0,     remarks: 'Awaiting vehicle delivery' },
+  { id: 'A010', dealer_id: null,   broker_id: 'B004', party_name: 'Mehul Finance Broking',party_type: 'broker', advance_date: '2025-11-10', amount: 9000,  mode: 'neft',   utr_cheque_number: 'NFT20251110033', purpose: 'File documentation advance',       recovery_status: 'fully_recovered',  amount_recovered: 9000,  remarks: 'Cleared on disbursement day' },
 ]
 
 export const mockDealers = [
@@ -473,8 +484,16 @@ export const mockDealers = [
   { id: 'D002', name: 'City Motors', city: 'Mumbai', phone: '9000222333', email: 'sales@citymotors.in' },
 ]
 
+// master_broker — exact DB columns: id, broker_name, area, district, phone
 export const mockBrokers = [
-  { id: 'B001', name: 'S. Joshi', area: 'Kothrud', district: 'Pune', phone: '9000333444' },
+  { id: 'B001', broker_name: 'S. Joshi Associates',    area: 'Kothrud',      district: 'Pune',      phone: '9000333444' },
+  { id: 'B002', broker_name: 'Patel Broker Services',  area: 'Aundh',        district: 'Pune',      phone: '9876541230' },
+  { id: 'B003', broker_name: 'Ramesh Consultants',     area: 'FC Road',      district: 'Pune',      phone: '9123456789' },
+  { id: 'B004', broker_name: 'Mehul Finance Broking',  area: 'Vile Parle',   district: 'Mumbai',    phone: '9900112233' },
+  { id: 'B005', broker_name: 'Desai Associates',       area: 'Navrangpura',  district: 'Ahmedabad', phone: '9988001122' },
+  { id: 'B006', broker_name: 'Kapoor Loan Experts',    area: 'Lajpat Nagar', district: 'Delhi',     phone: '9811223344' },
+  { id: 'B007', broker_name: 'Singh & Sons Brokers',   area: 'Bani Park',    district: 'Jaipur',    phone: '9461122334' },
+  { id: 'B008', broker_name: 'Verma Financial Srvcs',  area: 'Civil Lines',  district: 'Nagpur',    phone: '7122334455' },
 ]
 
 export const mockBanks = [

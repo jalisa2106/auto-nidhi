@@ -25,11 +25,15 @@ def list_files(
     files = query.offset((page - 1) * limit).limit(limit).all()
     
     data = [{
-        "id": str(f.id),              # Keep ID as the UUID for navigation
-        "file_number": f.file_number, # This is for display
+        "id": str(f.id),              
+        "file_number": f.file_number, 
         "customer": f.customer.full_name if f.customer else "N/A",
-        "file_type": f.file_type,     # Changed from 'type' to match column key
-        "status": f.status.capitalize(),
+        # Format 'new_vehicle' to 'New Vehicle' for cleaner UI display
+        "type": f.file_type.replace('_', ' ').title() if f.file_type else "N/A",     
+        "status": f.status.title(),
+        # Fetch relationships added back to match the old UI
+        "bank": f.finance_info.bank.bank_name if f.finance_info and f.finance_info.bank else "—",
+        "assigned": f.assignee.first_name if f.assignee else "Unassigned",
         "created": f.created_at.strftime("%Y-%m-%d")
     } for f in files]
     
