@@ -26,6 +26,7 @@ type CommissionOut = {
   cheque_date?: string | null
   utr_no?: string | null
   company_bank_id?: string | null
+  company_bank_label?: string | null
   remarks?: string | null
 }
 
