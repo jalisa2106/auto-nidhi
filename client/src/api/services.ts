@@ -80,6 +80,29 @@ export const brokersApi = {
   },
 }
 
+export const dealersApi = {
+  list: async (page = 1, limit = 20, search = '') => {
+    const { data } = await api.get('/dealers', {
+      params: { page, limit, search },
+    })
+    return data
+  },
+
+  create: async (payload: { dealer_name: string }) => {
+    const { data } = await api.post('/dealers', payload)
+    return data
+  },
+
+  update: async (id: string, payload: { dealer_name: string }) => {
+    const { data } = await api.put(`/dealers/${id}`, payload)
+    return data
+  },
+
+  remove: async (id: string) => {
+    await api.delete(`/dealers/${id}`)
+  },
+}
+
 export const filesApi = {
   list: async (page = 1, limit = 20, status?: string, file_type?: string) => {
     const { data } = await api.get('/files/', {
