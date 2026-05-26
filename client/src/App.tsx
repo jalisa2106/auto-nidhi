@@ -15,6 +15,23 @@ import CustomerFilesPage        from './pages/CustomerPages/CustomerFilesPage'
 import CustomerNotificationsPage from './pages/CustomerPages/CustomerNotificationsPage'
 import CustomerProfilePage      from './pages/CustomerPages/CustomerProfilePage'
 
+// ── Data Entry pages ─────────────────────────────────────────────────
+import DataEntryLayout          from './pages/DataEntryPages/DataEntryLayout'
+import DataEntryDashboard       from './pages/DataEntryPages/DashboardPage'
+import DataEntryCustomers       from './pages/DataEntryPages/CustomersPage'
+import DataEntryFiles           from './pages/DataEntryPages/FilesPage'
+
+// ── Accountant pages ─────────────────────────────────────────────────
+import AccountantLayout         from './pages/AccountantPages/AccountantLayout'
+import AccountantDashboard      from './pages/AccountantPages/DashboardPage'
+import AccountantFiles          from './pages/AccountantPages/FilesPage'
+import AccountantPaymentIn      from './pages/AccountantPages/PaymentInPage'
+import AccountantPaymentOut     from './pages/AccountantPages/PaymentOutPage'
+import AccountantExpenses       from './pages/AccountantPages/ExpensesPage'
+import AccountantAdvances       from './pages/AccountantPages/AdvancesPage'
+import AccountantRTOPayments    from './pages/AccountantPages/RTOPaymentsPage'
+import AccountantInsurancePayments from './pages/AccountantPages/InsurancePaymentsPage'
+
 // Admin layout (sidebar + topbar + Outlet)
 import AdminLayout from './pages/Dashboard/AdminDashboard'
 
@@ -56,6 +73,25 @@ function App() {
           <Route path="/portal/files"          element={<CustomerFilesPage />}         />
           <Route path="/portal/notifications"  element={<CustomerNotificationsPage />} />
           <Route path="/portal/profile"        element={<CustomerProfilePage />}       />
+        </Route>
+
+        {/* ── Data Entry portal ── */}
+        <Route element={<DataEntryLayout />}>
+          <Route path="/data-entry/dashboard"  element={<DataEntryDashboard />} />
+          <Route path="/data-entry/customers"  element={<DataEntryCustomers />} />
+          <Route path="/data-entry/files"      element={<DataEntryFiles />} />
+        </Route>
+
+        {/* ── Accountant portal ── */}
+        <Route element={<AccountantLayout />}>
+          <Route path="/accountant/dashboard"          element={<AccountantDashboard />} />
+          <Route path="/accountant/files"              element={<AccountantFiles />} />
+          <Route path="/accountant/payments/in"        element={<AccountantPaymentIn />} />
+          <Route path="/accountant/payments/out"       element={<AccountantPaymentOut />} />
+          <Route path="/accountant/rto-payments"       element={<AccountantRTOPayments />} />
+          <Route path="/accountant/insurance-payments" element={<AccountantInsurancePayments />} />
+          <Route path="/accountant/expenses"           element={<AccountantExpenses />} />
+          <Route path="/accountant/advances"           element={<AccountantAdvances />} />
         </Route>
 
         {/* ── Role-based redirect on /dashboard ── */}

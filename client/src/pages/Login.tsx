@@ -59,6 +59,10 @@ const Login: React.FC = () => {
       
       if (data.user.role === 'customer') {
         navigate('/portal')
+      } else if (data.user.role === 'accountant') {
+        navigate('/accountant/dashboard')
+      } else if (data.user.role === 'data_entry') {
+        navigate('/data-entry/dashboard')
       } else {
         navigate('/dashboard')
       }
