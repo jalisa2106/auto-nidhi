@@ -17,10 +17,10 @@ interface UserProfile {
 }
 
 const ROLE_META: Record<string, { bg: string; color: string; border: string; label: string; icon: string }> = {
-  admin:      { bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)', color: '#1d4ed8', border: '#bfdbfe', label: 'Administrator', icon: 'ðŸ›¡ï¸' },
-  accountant: { bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', color: '#15803d', border: '#bbf7d0', label: 'Accountant',    icon: 'ðŸ“Š' },
-  data_entry: { bg: 'linear-gradient(135deg,#fefce8,#fef9c3)', color: '#a16207', border: '#fde68a', label: 'Data Entry',    icon: 'ðŸ“' },
-  customer:   { bg: 'linear-gradient(135deg,#fdf4ff,#fae8ff)', color: '#7e22ce', border: '#e9d5ff', label: 'Customer',      icon: 'ðŸ‘¤' },
+  admin:      { bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)', color: '#1d4ed8', border: '#bfdbfe', label: 'Administrator', icon: '🛡️' },
+  accountant: { bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', color: '#15803d', border: '#bbf7d0', label: 'Accountant',    icon: '📊' },
+  data_entry: { bg: 'linear-gradient(135deg,#fefce8,#fef9c3)', color: '#a16207', border: '#fde68a', label: 'Data Entry',    icon: '📝' },
+  customer:   { bg: 'linear-gradient(135deg,#fdf4ff,#fae8ff)', color: '#7e22ce', border: '#e9d5ff', label: 'Customer',      icon: '👤' },
 }
 
 /** Read the correct user from storage, using user_role to disambiguate */
@@ -76,7 +76,7 @@ function writeCurrentUser(updates: Partial<UserProfile>) {
 }
 
 function fmt(iso: string) {
-  if (!iso) return 'â€”'
+  if (!iso) return '—'
   try { return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return iso }
 }
 
@@ -294,11 +294,11 @@ export default function AdminProfilePage() {
         {!editing ? (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #f8fafc' }}>
-              <RowField icon={<User size={13}/>}  label="FIRST NAME"    value={profile.first_name  || 'â€”'} />
-              <RowField icon={<User size={13}/>}  label="LAST NAME"     value={profile.last_name   || 'â€”'} border />
+              <RowField icon={<User size={13}/>}  label="FIRST NAME"    value={profile.first_name  || '—'} />
+              <RowField icon={<User size={13}/>}  label="LAST NAME"     value={profile.last_name   || '—'} border />
             </div>
             <div style={{ borderBottom: '1px solid #f8fafc' }}>
-              <RowField icon={<Mail size={13}/>}  label="EMAIL ADDRESS" value={profile.email || 'â€”'} />
+              <RowField icon={<Mail size={13}/>}  label="EMAIL ADDRESS" value={profile.email || '—'} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
               <RowField icon={<Phone size={13}/>}  label="PHONE NUMBER" value={profile.phone_number || 'Not provided'} empty={!profile.phone_number} />
@@ -588,7 +588,7 @@ function PwdField({ label, value, show, onChange, onToggle }: {
         <input
           type={show ? 'text' : 'password'} value={value}
           onChange={e => onChange(e.target.value)}
-          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+          placeholder="••••••••"
           style={{
             width: '100%', height: '42px', padding: '0 44px 0 36px',
             border: '1.5px solid #e2e8f0', borderRadius: '10px',
