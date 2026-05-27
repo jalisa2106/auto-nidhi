@@ -26,6 +26,7 @@ def list_insurance_companies(db: Session = Depends(get_db)):
     rows = db.execute(text("""
         SELECT id, company_name, contact_person, mobile_no, phone_no
         FROM master_insurance_company
+        WHERE is_deleted = FALSE
         ORDER BY company_name
     """)).mappings().all()
     return [dict(r) for r in rows]
@@ -60,8 +61,13 @@ def update_insurance_company(id: str, data: InsuranceCompanyUpdate, db: Session 
 
 @router.delete("/insurance-companies/{id}", status_code=204)
 def delete_insurance_company(id: str, db: Session = Depends(get_db)):
-    existing = db.execute(text("SELECT id FROM master_insurance_company WHERE id = :id"), {"id": id}).first()
+    existing = db.execute(text("SELECT id FROM master_insurance_company WHERE id = :id AND is_deleted = FALSE"), {"id": id}).first()
     if not existing:
         raise HTTPException(status_code=404, detail="Insurance company not found")
-    db.execute(text("DELETE FROM master_insurance_company WHERE id = :id"), {"id": id})
+    db.execute(text("""
+        UPDATE master_insurance_company
+        SET is_deleted = TRUE,
+            deleted_at = NOW()
+        WHERE id = :id
+    """), {"id": id})
     db.commit()
