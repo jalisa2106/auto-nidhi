@@ -1,21 +1,286 @@
+import { useState, useEffect } from 'react'
+import { Pencil, Trash2, Tag, AlertCircle } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import DataTable from '../../components/app/DataTable'
+import Modal from '../../components/app/Modal'
 import { mockExpenseCategories } from '../../lib/mockData'
 
+interface ExpenseCategory {
+  id: string
+  name: string
+}
+
 export default function ExpenseCategoriesPage() {
+  const [categories, setCategories] = useState<ExpenseCategory[]>(() => {
+    const saved = localStorage.getItem('nidhi_expense_categories')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {
+        console.error('Failed to load expense categories from localStorage:', e)
+      }
+    }
+    return mockExpenseCategories
+  })
+
+  const [addOpen, setAddOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  
+  const [editOpen, setEditOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | null>(null)
+  const [editCategoryName, setEditCategoryName] = useState('')
+  
+  const [error, setError] = useState<string | null>(null)
+
+  // Sync state to localStorage
+  useEffect(() => {
+    localStorage.setItem('nidhi_expense_categories', JSON.stringify(categories))
+  }, [categories])
+
+  const handleAdd = () => {
+    if (!newCategoryName.trim()) {
+      setError('Category name cannot be empty')
+      return
+    }
+
+    const nameExists = categories.some(
+      (c) => c.name.toLowerCase() === newCategoryName.trim().toLowerCase()
+    )
+    if (nameExists) {
+      setError('A category with this name already exists')
+      return
+    }
+
+    // Automatically calculate next ID: EC + (last ID + 1)
+    const lastId = categories.length > 0 ? categories[categories.length - 1].id : 'EC000'
+    const lastNum = parseInt(lastId.replace('EC', ''), 10) || 0
+    const nextNum = lastNum + 1
+    const newId = `EC${String(nextNum).padStart(3, '0')}`
+
+    const newCategory: ExpenseCategory = {
+      id: newId,
+      name: newCategoryName.trim(),
+    }
+
+    setCategories((prev) => [...prev, newCategory])
+    setNewCategoryName('')
+    setAddOpen(false)
+    setError(null)
+  }
+
+  const handleEdit = () => {
+    if (!selectedCategory) return
+
+    if (!editCategoryName.trim()) {
+      setError('Category name cannot be empty')
+      return
+    }
+
+    const nameExists = categories.some(
+      (c) =>
+        c.id !== selectedCategory.id &&
+        c.name.toLowerCase() === editCategoryName.trim().toLowerCase()
+    )
+    if (nameExists) {
+      setError('Another category with this name already exists')
+      return
+    }
+
+    setCategories((prev) =>
+      prev.map((c) =>
+        c.id === selectedCategory.id ? { ...c, name: editCategoryName.trim() } : c
+      )
+    )
+    setEditOpen(false)
+    setSelectedCategory(null)
+    setError(null)
+  }
+
+  const handleDelete = (id: string) => {
+    // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
+    // Before uncommenting: add this column to DB table 'master_expense_category':
+    //   ALTER TABLE master_expense_category ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
+    //
+    // setCategories(prev => prev.filter(c => c.id !== id))
+    // setSelectedCategory(null)
+    // ─────────────────────────────────────────────────────────────────────────
+    alert(`Soft delete pending. Backend needs database updates:\n\nALTER TABLE master_expense_category ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;\n\nID to delete: ${id}`)
+  }
+
   return (
-    <>
-      <PageHeader title="Expense Categories" subtitle="Expense category master" />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 20 }}>
+      <PageHeader title="Expense Categories" subtitle="Manage and configure operating expense categories" />
+
+      {error && (
+        <div
+          style={{
+            padding: '12px 16px',
+            background: '#fee2e2',
+            border: '1px solid #fca5a5',
+            borderRadius: 'var(--radius-md)',
+            color: '#b91c1c',
+            fontSize: '.85rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertCircle size={16} />
+            {error}
+          </span>
+          <button
+            onClick={() => setError(null)}
+            style={{ background: 'none', border: 'none', color: '#b91c1c', cursor: 'pointer', fontSize: '1.2rem' }}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       <DataTable
-        rows={mockExpenseCategories}
-        searchKeys={['name']}
-        onAdd={() => {}}
-        addLabel="Add new"
+        rows={categories}
+        searchKeys={['name', 'id']}
+        onAdd={() => {
+          setNewCategoryName('')
+          setError(null)
+          setAddOpen(true)
+        }}
+        addLabel="Add category"
         columns={[
-          { key: 'id',   label: 'ID'   },
-          { key: 'name', label: 'Name' },
+          {
+            key: 'id',
+            label: 'ID',
+            render: (row) => (
+              <span style={{ fontWeight: 600, color: 'var(--brand-700)', fontFamily: 'monospace' }}>
+                {row.id}
+              </span>
+            )
+          },
+          {
+            key: 'name',
+            label: 'Category Name',
+            render: (row) => (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+                <Tag size={13} style={{ color: 'var(--brand-500)' }} />
+                {row.name}
+              </span>
+            )
+          },
+          {
+            key: 'actions',
+            label: 'Actions',
+            render: (row) => (
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: '0.78rem' }}
+                  onClick={() => {
+                    setSelectedCategory(row)
+                    setEditCategoryName(row.name)
+                    setError(null)
+                    setEditOpen(true)
+                  }}
+                  title="Edit category"
+                >
+                  <Pencil size={12} /> Edit
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '6px 12px',
+                    fontSize: '0.78rem',
+                    color: 'var(--error)',
+                    borderColor: 'rgba(239, 68, 68, 0.2)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.05)'
+                    e.currentTarget.style.borderColor = 'var(--error)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)'
+                  }}
+                  onClick={() => handleDelete(row.id)}
+                  title="Delete category"
+                >
+                  <Trash2 size={12} /> Delete
+                </button>
+              </div>
+            )
+          }
         ]}
       />
-    </>
+
+      {/* ── Add Modal ── */}
+      <Modal
+        open={addOpen}
+        title="Add Expense Category"
+        onClose={() => {
+          setAddOpen(false)
+          setError(null)
+        }}
+        onSubmit={handleAdd}
+        submitLabel="Add Category"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="form-group">
+            <label className="form-label">Category Name *</label>
+            <input
+              className={`form-input ${error ? 'error' : ''}`}
+              value={newCategoryName}
+              onChange={(e) => {
+                setNewCategoryName(e.target.value)
+                if (error) setError(null)
+              }}
+              placeholder="e.g. Software Subscriptions"
+              required
+              autoFocus
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Edit Modal ── */}
+      <Modal
+        open={editOpen}
+        title={`Edit Expense Category — ${selectedCategory?.id}`}
+        onClose={() => {
+          setEditOpen(false)
+          setSelectedCategory(null)
+          setError(null)
+        }}
+        onSubmit={handleEdit}
+        submitLabel="Save Changes"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="form-group">
+            <label className="form-label">Category ID (Read Only)</label>
+            <input
+              className="form-input"
+              value={selectedCategory?.id || ''}
+              disabled
+              style={{ backgroundColor: 'var(--surface-1)', color: 'var(--gray-500)', cursor: 'not-allowed' }}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Category Name *</label>
+            <input
+              className={`form-input ${error ? 'error' : ''}`}
+              value={editCategoryName}
+              onChange={(e) => {
+                setEditCategoryName(e.target.value)
+                if (error) setError(null)
+              }}
+              required
+              autoFocus
+            />
+          </div>
+        </div>
+      </Modal>
+    </div>
   )
 }

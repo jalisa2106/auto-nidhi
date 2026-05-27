@@ -274,6 +274,21 @@ export const rtoPaymentsApi = {
   },
 }
 
+export const insurancePaymentsApi = {
+  list: async () => {
+    const { data } = await api.get('/insurance-payments/');
+    return data;
+  },
+  create: async (payload: any) => {
+    const { data } = await api.post('/insurance-payments/', payload);
+    return data;
+  },
+  delete: async (id: string) => {
+    const { data } = await api.patch(`/insurance-payments/${id}/delete`);
+    return data;
+  },
+};
+
 // ── Settings APIs ────────────────────────────────────────────────────────────
 
 export const companySettingsApi = {

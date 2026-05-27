@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Wallet, X, Search, Plus,
   FileText, Banknote, Calendar,
   Hash, AlignLeft, User, Tag, Pencil, Trash2,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
 import { expensesApi, filesApi } from '../../api/services'
@@ -18,17 +19,32 @@ interface Expense {
   created_by_name: string
 }
 
-const CATEGORIES = [
-  'Office Supplies','Travel & Conveyance','Printing & Stationery',
-  'Staff Meal','Internet & Phone','Repair & Maintenance',
-  'Advertisement','Postage & Courier','Miscellaneous',
+const FALLBACK_CATEGORIES = [
+  'Office Supplies', 'Travel & Conveyance', 'Printing & Stationery',
+  'Staff Meal', 'Internet & Phone', 'Repair & Maintenance',
+  'Advertisement', 'Postage & Courier', 'Miscellaneous',
 ]
 
-const emptyForm = (): Omit<Expense, 'id' | 'created_at'> => ({
+const loadCategoryNames = () => {
+  const saved = localStorage.getItem('nidhi_expense_categories')
+  if (!saved) return FALLBACK_CATEGORIES
+
+  try {
+    const parsed = JSON.parse(saved)
+    const names = Array.isArray(parsed)
+      ? parsed.map((category: any) => category?.name).filter(Boolean)
+      : []
+    return names.length ? names : FALLBACK_CATEGORIES
+  } catch {
+    return FALLBACK_CATEGORIES
+  }
+}
+
+const emptyForm = (defaultCategory = FALLBACK_CATEGORIES[0]): Omit<Expense, 'id' | 'created_at'> => ({
   amount: 0,
   expense_date: '',
   remarks: '',
-  expense_category_name: CATEGORIES[0],
+  expense_category_name: defaultCategory,
   file_number: '',
   created_by_name: '',
 })
@@ -38,10 +54,10 @@ const fmt = (n: number) =>
 
 const categoryColor = (name: string): { bg: string; color: string } => {
   const palette = [
-    { bg:'#eff6ff', color:'#1d4ed8' }, { bg:'#fef3c7', color:'#92400e' },
-    { bg:'#dcfce7', color:'#15803d' }, { bg:'#fce7f3', color:'#9d174d' },
-    { bg:'#ede9fe', color:'#6d28d9' }, { bg:'#f0fdf4', color:'#166534' },
-    { bg:'#fff7ed', color:'#9a3412' },
+    { bg: '#eff6ff', color: '#1d4ed8' }, { bg: '#fef3c7', color: '#92400e' },
+    { bg: '#dcfce7', color: '#15803d' }, { bg: '#fce7f3', color: '#9d174d' },
+    { bg: '#ede9fe', color: '#6d28d9' }, { bg: '#f0fdf4', color: '#166534' },
+    { bg: '#fff7ed', color: '#9a3412' },
   ]
   let h = 0
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffff
@@ -62,15 +78,58 @@ const decodeCurrentUserId = (): string | null => {
   }
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+function Pagination({
+  total, page, pageSize, onPage, onPageSize,
+}: {
+  total: number; page: number; pageSize: number
+  onPage: (p: number) => void; onPageSize: (s: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const start = total === 0 ? 0 : Math.min((page - 1) * pageSize + 1, total)
+  const end = Math.min(page * pageSize, total)
+  const pages: (number | '...')[] = []
+
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (page > 3) pages.push('...')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
+    if (page < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+  }
+
+  return (
+    <div className="pagination-bar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="pagination-info">Showing {start}-{end} of {total} records</span>
+        <select className="page-size-select" value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}>
+          {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
+        </select>
+      </div>
+      <div className="pagination-controls">
+        <button className="page-btn" onClick={() => onPage(1)} disabled={page === 1} title="First"><ChevronsLeft size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} title="Prev"><ChevronLeft size={14} /></button>
+        {pages.map((p, i) => p === '...' ? (
+          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>...</span>
+        ) : (
+          <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => onPage(p as number)}>{p}</button>
+        ))}
+        <button className="page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages} title="Next"><ChevronRight size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(totalPages)} disabled={page === totalPages} title="Last"><ChevronsRight size={14} /></button>
+      </div>
+    </div>
+  )
+}
+
 function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
   if (!value && value !== 0) return null
   return (
-    <div style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'10px 0', borderBottom:'1px solid var(--gray-100)' }}>
-      <div style={{ color:'var(--brand-500)', marginTop:1, flexShrink:0 }}>{icon}</div>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--gray-100)' }}>
+      <div style={{ color: 'var(--brand-500)', marginTop: 1, flexShrink: 0 }}>{icon}</div>
       <div>
-        <div style={{ fontSize:'.72rem', color:'var(--gray-400)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px' }}>{label}</div>
-        <div style={{ fontSize:'.9rem', color:'var(--gray-800)', fontWeight:500, marginTop:2 }}>{value}</div>
+        <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>{label}</div>
+        <div style={{ fontSize: '.9rem', color: 'var(--gray-800)', fontWeight: 500, marginTop: 2 }}>{value}</div>
       </div>
     </div>
   )
@@ -85,8 +144,8 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
   )
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
 export default function ExpensesPage() {
+  const [categoriesList, setCategoriesList] = useState<string[]>(loadCategoryNames)
   const [rows, setRows] = useState<Expense[]>([])
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Expense | null>(null)
@@ -94,14 +153,21 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [fileOptions, setFileOptions] = useState<Array<{ id: string; file_number: string }>>([])
+  const [fileOptions, setFileOptions] = useState<Array<{ id: string; file_number: string; customer?: string; full_name?: string }>>([])
 
-  // Modal states
   const [addOpen, setAddOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
-  const [form, setForm] = useState<Omit<Expense, 'id' | 'created_at'>>(emptyForm())
+  const [viewOpen, setViewOpen] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+  const [form, setForm] = useState<Omit<Expense, 'id' | 'created_at'>>(() => emptyForm(categoriesList[0]))
 
-  const categories = ['All', ...CATEGORIES]
+  const closeView = useCallback(() => {
+    setViewOpen(false)
+    setSelected(null)
+  }, [])
+
+  const categories = ['All', ...categoriesList]
 
   useEffect(() => {
     let active = true
@@ -118,12 +184,18 @@ export default function ExpensesPage() {
 
         if (!active) return
 
+        const nextCategories = loadCategoryNames()
+        setCategoriesList(nextCategories)
         setRows(expenses.map(expense => ({
           ...expense,
           remarks: expense.remarks ?? '',
         })))
         setFileOptions(Array.isArray(filesResponse?.data) ? filesResponse.data : [])
         setCurrentUserId(decodeCurrentUserId())
+        setForm(prev => ({
+          ...prev,
+          expense_category_name: prev.expense_category_name || nextCategories[0] || '',
+        }))
       } catch (err) {
         if (!active) return
         setError(err instanceof Error ? err.message : 'Failed to load expenses')
@@ -139,6 +211,14 @@ export default function ExpensesPage() {
     }
   }, [])
 
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeView()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [closeView])
+
   const filtered = rows.filter(e => {
     const q = search.toLowerCase()
     const matchSearch =
@@ -150,6 +230,10 @@ export default function ExpensesPage() {
     const matchCat = filterCategory === 'All' || e.expense_category_name === filterCategory
     return matchSearch && matchCat
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   const resolveFileId = (fileNumber: string): string | null => {
     const match = fileOptions.find(item => item.file_number === fileNumber)
@@ -167,8 +251,8 @@ export default function ExpensesPage() {
     alert('Add is temporarily blocked because the backend currently requires category IDs that are not exposed by the current API surface.')
   }
 
-  const openEdit = (e: Expense) => {
-    const { id: _id, created_at: _ca, ...rest } = e
+  const openEdit = (expense: Expense) => {
+    const { id: _id, created_at: _ca, ...rest } = expense
     setForm(rest)
     setEditOpen(true)
   }
@@ -199,8 +283,14 @@ export default function ExpensesPage() {
 
     try {
       await expensesApi.update(selected.id, payload)
-      setRows(prev => prev.map(row => row.id === selected.id ? { ...row, ...payload, expense_date: payload.expense_date ?? row.expense_date, remarks: payload.remarks ?? row.remarks, file_number: form.file_number || row.file_number } : row))
-      setSelected(prev => prev ? { ...prev, ...payload, expense_date: payload.expense_date ?? prev.expense_date, remarks: payload.remarks ?? prev.remarks, file_number: form.file_number || prev.file_number } : prev)
+      setRows(prev => prev.map(row => row.id === selected.id
+        ? { ...row, ...payload, expense_date: payload.expense_date ?? row.expense_date, remarks: payload.remarks ?? row.remarks, file_number: form.file_number || row.file_number }
+        : row,
+      ))
+      setSelected(prev => prev
+        ? { ...prev, ...payload, expense_date: payload.expense_date ?? prev.expense_date, remarks: payload.remarks ?? prev.remarks, file_number: form.file_number || prev.file_number }
+        : prev,
+      )
       setEditOpen(false)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update expense')
@@ -211,9 +301,7 @@ export default function ExpensesPage() {
     try {
       await expensesApi.delete(id)
       setRows(prev => prev.filter(e => e.id !== id))
-      if (selected?.id === id) {
-        setSelected(null)
-      }
+      if (selected?.id === id) closeView()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete expense')
     }
@@ -224,201 +312,199 @@ export default function ExpensesPage() {
       setForm(prev => ({ ...prev, [key]: key === 'amount' ? Number(e.target.value) : e.target.value }))
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', gap:20 }}>
-
-      {/* Category filter pills */}
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', background:'#fff', border:'1px solid var(--gray-100)', borderRadius:'var(--radius-md)', padding:'12px 16px', boxShadow:'var(--shadow-sm)' }}>
-        <span style={{ fontSize:'.78rem', fontWeight:700, color:'var(--gray-500)', marginRight:4, textTransform:'uppercase', letterSpacing:'.5px' }}>Category</span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 20 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', background: '#fff', border: '1px solid var(--gray-100)', borderRadius: 'var(--radius-md)', padding: '12px 16px', boxShadow: 'var(--shadow-sm)' }}>
+        <span style={{ fontSize: '.78rem', fontWeight: 700, color: 'var(--gray-500)', marginRight: 4, textTransform: 'uppercase', letterSpacing: '.5px' }}>Category</span>
         {categories.map(cat => {
           const isActive = filterCategory === cat
           const cc = categoryColor(cat)
           return (
-            <button key={cat} id={`expense-filter-${cat.replace(/\s+/g,'-').toLowerCase()}`}
-              onClick={() => setFilterCategory(cat)}
-              style={{ padding:'5px 13px', borderRadius:'var(--radius-full)', fontSize:'.78rem', fontWeight:600, cursor:'pointer', transition:'all .15s', border: isActive ? '1.5px solid transparent' : '1.5px solid var(--gray-200)', background: isActive ? (cat==='All' ? 'var(--brand-600)' : cc.bg) : '#fff', color: isActive ? (cat==='All' ? '#fff' : cc.color) : 'var(--gray-600)' }}>
+            <button key={cat} id={`expense-filter-${cat.replace(/\s+/g, '-').toLowerCase()}`}
+              onClick={() => { setFilterCategory(cat); setPage(1) }}
+              style={{ padding: '5px 13px', borderRadius: 'var(--radius-full)', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s', border: isActive ? '1.5px solid transparent' : '1.5px solid var(--gray-200)', background: isActive ? (cat === 'All' ? 'var(--brand-600)' : cc.bg) : '#fff', color: isActive ? (cat === 'All' ? '#fff' : cc.color) : 'var(--gray-600)' }}>
               {cat}
             </button>
           )
         })}
       </div>
 
-      {/* Main area */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:16, minHeight:0, flex:1 }}>
+      {error && (
+        <div style={{ padding: '12px 16px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)', color: '#b91c1c', fontSize: '.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{error}</span>
+          <button onClick={() => setError('')} style={{ background: 'none', border: 'none', color: '#b91c1c', cursor: 'pointer', fontSize: '1.2rem' }}>x</button>
+        </div>
+      )}
 
-        {/* Table */}
-        <div style={{ background:'#fff', border:'1px solid var(--gray-100)', borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-sm)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid var(--gray-100)', gap:12, flexWrap:'wrap' }}>
-            <div style={{ fontWeight:700, fontSize:'.95rem', color:'var(--gray-900)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, minHeight: 0, flex: 1 }}>
+        <div style={{ background: '#fff', border: '1px solid var(--gray-100)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--gray-100)', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--gray-900)' }}>
               All Expenses
-              <span style={{ marginLeft:8, fontSize:'.75rem', color:'var(--gray-400)', fontWeight:500 }}>{filtered.length} records</span>
+              <span style={{ marginLeft: 8, fontSize: '.75rem', color: 'var(--gray-400)', fontWeight: 500 }}>{filtered.length} records</span>
             </div>
-            <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-              <div style={{ position:'relative' }}>
-                <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)' }} />
-                <input id="expense-search" placeholder="Search by ID, category, staff…" value={search} onChange={e => setSearch(e.target.value)}
-                  style={{ padding:'8px 12px 8px 32px', border:'1.5px solid var(--gray-200)', borderRadius:8, fontSize:'.85rem', outline:'none', fontFamily:'inherit', width:220 }}
-                  onFocus={e => (e.target.style.borderColor='var(--brand-500)')}
-                  onBlur={e  => (e.target.style.borderColor='var(--gray-200)')} />
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
+                <input id="expense-search" placeholder="Search by ID, category, staff..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+                  style={{ padding: '8px 12px 8px 32px', border: '1.5px solid var(--gray-200)', borderRadius: 8, fontSize: '.85rem', outline: 'none', fontFamily: 'inherit', width: 220 }}
+                  onFocus={e => (e.target.style.borderColor = 'var(--brand-500)')}
+                  onBlur={e => (e.target.style.borderColor = 'var(--gray-200)')} />
               </div>
-              <button id="expense-add-btn" disabled={true} title="Add expense is temporarily blocked until category IDs are exposed by the backend."
-                onClick={() => { setForm(emptyForm()); setAddOpen(true) }}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:'var(--radius-sm)', background:'var(--brand-600)', color:'#fff', fontSize:'.85rem', fontWeight:600, cursor:'not-allowed', border:'none', transition:'background .15s', opacity:.65 }}>
+              <button id="expense-add-btn" onClick={() => { setForm(emptyForm(categoriesList[0] || '')); setAddOpen(true) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--brand-600)', color: '#fff', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'background .15s' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-700)')}
+                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-600)')}>
                 <Plus size={15} /> Add Expense
               </button>
             </div>
           </div>
 
           {loading && (
-            <div style={{ padding:'14px 18px', color:'var(--gray-500)', fontSize:'.85rem' }}>Loading expenses…</div>
+            <div style={{ padding: '14px 18px', color: 'var(--gray-500)', fontSize: '.85rem' }}>Loading expenses...</div>
           )}
 
-          {error && (
-            <div style={{ padding:'14px 18px', color:'#b91c1c', fontSize:'.85rem', background:'#fff5f5', borderBottom:'1px solid #fee2e2' }}>
-              {error}
-            </div>
-          )}
-
-          <div style={{ overflowY:'auto', flex:1 }}>
-            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'.84rem' }}>
-              <thead style={{ position:'sticky', top:0 }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
+              <thead style={{ position: 'sticky', top: 0 }}>
                 <tr>
-                  {['Expense ID','Category','Amount','Date','File Linked','Recorded By'].map(h => (
-                    <th key={h} style={{ textAlign:'left', padding:'11px 14px', fontSize:'.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'.5px', color:'var(--gray-500)', background:'var(--surface-1)', borderBottom:'1px solid var(--gray-100)', whiteSpace:'nowrap' }}>{h}</th>
+                  {['Expense ID', 'Category', 'Amount', 'Date', 'File Linked', 'Recorded By', 'Action'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--gray-500)', background: 'var(--surface-1)', borderBottom: '1px solid var(--gray-100)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign:'center', padding:40, color:'var(--gray-400)' }}>No expenses match your search.</td></tr>
-                ) : filtered.map(row => {
-                  const isSelected = selected?.id === row.id
+                {pageRows.length === 0 ? (
+                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No expenses match your search.</td></tr>
+                ) : pageRows.map(row => {
                   const cc = categoryColor(row.expense_category_name)
                   return (
-                    <tr key={row.id} id={`expense-row-${row.id}`} onClick={() => setSelected(isSelected ? null : row)}
-                      style={{ cursor:'pointer', background: isSelected ? 'var(--brand-50)' : 'transparent', borderLeft: isSelected ? '3px solid var(--brand-500)' : '3px solid transparent', transition:'background .15s' }}
-                      onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background='var(--surface-1)' }}
-                      onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background='transparent' }}>
-                      <td style={{ padding:'12px 14px', color:'var(--brand-700)', fontWeight:600, fontSize:'.82rem' }}>{row.id}</td>
-                      <td style={{ padding:'12px 14px' }}>
-                        <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:'var(--radius-full)', fontSize:'.75rem', fontWeight:600, background:cc.bg, color:cc.color }}>
+                    <tr key={row.id} id={`expense-row-${row.id}`}
+                      style={{ cursor: 'default', background: 'transparent', borderLeft: '3px solid transparent', transition: 'background .15s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-1)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}>
+                      <td style={{ padding: '12px 14px', color: 'var(--brand-700)', fontWeight: 600, fontSize: '.82rem' }}>{row.id}</td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 'var(--radius-full)', fontSize: '.75rem', fontWeight: 600, background: cc.bg, color: cc.color }}>
                           <Tag size={10} />{row.expense_category_name}
                         </span>
                       </td>
-                      <td style={{ padding:'12px 14px', fontWeight:700, color:'var(--gray-900)' }}>{fmt(row.amount)}</td>
-                      <td style={{ padding:'12px 14px', color:'var(--gray-600)' }}>{row.expense_date}</td>
-                      <td style={{ padding:'12px 14px' }}>
+                      <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--gray-900)' }}>{fmt(row.amount)}</td>
+                      <td style={{ padding: '12px 14px', color: 'var(--gray-600)' }}>{row.expense_date}</td>
+                      <td style={{ padding: '12px 14px' }}>
                         {row.file_number
-                          ? <span style={{ color:'var(--brand-600)', fontWeight:600 }}>{row.file_number}</span>
-                          : <span style={{ color:'var(--gray-300)', fontSize:'.8rem' }}>—</span>}
+                          ? <span style={{ color: 'var(--brand-600)', fontWeight: 600 }}>{row.file_number}</span>
+                          : <span style={{ color: 'var(--gray-300)', fontSize: '.8rem' }}>-</span>}
                       </td>
-                      <td style={{ padding:'12px 14px', color:'var(--gray-700)' }}>{row.created_by_name}</td>
+                      <td style={{ padding: '12px 14px', color: 'var(--gray-700)' }}>{row.created_by_name}</td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <button className="btn btn-outline btn-sm" style={{ padding: '5px 12px', fontSize: '.78rem' }} onClick={() => { setSelected(row); setViewOpen(true) }} title="View details"><Eye size={13} /></button>
+                      </td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
           </div>
+
+          <Pagination total={filtered.length} page={safePage} pageSize={pageSize} onPage={setPage} onPageSize={setPageSize} />
         </div>
+      </div>
 
-        {/* Detail panel */}
-        <div style={{ background:'#fff', border:'1px solid var(--gray-100)', borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-sm)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-          {selected ? (
-            <>
-              <div style={{ padding:'16px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', background:'linear-gradient(135deg, var(--brand-800), var(--brand-900))' }}>
-                <div>
-                  <div style={{ fontSize:'.7rem', color:'rgba(255,255,255,.6)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px' }}>Expense Detail</div>
-                  <div style={{ fontSize:'1rem', fontWeight:700, color:'#fff', marginTop:2 }}>{selected.id}</div>
-                </div>
-                <button id="close-expense-detail" onClick={() => setSelected(null)}
-                  style={{ width:28, height:28, borderRadius:'50%', background:'rgba(255,255,255,.15)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,.25)')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,.15)')}>
-                  <X size={14} />
-                </button>
-              </div>
-
-              <div style={{ padding:'18px', display:'flex', flexDirection:'column', alignItems:'center', borderBottom:'1px solid var(--gray-100)' }}>
-                <div style={{ width:54, height:54, borderRadius:'50%', background:categoryColor(selected.expense_category_name).bg, color:categoryColor(selected.expense_category_name).color, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 }}>
+      {viewOpen && selected && (
+        <div className="modal-backdrop" onClick={closeView}>
+          <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Expense - {selected.id}</h3>
+              <button className="btn btn-ghost btn-sm" onClick={closeView}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0 20px', borderBottom: '1px solid var(--gray-100)', marginBottom: 16 }}>
+                <div style={{ width: 54, height: 54, borderRadius: '50%', background: categoryColor(selected.expense_category_name).bg, color: categoryColor(selected.expense_category_name).color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
                   <Wallet size={22} />
                 </div>
-                <div style={{ fontWeight:700, fontSize:'.95rem', color:'var(--gray-900)', textAlign:'center' }}>{selected.expense_category_name}</div>
-                <div style={{ fontSize:'.78rem', color:'var(--gray-400)', marginTop:2 }}>Recorded by {selected.created_by_name}</div>
-                <div style={{ marginTop:12, padding:'8px 20px', background:'var(--brand-50)', borderRadius:'var(--radius-md)', textAlign:'center' }}>
-                  <div style={{ fontSize:'.7rem', color:'var(--brand-600)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px' }}>Amount Spent</div>
-                  <div style={{ fontSize:'1.5rem', fontWeight:800, color:'var(--brand-700)' }}>{fmt(selected.amount)}</div>
+                <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--gray-900)', textAlign: 'center' }}>{selected.expense_category_name}</div>
+                <div style={{ fontSize: '.78rem', color: 'var(--gray-400)', marginTop: 2 }}>Recorded by {selected.created_by_name}</div>
+                <div style={{ marginTop: 12, padding: '8px 20px', background: 'var(--brand-50)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '.7rem', color: 'var(--brand-600)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Amount Spent</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--brand-700)' }}>{fmt(selected.amount)}</div>
                 </div>
-
-                {/* Edit & Delete */}
-                <div style={{ display:'flex', gap:8, marginTop:14 }}>
-                  <button id={`expense-edit-${selected.id}`} onClick={() => openEdit(selected)}
-                    style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--brand-200)', background:'var(--brand-50)', color:'var(--brand-700)', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-100)')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-50)')}>
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  <button id={`expense-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--brand-200)', background: 'var(--brand-50)', color: 'var(--brand-700)', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                    onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-100)')}
+                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-50)')}>
                     <Pencil size={13} /> Edit
                   </button>
-                  <button id={`expense-delete-${selected.id}`} onClick={() => handleDelete(selected.id)}
-                    style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid #fee2e2', background:'#fff5f5', color:'#b91c1c', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='#fee2e2')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='#fff5f5')}>
+                  <button id={`expense-delete-${selected.id}`} onClick={() => { handleDelete(selected.id); closeView() }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid #fee2e2', background: '#fff5f5', color: '#b91c1c', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                    onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = '#fee2e2')}
+                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = '#fff5f5')}>
                     <Trash2 size={13} /> Delete
                   </button>
                 </div>
               </div>
-
-              <div style={{ padding:'4px 18px 16px', overflowY:'auto', flex:1 }}>
-                <DetailRow icon={<Hash      size={14}/>} label="Expense ID"    value={selected.id} />
-                <DetailRow icon={<Tag       size={14}/>} label="Category"      value={selected.expense_category_name} />
-                <DetailRow icon={<Banknote  size={14}/>} label="Amount"        value={`₹${selected.amount.toLocaleString('en-IN')}`} />
-                <DetailRow icon={<Calendar  size={14}/>} label="Expense Date"  value={selected.expense_date} />
-                <DetailRow icon={<FileText  size={14}/>} label="Linked File"   value={selected.file_number || '—'} />
-                <DetailRow icon={<User      size={14}/>} label="Recorded By"   value={selected.created_by_name} />
-                <DetailRow icon={<Calendar  size={14}/>} label="Recorded At"   value={new Date(selected.created_at).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' })} />
-                <DetailRow icon={<AlignLeft size={14}/>} label="Remarks"       value={selected.remarks || ''} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <DetailRow icon={<Hash size={14} />} label="Expense ID" value={selected.id} />
+                <DetailRow icon={<Tag size={14} />} label="Category" value={selected.expense_category_name} />
+                <DetailRow icon={<Banknote size={14} />} label="Amount" value={`₹${selected.amount.toLocaleString('en-IN')}`} />
+                <DetailRow icon={<Calendar size={14} />} label="Expense Date" value={selected.expense_date} />
+                <DetailRow icon={<FileText size={14} />} label="Linked File" value={selected.file_number || '-'} />
+                <DetailRow icon={<User size={14} />} label="Recorded By" value={selected.created_by_name} />
+                <DetailRow icon={<Calendar size={14} />} label="Recorded At" value={new Date(selected.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} />
+                <DetailRow icon={<AlignLeft size={14} />} label="Remarks" value={selected.remarks || ''} />
               </div>
-            </>
-          ) : (
-            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, textAlign:'center', color:'var(--gray-300)' }}>
-              <Wallet size={52} strokeWidth={1.2} />
-              <div style={{ marginTop:14, fontSize:'.9rem', fontWeight:600, color:'var(--gray-400)' }}>Select an expense</div>
-              <div style={{ fontSize:'.8rem', color:'var(--gray-300)', marginTop:4 }}>Click any row to view full details here.</div>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Add Modal ── */}
       <Modal open={addOpen} title="Add Expense" onClose={() => setAddOpen(false)} onSubmit={handleAdd} submitLabel="Add Expense">
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <FormField label="Category *">
-              <select className="form-select" style={{ width:'100%' }} value={form.expense_category_name} onChange={f('expense_category_name')}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              <select className="form-select" style={{ width: '100%' }} value={form.expense_category_name} onChange={f('expense_category_name')}>
+                {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </FormField>
             <FormField label="Amount (₹) *"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required /></FormField>
             <FormField label="Expense Date *"><input className="form-input" type="date" value={form.expense_date} onChange={f('expense_date')} required /></FormField>
-            <FormField label="Linked File (optional)"><input className="form-input" value={form.file_number} onChange={f('file_number')} placeholder="FILE-001 or leave blank" /></FormField>
+            <FormField label="Linked File (optional)">
+              <select className="form-input" style={{ width: '100%' }} value={form.file_number}
+                onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))}>
+                <option value="">None / Select file...</option>
+                {fileOptions.map(file => (
+                  <option key={file.id} value={file.file_number}>{file.file_number} - {file.customer || file.full_name || '-'}</option>
+                ))}
+              </select>
+            </FormField>
             <FormField label="Recorded By *"><input className="form-input" value={form.created_by_name} onChange={f('created_by_name')} placeholder="Staff name" required /></FormField>
           </div>
-          <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize:'vertical' }} /></FormField>
+          <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize: 'vertical' }} /></FormField>
         </div>
       </Modal>
 
-      {/* ── Edit Modal ── */}
-      <Modal open={editOpen} title={`Edit Expense — ${selected?.id}`} onClose={() => setEditOpen(false)} onSubmit={handleEdit} submitLabel="Save Changes">
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+      <Modal open={editOpen} title={`Edit Expense - ${selected?.id}`} onClose={() => setEditOpen(false)} onSubmit={handleEdit} submitLabel="Save Changes">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <FormField label="Category">
-              <select className="form-select" style={{ width:'100%' }} value={form.expense_category_name} onChange={f('expense_category_name')}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              <select className="form-select" style={{ width: '100%' }} value={form.expense_category_name} onChange={f('expense_category_name')}>
+                {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </FormField>
             <FormField label="Amount (₹)"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} /></FormField>
             <FormField label="Expense Date"><input className="form-input" type="date" value={form.expense_date} onChange={f('expense_date')} /></FormField>
-            <FormField label="Linked File"><input className="form-input" value={form.file_number} onChange={f('file_number')} /></FormField>
+            <FormField label="Linked File">
+              <select className="form-input" style={{ width: '100%' }} value={form.file_number}
+                onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))}>
+                <option value="">None / Select file...</option>
+                {fileOptions.map(file => (
+                  <option key={file.id} value={file.file_number}>{file.file_number} - {file.customer || file.full_name || '-'}</option>
+                ))}
+              </select>
+            </FormField>
             <FormField label="Recorded By"><input className="form-input" value={form.created_by_name} onChange={f('created_by_name')} /></FormField>
           </div>
-          <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize:'vertical' }} /></FormField>
+          <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize: 'vertical' }} /></FormField>
         </div>
       </Modal>
     </div>

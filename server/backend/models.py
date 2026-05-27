@@ -320,3 +320,32 @@ class MasterExpenseCategory(Base):
     company_bank_id = Column(String, ForeignKey("master_company_bank.id"), nullable=True)
     
     company_bank = relationship("MasterCompanyBank", foreign_keys=[company_bank_id])
+
+class InsurancePayment(Base):
+    __tablename__ = "insurance_payment"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=False)
+    payment_date = Column(Date, nullable=False)
+    payment_mode = Column(String, nullable=False)
+    payee_dealer_id = Column(UUID(as_uuid=True), ForeignKey("master_dealer.id"))
+    payee_broker_id = Column(UUID(as_uuid=True), ForeignKey("master_broker.id"))
+    amount = Column(DECIMAL(15,2), nullable=False)
+    bank_account_no = Column(String(50))
+    ifsc_code = Column(String(20))
+    cheque_bank_name = Column(String(255))
+    branch_name = Column(String(255))
+    cheque_no = Column(String(50))
+    cheque_date = Column(Date)
+    cheque_amount = Column(DECIMAL(15,2))
+    utr_no = Column(String(100))
+    remarks = Column(Text)
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    payee_name = Column(String(255))
+    valid_to = Column(Date)
+    company_bank_id = Column(UUID(as_uuid=True), ForeignKey("master_company_bank.id"))
+    
+    file = relationship("FileRecord")
+    payee_dealer = relationship("MasterDealer", foreign_keys=[payee_dealer_id])
+    payee_broker = relationship("MasterBroker", foreign_keys=[payee_broker_id])
+    company_bank = relationship("MasterCompanyBank", foreign_keys=[company_bank_id])
