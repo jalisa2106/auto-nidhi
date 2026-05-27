@@ -372,7 +372,7 @@ export const usersSettingsApi = {
     return data
   },
   toggleActive: async (id: string) => {
-    const { data } = await api.patch(`/settings/users/${id}//toggle-active`)
+    const { data } = await api.patch(`/settings/users/${id}/toggle-active`)
     return data
   },
 }
