@@ -90,7 +90,6 @@ export default function AdminSettingsPage() {
         subtitle={`${enabledCount} of ${prefs.length} types enabled`}
         open={notifOpen}
         onToggle={() => setNotifOpen(p => !p)}
-        accentColor="#2563eb"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
           {prefs.map(p => (
@@ -151,7 +150,6 @@ export default function AdminSettingsPage() {
         subtitle="Appearance and visual preferences"
         open={displayOpen}
         onToggle={() => setDisplayOpen(p => !p)}
-        accentColor="#7c3aed"
       >
         <DisplayRow
           label="Dark Mode"
@@ -175,7 +173,6 @@ export default function AdminSettingsPage() {
         subtitle="Details about your active login"
         open={sessionOpen}
         onToggle={() => setSessionOpen(p => !p)}
-        accentColor="#0891b2"
       >
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
           <SessionBox label="Session Started"   value={fmtDate(jwt.iat)} />
@@ -205,7 +202,6 @@ export default function AdminSettingsPage() {
         subtitle="Account security status"
         open={securityOpen}
         onToggle={() => setSecurityOpen(p => !p)}
-        accentColor="#16a34a"
       >
         <SecurityRow label="Two-Factor Authentication" status="not_enabled" note="Coming soon" />
         <SecurityRow label="Password Protection"       status="enabled"     note="Password is set" />
@@ -231,9 +227,9 @@ export default function AdminSettingsPage() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function SettingsCard({ icon, iconBg, title, subtitle, open, onToggle, accentColor, children }: {
+function SettingsCard({ icon, iconBg, title, subtitle, open, onToggle, children }: {
   icon: React.ReactNode; iconBg: string; title: string; subtitle: string;
-  open: boolean; onToggle: () => void; accentColor: string; children: React.ReactNode
+  open: boolean; onToggle: () => void; children: React.ReactNode
 }) {
   return (
     <div className="card" style={{ marginBottom: '14px', padding: 0, overflow: 'hidden' }}>
