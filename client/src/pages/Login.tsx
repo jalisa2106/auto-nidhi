@@ -1,147 +1,218 @@
 import React, { useState } from 'react'
-import { Form, Input, Button, Typography, Checkbox, message } from 'antd'
-import { LoginOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import API_BASE from '../lib/apiConfig'
-
 import AuthLayout from '../components/auth/AuthLayout'
 import AuthCard from '../components/auth/AuthCard'
 import BrandSection from '../components/auth/BrandSection'
 
-const { Title, Text } = Typography
+// ── SVG icons ────────────────────────────────────────────────────────────────
 
-interface LoginFormValues {
-  email: string
-  password: string
-  remember?: boolean
-}
+const EyeIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
+  </svg>
+)
+
+const EyeOffIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M17.94 17.94A11 11 0 0 1 12 19C5 19 1 12 1 12a18.1 18.1 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+)
+
+const ErrorIcon = () => (
+  <svg className="auth-alert-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/>
+    <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    <circle cx="12" cy="16" r="1" fill="currentColor"/>
+  </svg>
+)
+
+const LoginIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    <polyline points="10 17 15 12 10 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    <line x1="15" y1="12" x2="3" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+)
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 const Login: React.FC = () => {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading]       = useState(false)
+  const [showPass, setShowPass]     = useState(false)
+  const [errorMsg, setErrorMsg]     = useState<string | null>(null)
 
-  const handleLogin = async (values: LoginFormValues) => {
+  // Controlled form values
+  const [email, setEmail]         = useState('')
+  const [password, setPassword]   = useState('')
+  const [remember, setRemember]   = useState(false)
+
+  // Inline field errors
+  const [emailErr, setEmailErr]   = useState('')
+  const [passErr, setPassErr]     = useState('')
+
+  const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setErrorMsg(null)
+
+    // Client-side validation
+    let valid = true
+    if (!email) { setEmailErr('Email is required'); valid = false }
+    else if (!validateEmail(email)) { setEmailErr('Please enter a valid email'); valid = false }
+    else setEmailErr('')
+
+    if (!password) { setPassErr('Password is required'); valid = false }
+    else setPassErr('')
+
+    if (!valid) return
+
     try {
       setLoading(true)
-
       const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: values.email,
-          password: values.password,
-        }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        message.error(data.detail || 'Invalid credentials.')
+        if (response.status === 401) {
+          setErrorMsg('Invalid email or password. Please check your credentials and try again.')
+        } else {
+          setErrorMsg(data.detail || 'Login failed. Please try again.')
+        }
         setLoading(false)
         return
       }
 
-      localStorage.setItem(
-        'an_current_user',
-        JSON.stringify({ 
-          email: data.user.email, 
-          role: data.user.role, 
-          name: data.user.first_name || 'User' 
-        })
-      )
-      
-      localStorage.setItem('user_role', data.user.role)
-      localStorage.setItem('access_token', data.access_token || 'local-dev-token')
-      
-      message.success('Login successful! Welcome back.')
-      
-      if (data.user.role === 'customer') {
-        navigate('/portal')
-      } else if (data.user.role === 'accountant') {
-        navigate('/accountant/dashboard')
-      } else if (data.user.role === 'data_entry') {
-        navigate('/data-entry/dashboard')
-      } else {
-        navigate('/dashboard')
-      }
+      // Persist auth
+      const storage = remember ? localStorage : sessionStorage
+      storage.setItem('an_current_user', JSON.stringify({
+        email: data.user.email,
+        role:  data.user.role,
+        name:  data.user.first_name || 'User',
+      }))
+      localStorage.setItem('user_role',     data.user.role)
+      localStorage.setItem('access_token',  data.access_token || '')
 
-    } catch (err) {
-      console.error("Backend connection error:", err)
-      message.error('Failed to connect to the server. Is FastAPI running?')
+      // Redirect by role
+      const role = data.user.role
+      if      (role === 'customer')   navigate('/portal')
+      else if (role === 'accountant') navigate('/accountant/dashboard')
+      else if (role === 'data_entry') navigate('/data-entry/dashboard')
+      else                            navigate('/dashboard')
+
+    } catch {
+      setErrorMsg('Unable to reach the server. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <AuthLayout leftContent={<BrandSection />}>
+    <AuthLayout brandContent={<BrandSection />}>
       <AuthCard>
-        <Title level={2} className="auth-title">
-          Welcome Back
-        </Title>
+        <h2 className="auth-title">Welcome Back</h2>
+        <p className="auth-subtitle">Login to continue to Auto-Nidhi</p>
 
-        <Text className="auth-subtitle">
-          Login to continue to Auto-Nidhi
-        </Text>
+        {/* Inline error alert */}
+        {errorMsg && (
+          <div className="auth-alert auth-alert--error" role="alert">
+            <ErrorIcon />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
-        <Form layout="vertical" onFinish={handleLogin}>
-          <Form.Item
-            label="Email"
-            name="email"
-            rules={[
-              { required: true, message: 'Please enter email' },
-              { type: 'email', message: 'Please enter a valid email' },
-              { pattern: /^[a-zA-Z0-9._%+-]+@gmail\.com$/, message: 'Only @gmail.com emails are allowed' }
-            ]}
-          >
-            <Input placeholder="you@example.com" />
-          </Form.Item>
+        <form onSubmit={handleSubmit} noValidate>
+          {/* Email */}
+          <div className="auth-form-group">
+            <label className="auth-label" htmlFor="login-email">
+              Email <span className="auth-required">*</span>
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              className={`auth-input${emailErr ? ' auth-input--error' : ''}`}
+              placeholder="you@example.com"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setEmailErr('') }}
+              disabled={loading}
+              autoComplete="email"
+            />
+            {emailErr && <p className="auth-field-error">⚠ {emailErr}</p>}
+          </div>
 
-          <Form.Item
-            label="Password"
-            name="password"
-            rules={[
-              { required: true, message: 'Please enter password' },
-            ]}
-          >
-            <Input.Password placeholder="Enter password" />
-          </Form.Item>
+          {/* Password */}
+          <div className="auth-form-group">
+            <label className="auth-label" htmlFor="login-password">
+              Password <span className="auth-required">*</span>
+            </label>
+            <div className="auth-input-wrap">
+              <input
+                id="login-password"
+                type={showPass ? 'text' : 'password'}
+                className={`auth-input auth-input--password${passErr ? ' auth-input--error' : ''}`}
+                placeholder="Enter your password"
+                value={password}
+                onChange={e => { setPassword(e.target.value); setPassErr('') }}
+                disabled={loading}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="auth-eye-btn"
+                onClick={() => setShowPass(p => !p)}
+                tabIndex={-1}
+                aria-label={showPass ? 'Hide password' : 'Show password'}
+              >
+                {showPass ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            </div>
+            {passErr && <p className="auth-field-error">⚠ {passErr}</p>}
+          </div>
 
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginBottom: '20px',
-            }}
-          >
-            <Form.Item name="remember" valuePropName="checked" style={{ marginBottom: 0 }}>
-              <Checkbox>Remember me</Checkbox>
-            </Form.Item>
-
-            <Link to="#">
+          {/* Remember me + Forgot password */}
+          <div className="auth-remember-row">
+            <label className="auth-checkbox-wrap" style={{ margin: 0 }}>
+              <input
+                type="checkbox"
+                className="auth-checkbox"
+                checked={remember}
+                onChange={e => setRemember(e.target.checked)}
+                id="remember-me"
+              />
+              <span className="auth-checkbox-label" style={{ margin: 0 }}>Remember me</span>
+            </label>
+            <Link to="/forgot-password" className="auth-forgot-link">
               Forgot password?
             </Link>
           </div>
 
-          <Button
-            type="primary"
-            htmlType="submit"
-            icon={<LoginOutlined />}
-            block
-            className="auth-btn"
-            loading={loading}
-          >
-            Login
-          </Button>
-        </Form>
+          {/* Submit */}
+          <button type="submit" className="auth-btn" disabled={loading} id="login-submit-btn">
+            {loading ? (
+              <>
+                <span className="auth-spinner" />
+                Signing in…
+              </>
+            ) : (
+              <>
+                <LoginIcon />
+                Login
+              </>
+            )}
+          </button>
+        </form>
 
         <div className="auth-footer">
           Don't have an account?{' '}
-          <Link to="/signup">
-            Create account
-          </Link>
+          <Link to="/signup">Create account</Link>
         </div>
       </AuthCard>
     </AuthLayout>
