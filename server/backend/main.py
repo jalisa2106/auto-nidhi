@@ -62,9 +62,10 @@ app.include_router(commissions_out_router)
 
 # Masters   
 app.include_router(brokers_router)
+app.include_router(finance_banks_router)
 
 # Settings
 app.include_router(company_settings_router)
 app.include_router(bank_accounts_router)
 app.include_router(users_settings_router)
-app.include_router(finance_banks_router)
+
