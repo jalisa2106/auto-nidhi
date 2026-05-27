@@ -478,3 +478,26 @@ export const advancesApi = {
     await api.delete(`/advances/${id}`)
   },
 }
+
+export const expenseCategoriesApi = {
+  list: async (search = '') => {
+    const { data } = await api.get('/expense-categories', {
+      params: { search: search || undefined },
+    })
+    return data
+  },
+
+  create: async (payload: { name: string }) => {
+    const { data } = await api.post('/expense-categories', payload)
+    return data
+  },
+
+  update: async (id: string, payload: { name: string }) => {
+    const { data } = await api.put(`/expense-categories/${id}`, payload)
+    return data
+  },
+
+  remove: async (id: string) => {
+    await api.delete(`/expense-categories/${id}`)
+  },
+}

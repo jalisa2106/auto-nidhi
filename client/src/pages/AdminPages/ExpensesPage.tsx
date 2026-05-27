@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
-import { expensesApi, filesApi } from '../../api/services'
+import { expenseCategoriesApi, expensesApi, filesApi } from '../../api/services'
 
 interface Expense {
   id: string
@@ -19,28 +19,12 @@ interface Expense {
   created_by_name: string
 }
 
-const FALLBACK_CATEGORIES = [
-  'Office Supplies', 'Travel & Conveyance', 'Printing & Stationery',
-  'Staff Meal', 'Internet & Phone', 'Repair & Maintenance',
-  'Advertisement', 'Postage & Courier', 'Miscellaneous',
-]
-
-const loadCategoryNames = () => {
-  const saved = localStorage.getItem('nidhi_expense_categories')
-  if (!saved) return FALLBACK_CATEGORIES
-
-  try {
-    const parsed = JSON.parse(saved)
-    const names = Array.isArray(parsed)
-      ? parsed.map((category: any) => category?.name).filter(Boolean)
-      : []
-    return names.length ? names : FALLBACK_CATEGORIES
-  } catch {
-    return FALLBACK_CATEGORIES
-  }
+interface ExpenseCategory {
+  id: string
+  name: string
 }
 
-const emptyForm = (defaultCategory = FALLBACK_CATEGORIES[0]): Omit<Expense, 'id' | 'created_at'> => ({
+const emptyForm = (defaultCategory = ''): Omit<Expense, 'id' | 'created_at'> => ({
   amount: 0,
   expense_date: '',
   remarks: '',
@@ -145,7 +129,7 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 }
 
 export default function ExpensesPage() {
-  const [categoriesList, setCategoriesList] = useState<string[]>(loadCategoryNames)
+  const [categoriesList, setCategoriesList] = useState<ExpenseCategory[]>([])
   const [rows, setRows] = useState<Expense[]>([])
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Expense | null>(null)
@@ -160,14 +144,15 @@ export default function ExpensesPage() {
   const [viewOpen, setViewOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
-  const [form, setForm] = useState<Omit<Expense, 'id' | 'created_at'>>(() => emptyForm(categoriesList[0]))
+  const [form, setForm] = useState<Omit<Expense, 'id' | 'created_at'>>(() => emptyForm(''))
 
   const closeView = useCallback(() => {
     setViewOpen(false)
     setSelected(null)
   }, [])
 
-  const categories = ['All', ...categoriesList]
+  const categoryNames = categoriesList.map(c => c.name)
+  const categories = ['All', ...categoryNames]
 
   useEffect(() => {
     let active = true
@@ -177,15 +162,15 @@ export default function ExpensesPage() {
       setError('')
 
       try {
-        const [expenses, filesResponse] = await Promise.all([
+        const [expenses, filesResponse, categoryResponse] = await Promise.all([
           expensesApi.list(),
           filesApi.list(1, 1000),
+          expenseCategoriesApi.list(),
         ])
 
         if (!active) return
 
-        const nextCategories = loadCategoryNames()
-        setCategoriesList(nextCategories)
+        setCategoriesList(categoryResponse)
         setRows(expenses.map(expense => ({
           ...expense,
           remarks: expense.remarks ?? '',
@@ -194,7 +179,7 @@ export default function ExpensesPage() {
         setCurrentUserId(decodeCurrentUserId())
         setForm(prev => ({
           ...prev,
-          expense_category_name: prev.expense_category_name || nextCategories[0] || '',
+          expense_category_name: prev.expense_category_name || categoryResponse[0]?.name || '',
         }))
       } catch (err) {
         if (!active) return
@@ -240,15 +225,44 @@ export default function ExpensesPage() {
     return match?.id ?? null
   }
 
-  const handleAdd = async () => {
-    setAddOpen(false)
+  const resolveCategoryId = (categoryName: string): string | null => {
+    const match = categoriesList.find(item => item.name === categoryName)
+    return match?.id ?? null
+  }
 
+  const handleAdd = async () => {
     if (!currentUserId) {
       alert('Please log in again to add an expense.')
       return
     }
 
-    alert('Add is temporarily blocked because the backend currently requires category IDs that are not exposed by the current API surface.')
+    const categoryId = resolveCategoryId(form.expense_category_name)
+    if (!categoryId) {
+      alert('Please select a valid category.')
+      return
+    }
+
+    try {
+      await expensesApi.create({
+        amount: form.amount,
+        expense_date: form.expense_date,
+        remarks: form.remarks || null,
+        expense_category_id: categoryId,
+        file_id: resolveFileId(form.file_number),
+        created_by: currentUserId,
+      })
+
+      const expenses = await expensesApi.list()
+      setRows(expenses.map(expense => ({
+        ...expense,
+        remarks: expense.remarks ?? '',
+      })))
+
+      setAddOpen(false)
+      setForm(emptyForm(categoriesList[0]?.name || ''))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to add expense')
+    }
   }
 
   const openEdit = (expense: Expense) => {
@@ -264,12 +278,21 @@ export default function ExpensesPage() {
       amount?: number
       expense_date?: string
       remarks?: string
+      expense_category_id?: string
       file_id?: string | null
     } = {}
 
     if (form.amount !== selected.amount) payload.amount = form.amount
     if (form.expense_date !== selected.expense_date) payload.expense_date = form.expense_date
     if (form.remarks !== selected.remarks) payload.remarks = form.remarks || ''
+    if (form.expense_category_name !== selected.expense_category_name) {
+      const categoryId = resolveCategoryId(form.expense_category_name)
+      if (!categoryId) {
+        alert('Please select a valid category.')
+        return
+      }
+      payload.expense_category_id = categoryId
+    }
 
     const selectedFileId = resolveFileId(form.file_number)
     if (form.file_number !== selected.file_number) {
@@ -284,11 +307,11 @@ export default function ExpensesPage() {
     try {
       await expensesApi.update(selected.id, payload)
       setRows(prev => prev.map(row => row.id === selected.id
-        ? { ...row, ...payload, expense_date: payload.expense_date ?? row.expense_date, remarks: payload.remarks ?? row.remarks, file_number: form.file_number || row.file_number }
+        ? { ...row, ...payload, expense_category_name: form.expense_category_name, expense_date: payload.expense_date ?? row.expense_date, remarks: payload.remarks ?? row.remarks, file_number: form.file_number }
         : row,
       ))
       setSelected(prev => prev
-        ? { ...prev, ...payload, expense_date: payload.expense_date ?? prev.expense_date, remarks: payload.remarks ?? prev.remarks, file_number: form.file_number || prev.file_number }
+        ? { ...prev, ...payload, expense_category_name: form.expense_category_name, expense_date: payload.expense_date ?? prev.expense_date, remarks: payload.remarks ?? prev.remarks, file_number: form.file_number }
         : prev,
       )
       setEditOpen(false)
@@ -350,10 +373,10 @@ export default function ExpensesPage() {
                   onFocus={e => (e.target.style.borderColor = 'var(--brand-500)')}
                   onBlur={e => (e.target.style.borderColor = 'var(--gray-200)')} />
               </div>
-              <button id="expense-add-btn" onClick={() => { setForm(emptyForm(categoriesList[0] || '')); setAddOpen(true) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--brand-600)', color: '#fff', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'background .15s' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-700)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-600)')}>
+              <button id="expense-add-btn" disabled={categoriesList.length === 0 || loading} onClick={() => { setForm(emptyForm(categoriesList[0]?.name || '')); setAddOpen(true) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', background: categoriesList.length === 0 || loading ? 'var(--gray-300)' : 'var(--brand-600)', color: '#fff', fontSize: '.85rem', fontWeight: 600, cursor: categoriesList.length === 0 || loading ? 'not-allowed' : 'pointer', border: 'none', transition: 'background .15s' }}
+                onMouseEnter={e => { if (!(categoriesList.length === 0 || loading)) ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-700)') }}
+                onMouseLeave={e => { if (!(categoriesList.length === 0 || loading)) ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-600)') }}>
                 <Plus size={15} /> Add Expense
               </button>
             </div>
@@ -463,7 +486,7 @@ export default function ExpensesPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <FormField label="Category *">
               <select className="form-select" style={{ width: '100%' }} value={form.expense_category_name} onChange={f('expense_category_name')}>
-                {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
+                {categoriesList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </FormField>
             <FormField label="Amount (₹) *"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required /></FormField>
@@ -477,7 +500,7 @@ export default function ExpensesPage() {
                 ))}
               </select>
             </FormField>
-            <FormField label="Recorded By *"><input className="form-input" value={form.created_by_name} onChange={f('created_by_name')} placeholder="Staff name" required /></FormField>
+            <FormField label="Recorded By"><input className="form-input" value="Current logged-in user" disabled style={{ backgroundColor: 'var(--surface-1)', color: 'var(--gray-500)' }} /></FormField>
           </div>
           <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize: 'vertical' }} /></FormField>
         </div>
@@ -488,7 +511,7 @@ export default function ExpensesPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <FormField label="Category">
               <select className="form-select" style={{ width: '100%' }} value={form.expense_category_name} onChange={f('expense_category_name')}>
-                {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
+                {categoriesList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </FormField>
             <FormField label="Amount (₹)"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} /></FormField>
@@ -502,7 +525,7 @@ export default function ExpensesPage() {
                 ))}
               </select>
             </FormField>
-            <FormField label="Recorded By"><input className="form-input" value={form.created_by_name} onChange={f('created_by_name')} /></FormField>
+            <FormField label="Recorded By"><input className="form-input" value={form.created_by_name} disabled style={{ backgroundColor: 'var(--surface-1)', color: 'var(--gray-500)' }} /></FormField>
           </div>
           <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize: 'vertical' }} /></FormField>
         </div>

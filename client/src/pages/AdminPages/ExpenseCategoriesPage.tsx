@@ -3,7 +3,7 @@ import { Pencil, Trash2, Tag, AlertCircle } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
-import { mockExpenseCategories } from '../../lib/mockData'
+import { expenseCategoriesApi } from '../../api/services'
 
 interface ExpenseCategory {
   id: string
@@ -11,17 +11,8 @@ interface ExpenseCategory {
 }
 
 export default function ExpenseCategoriesPage() {
-  const [categories, setCategories] = useState<ExpenseCategory[]>(() => {
-    const saved = localStorage.getItem('nidhi_expense_categories')
-    if (saved) {
-      try {
-        return JSON.parse(saved)
-      } catch (e) {
-        console.error('Failed to load expense categories from localStorage:', e)
-      }
-    }
-    return mockExpenseCategories
-  })
+  const [categories, setCategories] = useState<ExpenseCategory[]>([])
+  const [loading, setLoading] = useState(false)
 
   const [addOpen, setAddOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -32,43 +23,43 @@ export default function ExpenseCategoriesPage() {
   
   const [error, setError] = useState<string | null>(null)
 
-  // Sync state to localStorage
-  useEffect(() => {
-    localStorage.setItem('nidhi_expense_categories', JSON.stringify(categories))
-  }, [categories])
+  const loadCategories = async () => {
+    setLoading(true)
+    try {
+      const data = await expenseCategoriesApi.list()
+      setCategories(data)
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load categories')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const handleAdd = () => {
+  useEffect(() => {
+    loadCategories()
+  }, [])
+
+  const handleAdd = async () => {
     if (!newCategoryName.trim()) {
       setError('Category name cannot be empty')
       return
     }
 
-    const nameExists = categories.some(
-      (c) => c.name.toLowerCase() === newCategoryName.trim().toLowerCase()
-    )
-    if (nameExists) {
-      setError('A category with this name already exists')
-      return
+    try {
+      const created = await expenseCategoriesApi.create({
+        name: newCategoryName.trim(),
+      })
+
+      setCategories((prev) => [...prev, created])
+      setNewCategoryName('')
+      setAddOpen(false)
+      setError(null)
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to add category')
     }
-
-    // Automatically calculate next ID: EC + (last ID + 1)
-    const lastId = categories.length > 0 ? categories[categories.length - 1].id : 'EC000'
-    const lastNum = parseInt(lastId.replace('EC', ''), 10) || 0
-    const nextNum = lastNum + 1
-    const newId = `EC${String(nextNum).padStart(3, '0')}`
-
-    const newCategory: ExpenseCategory = {
-      id: newId,
-      name: newCategoryName.trim(),
-    }
-
-    setCategories((prev) => [...prev, newCategory])
-    setNewCategoryName('')
-    setAddOpen(false)
-    setError(null)
   }
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!selectedCategory) return
 
     if (!editCategoryName.trim()) {
@@ -76,42 +67,46 @@ export default function ExpenseCategoriesPage() {
       return
     }
 
-    const nameExists = categories.some(
-      (c) =>
-        c.id !== selectedCategory.id &&
-        c.name.toLowerCase() === editCategoryName.trim().toLowerCase()
-    )
-    if (nameExists) {
-      setError('Another category with this name already exists')
-      return
-    }
+    try {
+      const updated = await expenseCategoriesApi.update(selectedCategory.id, {
+        name: editCategoryName.trim(),
+      })
 
-    setCategories((prev) =>
-      prev.map((c) =>
-        c.id === selectedCategory.id ? { ...c, name: editCategoryName.trim() } : c
+      setCategories((prev) =>
+        prev.map((c) => (c.id === selectedCategory.id ? updated : c))
       )
-    )
-    setEditOpen(false)
-    setSelectedCategory(null)
-    setError(null)
+      setEditOpen(false)
+      setSelectedCategory(null)
+      setError(null)
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update category')
+    }
   }
 
-  const handleDelete = (id: string) => {
-    // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
-    // Before uncommenting: add this column to DB table 'master_expense_category':
-    //   ALTER TABLE master_expense_category ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
-    //
-    // setCategories(prev => prev.filter(c => c.id !== id))
-    // setSelectedCategory(null)
-    // ─────────────────────────────────────────────────────────────────────────
-    alert(`Soft delete pending. Backend needs database updates:\n\nALTER TABLE master_expense_category ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;\n\nID to delete: ${id}`)
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this expense category?')) return
+
+    try {
+      await expenseCategoriesApi.remove(id)
+      setCategories((prev) => prev.filter((c) => c.id !== id))
+      setSelectedCategory(null)
+      setError(null)
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to delete category')
+    }
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 20 }}>
       <PageHeader title="Expense Categories" subtitle="Manage and configure operating expense categories" />
 
-      {error && (
+        {loading && (
+          <div style={{ padding: '12px 16px', color: 'var(--gray-500)', fontSize: '.85rem' }}>
+            Loading categories...
+          </div>
+        )}
+
+        {error && (
         <div
           style={{
             padding: '12px 16px',

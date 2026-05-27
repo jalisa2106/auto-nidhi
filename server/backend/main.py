@@ -23,6 +23,7 @@ from backend.routes.admin.insurance_payments import router as insurance_payments
 #Masters Routes
 from backend.routes.admin.brokers import router as brokers_router
 from backend.routes.admin.dealers import router as dealers_router
+from backend.routes.admin.expense_categories import router as expense_categories_router
 
 # Settings Routes
 from backend.routes.admin.company_settings import router as company_settings_router
@@ -77,6 +78,7 @@ app.include_router(insurance_payments_router)
 app.include_router(brokers_router)
 app.include_router(dealers_router)
 app.include_router(finance_banks_router)
+app.include_router(expense_categories_router)
 
 # Settings
 app.include_router(company_settings_router)
