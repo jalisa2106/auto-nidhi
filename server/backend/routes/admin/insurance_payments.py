@@ -1,4 +1,3 @@
-# server/backend/routes/admin/insurance_payments.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -6,7 +5,7 @@ from typing import Optional
 from uuid import UUID
 from datetime import date
 from backend.database import get_db
-from backend.models import InsurancePayment
+from backend.models import InsurancePayment, FileRecord, MasterCompanyBank, MasterInsuranceCompany
 from backend.utils import get_current_admin
 
 router = APIRouter(prefix="/api/v1/insurance-payments", tags=["Admin Insurance Payments"])
@@ -16,7 +15,7 @@ class InsurancePaymentCreate(BaseModel):
     payment_date: date
     payment_mode: str
     amount: float
-    payee_name: Optional[str] = None 
+    insurance_company_id: UUID
     valid_to: Optional[date] = None
     company_bank_id: Optional[UUID] = None
     cheque_bank_name: Optional[str] = None
@@ -28,21 +27,19 @@ class InsurancePaymentCreate(BaseModel):
 
 @router.get("/")
 def list_insurance_payments(db: Session = Depends(get_db)):
-    # Fetch where is_deleted is False
     payments = db.query(InsurancePayment).filter(InsurancePayment.is_deleted == False).all()
-    # Format the data to match frontend expectations
     data = []
-    for p in payments:
+    for p in payments:        
         data.append({
             "id": str(p.id),
             "file_id": str(p.file_id),
             "file_number": p.file.file_number if p.file else "Unknown",
-            "payee_name": p.payee_name if p.payee_name else "Unknown Insurer",
+            "payee_name": p.insurance_company.company_name if p.insurance_company else (p.payee_name or "Unknown Insurer"),
+            "insurance_company_id": str(p.insurance_company_id) if p.insurance_company_id else None,
             "valid_to": p.valid_to.strftime("%Y-%m-%d") if p.valid_to else None,
             "amount": float(p.amount),
             "mode": p.payment_mode,
             "payment_date": p.payment_date.strftime("%Y-%m-%d"),
-            "valid_to": p.payment_date.strftime("%Y-%m-%d"), # Adjust if you add a valid_to column
             "company_bank_id": str(p.company_bank_id) if hasattr(p, 'company_bank_id') else None,
             "cheque_no": p.cheque_no,
             "cheque_date": p.cheque_date.strftime("%Y-%m-%d") if p.cheque_date else None,
