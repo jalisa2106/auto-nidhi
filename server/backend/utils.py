@@ -2,6 +2,7 @@ import os
 import bcrypt
 import jwt
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -55,6 +56,11 @@ def get_current_user(
         if user_id is None:
             raise credentials_exception
 
+        try:
+            user_uuid = UUID(str(user_id))
+        except (TypeError, ValueError):
+            raise credentials_exception
+
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -63,7 +69,7 @@ def get_current_user(
     except jwt.PyJWTError:
         raise credentials_exception
 
-    user = db.query(SystemUser).filter(SystemUser.id == user_id).first()
+    user = db.query(SystemUser).filter(SystemUser.id == user_uuid).first()
 
     if user is None:
         raise credentials_exception

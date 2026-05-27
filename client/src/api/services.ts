@@ -1,3 +1,4 @@
+import API_BASE from '../lib/apiConfig'
 import api from './axios'
 
 interface LoginPayload {
@@ -9,6 +10,67 @@ interface TokenResponse {
   access_token: string
   refresh_token: string
   token_type: string
+}
+
+interface Expense {
+  id: string
+  amount: number
+  expense_date: string
+  remarks: string | null
+  created_at: string
+  expense_category_name: string
+  file_number: string
+  created_by_name: string
+}
+
+interface ExpenseCreatePayload {
+  amount: number
+  expense_date: string
+  remarks?: string | null
+  expense_category_id: string
+  file_id?: string | null
+  created_by: string
+}
+
+interface ExpenseUpdatePayload {
+  amount?: number
+  expense_date?: string
+  remarks?: string | null
+  expense_category_id?: string
+  file_id?: string | null
+  created_by?: string
+}
+
+interface ExpenseActionResponse {
+  message: string
+  id?: string
+}
+
+const expensesBaseUrl = `${API_BASE}/api/expenses`
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('access_token')
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
+const requestJson = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...getAuthHeaders(),
+      ...(options.headers || {}),
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Request failed')
+  }
+
+  return response.json() as Promise<T>
 }
 
 export const authApi = {
@@ -81,19 +143,19 @@ export const brokersApi = {
 }
 
 export const dealersApi = {
-  list: async (page = 1, limit = 20, search = '') => {
+  list: async (search = '') => {
     const { data } = await api.get('/dealers', {
-      params: { page, limit, search },
+      params: { search: search || undefined },
     })
     return data
   },
 
-  create: async (payload: { dealer_name: string }) => {
+  create: async (payload: { name: string; city?: string; phone?: string; email?: string }) => {
     const { data } = await api.post('/dealers', payload)
     return data
   },
 
-  update: async (id: string, payload: { dealer_name: string }) => {
+  update: async (id: string, payload: { name?: string; city?: string; phone?: string; email?: string }) => {
     const { data } = await api.put(`/dealers/${id}`, payload)
     return data
   },
@@ -183,12 +245,12 @@ export const loansApi = {
     file_number: string,
     payload: { remarks?: string; status?: string }
   ) => {
-    const { data } = await api.patch(`/loans/${file_number}`, payload)
+    const { data } = await api.patch(`/loans/${file_number}/`, payload)
     return data
   },
 
   softDelete: async (file_number: string) => {
-    const { data } = await api.patch(`/loans/${file_number}/delete`)
+    const { data } = await api.delete(`/loans/${file_number}/`)
     return data
   },
 }
@@ -238,11 +300,38 @@ export const companySettingsApi = {
     const { data } = await api.post('/settings/company', payload)
     return data
   },
-  update: async (id: string, payload: Record<string, any>) => {
+    update: async (id: string, payload: Record<string, any>) => {
     const { data } = await api.put(`/settings/company/${id}`, payload)
     return data
   },
 }
+
+export const expensesApi = {
+  list: async (): Promise<Expense[]> => {
+    return requestJson<Expense[]>(expensesBaseUrl)
+  },
+
+  create: async (payload: ExpenseCreatePayload): Promise<ExpenseActionResponse> => {
+    return requestJson<ExpenseActionResponse>(expensesBaseUrl, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  update: async (id: string, payload: ExpenseUpdatePayload): Promise<ExpenseActionResponse> => {
+    return requestJson<ExpenseActionResponse>(`${expensesBaseUrl}/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  delete: async (id: string): Promise<ExpenseActionResponse> => {
+    return requestJson<ExpenseActionResponse>(`${expensesBaseUrl}/${id}`, {
+      method: 'DELETE',
+    })
+  },
+}
+
 
 export const bankAccountsApi = {
   list: async (page = 1, limit = 50) => {
@@ -310,7 +399,6 @@ export const financeBanksApi = {
   },
 }
 
-// ── Insurance Companies (master_insurance_company) ──────────────────────────
 export const insuranceCompaniesApi = {
   list: async (search = '') => {
     const { data } = await api.get('/masters/insurance-companies', {
@@ -336,7 +424,6 @@ export const insuranceCompaniesApi = {
   },
 }
 
-// ── Insurance Types (master_insurance_type) ──────────────────────────────────
 export const insuranceTypesApi = {
   list: async () => {
     const { data } = await api.get('/masters/insurance-types')
@@ -355,4 +442,39 @@ export const insuranceTypesApi = {
   },
 }
 
+export const advancesApi = {
+  list: async (search = '') => {
+    const { data } = await api.get('/advances', {
+      params: { search: search || undefined },
+    })
+    return data
+  },
 
+  create: async (payload: {
+    dealer_id?: string | null
+    broker_id?: string | null
+    advance_date: string
+    amount: number
+    mode: string
+    utr_cheque_number?: string
+    purpose?: string
+    remarks?: string
+  }) => {
+    const { data } = await api.post('/advances/', payload, {
+      headers: { 'X-Skip-Auth-Redirect': 'true' },
+    })
+    return data
+  },
+
+  update: async (
+    id: string,
+    payload: { amount_recovered: number; remarks?: string }
+  ) => {
+    const { data } = await api.patch(`/advances/${id}`, payload)
+    return data
+  },
+
+  remove: async (id: string) => {
+    await api.delete(`/advances/${id}`)
+  },
+}

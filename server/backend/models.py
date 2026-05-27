@@ -79,8 +79,15 @@ class Customer(Base):
 
 class MasterDealer(Base):
     __tablename__ = "master_dealer"
+
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
     dealer_name = Column(String(255), nullable=False)
+    address = Column(Text)
+    city = Column(String(100))
+    phone = Column(String(15), unique=True)
+    email = Column(String(255))
+    is_deleted = Column(Boolean, nullable=False, default=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
 class MasterBroker(Base):
     __tablename__ = "master_broker"
@@ -91,6 +98,32 @@ class MasterBroker(Base):
     phone = Column(String(15), unique=True)
     is_deleted = Column(Boolean, nullable=False, default=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+class Advance(Base):
+    __tablename__ = "advances"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    dealer_id = Column(UUID(as_uuid=True), ForeignKey("master_dealer.id"), nullable=True)
+    broker_id = Column(UUID(as_uuid=True), ForeignKey("master_broker.id"), nullable=True)
+    advance_date = Column(Date, nullable=False)
+    amount = Column(DECIMAL(15, 2), nullable=False)
+    mode = Column(String, nullable=False)
+    utr_cheque_number = Column(String(50))
+    purpose = Column(String(500))
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=True)
+    recovery_status = Column(String, nullable=False, default="pending")
+    amount_recovered = Column(DECIMAL(15, 2), nullable=False, default=0)
+    remarks = Column(Text)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("system_user.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    is_deleted = Column(Boolean, nullable=False, default=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    dealer = relationship("MasterDealer", foreign_keys=[dealer_id])
+    broker = relationship("MasterBroker", foreign_keys=[broker_id])
+    file = relationship("FileRecord", foreign_keys=[file_id])
+    creator = relationship("SystemUser", foreign_keys=[created_by])
 
 class FileRecord(Base):
     __tablename__ = "file_record"
@@ -263,6 +296,29 @@ class CommissionOut(Base):
     file = relationship("FileRecord")
     payee_dealer = relationship("MasterDealer", foreign_keys=[payee_dealer_id])
     payee_broker = relationship("MasterBroker", foreign_keys=[payee_broker_id])
+
+class ExpenseLedger(Base):
+    __tablename__ = "expense_ledger"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    amount = Column(Numeric(15,2))
+    expense_date = Column(Date)
+    remarks = Column(String)
+
+    expense_category_id = Column(UUID(as_uuid=True), ForeignKey("master_expense_category.id"))
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"))
+    created_by = Column(UUID(as_uuid=True), ForeignKey("system_user.id"))
+
+    created_at = Column(DateTime(timezone=True), server_default=text("NOW()"))
+    is_deleted = Column(Boolean, default=False)
+
+class MasterExpenseCategory(Base):
+    __tablename__ = "master_expense_category"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    expense_name = Column(String(255), nullable=False)
+    company_bank_id = Column(String, ForeignKey("master_company_bank.id"), nullable=True)
+    
     company_bank = relationship("MasterCompanyBank", foreign_keys=[company_bank_id])
 
 class InsurancePayment(Base):

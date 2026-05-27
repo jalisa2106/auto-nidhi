@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   TrendingDown, TrendingUp, Clock,
   Search, Plus, X, Pencil, Trash2, Eye,
@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
-import { mockAdvances, mockDealers, mockBrokers } from '../../lib/mockData'
+import { advancesApi, brokersApi, dealersApi } from '../../api/services'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
@@ -47,6 +47,22 @@ interface Advance {
   remarks           : string   // advances.remarks
 }
 
+interface Broker {
+  id: string
+  broker_name: string
+  area?: string
+  district?: string
+  phone?: string
+}
+
+interface Dealer {
+  id: string
+  name: string
+  city?: string
+  phone?: string
+  email?: string
+}
+
 type PartyType = 'dealer' | 'broker'
 type Mode = Advance['mode']
 type RecoveryStatus = Advance['recovery_status']
@@ -54,7 +70,7 @@ type RecoveryStatus = Advance['recovery_status']
 const MODES: Mode[] = ['cash', 'cheque', 'rtgs', 'neft', 'imps', 'upi']
 
 const emptyForm = () => ({
-  party_type        : 'dealer' as PartyType,
+  party_type        : 'broker' as PartyType,
   dealer_id         : '',
   broker_id         : '',
   advance_date      : '',
@@ -93,9 +109,10 @@ function Pagination({
   onPage: (p: number) => void; onPageSize: (s: number) => void
 }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const start = Math.min((page - 1) * pageSize + 1, total)
-  const end   = Math.min(page * pageSize, total)
+  const start = total === 0 ? 0 : Math.min((page - 1) * pageSize + 1, total)
+  const end = Math.min(page * pageSize, total)
   const pages: (number | '...')[] = []
+
   if (totalPages <= 7) {
     for (let i = 1; i <= totalPages; i++) pages.push(i)
   } else {
@@ -105,10 +122,11 @@ function Pagination({
     if (page < totalPages - 2) pages.push('...')
     pages.push(totalPages)
   }
+
   return (
     <div className="pagination-bar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span className="pagination-info">Showing {start}–{end} of {total} records</span>
+        <span className="pagination-info">Showing {start}-{end} of {total} records</span>
         <select className="page-size-select" value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}>
           {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
         </select>
@@ -117,7 +135,7 @@ function Pagination({
         <button className="page-btn" onClick={() => onPage(1)} disabled={page === 1} title="First"><ChevronsLeft size={14} /></button>
         <button className="page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} title="Prev"><ChevronLeft size={14} /></button>
         {pages.map((p, i) => p === '...' ? (
-          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>…</span>
+          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>...</span>
         ) : (
           <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => onPage(p as number)}>{p}</button>
         ))}
@@ -170,7 +188,11 @@ function FormField({ label, children, error }: { label: string; children: React.
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdvancesPage() {
-  const [rows,     setRows]     = useState<Advance[]>(mockAdvances as Advance[])
+  const [rows, setRows] = useState<Advance[]>([])
+  const [brokers, setBrokers] = useState<Broker[]>([])
+  const [dealers, setDealers] = useState<Dealer[]>([])
+  const [loading, setLoading] = useState(false)
+
   const [search,   setSearch]   = useState('')
   const [selected, setSelected] = useState<Advance | null>(null)
   const [viewOpen, setViewOpen] = useState(false)
@@ -179,19 +201,24 @@ export default function AdvancesPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [form,     setForm]     = useState(emptyForm())
   const [errors,   setErrors]   = useState<Record<string, string>>({})
-
-  // Pagination
-  const [page, setPage]         = useState(1)
+  const [formError, setFormError] = useState('')
+  const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
 
-  const closeView = useCallback(() => { setViewOpen(false); setSelected(null) }, [])
+  const closeView = useCallback(() => {
+    setViewOpen(false)
+    setSelected(null)
+  }, [])
 
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeView() }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeView()
+    }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [closeView])
 
+  // Stats
   const totalAmount    = rows.reduce((s, r) => s + r.amount, 0)
   const totalRecovered = rows.reduce((s, r) => s + r.amount_recovered, 0)
   const totalPending   = totalAmount - totalRecovered
@@ -208,8 +235,44 @@ export default function AdvancesPage() {
   })
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const safePage   = Math.min(page, totalPages)
-  const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const safePage = Math.min(page, totalPages)
+  const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+
+  const loadAdvances = async () => {
+    setLoading(true)
+    try {
+      const data = await advancesApi.list()
+      setRows(data)
+    } catch (err) {
+      console.error('Failed to load advances', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadBrokers = async () => {
+    try {
+      const data = await brokersApi.list()
+      setBrokers(data)
+    } catch (err) {
+      console.error('Failed to load brokers', err)
+    }
+  }
+
+  const loadDealers = async () => {
+    try {
+      const data = await dealersApi.list()
+      setDealers(data)
+    } catch (err) {
+      console.error('Failed to load dealers', err)
+    }
+  }
+
+  useEffect(() => {
+    loadAdvances()
+    loadBrokers()
+    loadDealers()
+  }, [])
 
   // ── Validation ──
   const validate = (isEdit = false) => {
@@ -228,45 +291,39 @@ export default function AdvancesPage() {
     return Object.keys(e).length === 0
   }
 
-  // ── Derive party name from selected IDs ──
-  const getPartyName = (f: typeof form): string => {
-    if (f.party_type === 'dealer') {
-      return mockDealers.find(d => d.id === f.dealer_id)?.name || ''
-    }
-    return mockBrokers.find(b => b.id === f.broker_id)?.broker_name || ''
-  }
-
-  // ── Derive recovery_status from amounts ──
-  const deriveStatus = (amount: number, recovered: number): RecoveryStatus => {
-    if (recovered <= 0)      return 'pending'
-    if (recovered >= amount) return 'fully_recovered'
-    return 'partial'
-  }
-
   // ── Handlers ──
-  const handleAdd = () => {
+  const handleAdd = async () => {
+    setFormError('')
     if (!validate(false)) return
-    // POST /api/advances  →  body: { dealer_id, broker_id, advance_date, amount, mode, utr_cheque_number, purpose, remarks }
-    const partyName = getPartyName(form)
-    const newRow: Advance = {
-      id               : `A${String(rows.length + 1).padStart(3, '0')}`,
-      dealer_id        : form.party_type === 'dealer' ? form.dealer_id : null,
-      broker_id        : form.party_type === 'broker' ? form.broker_id : null,
-      party_type       : form.party_type,
-      party_name       : partyName,
-      advance_date     : form.advance_date,
-      amount           : form.amount,
-      mode             : form.mode,
-      utr_cheque_number: form.utr_cheque_number,
-      purpose          : form.purpose,
-      recovery_status  : 'pending',
-      amount_recovered : 0,
-      remarks          : form.remarks,
+
+    try {
+      const created = await advancesApi.create({
+        dealer_id: form.party_type === 'dealer' ? form.dealer_id : null,
+        broker_id: form.party_type === 'broker' ? form.broker_id : null,
+        advance_date: form.advance_date,
+        amount: form.amount,
+        mode: form.mode,
+        utr_cheque_number: form.utr_cheque_number,
+        purpose: form.purpose,
+        remarks: form.remarks,
+      })
+
+      setRows(prev => [created, ...prev])
+      setForm(emptyForm())
+      setErrors({})
+      setAddOpen(false)
+    } catch (err: any) {
+      console.error('Failed to create advance', err)
+      if (err.response?.status === 401) {
+        setFormError(err.response?.data?.detail || 'Your login session has expired. Please login again before adding an advance.')
+        return
+      }
+      if (err.response?.status === 403) {
+        setFormError('Only an admin user can add advances.')
+        return
+      }
+      setFormError(err.response?.data?.detail || 'Failed to create advance')
     }
-    setRows(prev => [newRow, ...prev])
-    setForm(emptyForm())
-    setErrors({})
-    setAddOpen(false)
   }
 
   const openEdit = (r: Advance) => {
@@ -287,29 +344,43 @@ export default function AdvancesPage() {
     setEditOpen(true)
   }
 
-  const handleEdit = () => {
-    // PATCH /api/advances/:id  →  body: { amount_recovered, remarks }
-    if (!validate(true)) return
-    const newStatus = deriveStatus(selected!.amount, form.amount_recovered)
-    setRows(prev => prev.map(r =>
-      r.id === selected!.id
-        ? { ...r, amount_recovered: form.amount_recovered, remarks: form.remarks, recovery_status: newStatus }
-        : r
-    ))
-    setEditOpen(false)
-    setSelected(null)
+  const handleEdit = async () => {
+    if (!validate(true) || !selected) return
+
+    try {
+      const updated = await advancesApi.update(selected.id, {
+        amount_recovered: form.amount_recovered,
+        remarks: form.remarks,
+      })
+
+      setRows(prev => prev.map(r => r.id === selected.id ? updated : r))
+      setSelected(updated)
+      setEditOpen(false)
+    } catch (err) {
+      console.error('Failed to update advance', err)
+    }
   }
 
-  const handleDelete = (id: string) => {
-    // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
-    // Before uncommenting: add this column to DB:
-    //   ALTER TABLE advances ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
-    // API call: PATCH /api/advances/:id  →  body: { is_deleted: true }
-    //
-    // setRows(prev => prev.filter(r => r.id !== id))
-    // setSelected(null)
-    // ─────────────────────────────────────────────────────────────────────────
-    alert(`Soft delete pending backend column.\nAdvance ID: ${id}\n\nRequired: ALTER TABLE advances ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;`)
+  // const handleDelete = (id: string) => {
+  //   // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
+  //   // Before uncommenting: add this column to DB:
+  //   //   ALTER TABLE advances ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+  //   // API call: PATCH /api/advances/:id  →  body: { is_deleted: true }
+  //   //
+  //   // setRows(prev => prev.filter(r => r.id !== id))
+  //   // setSelected(null)
+  //   // ─────────────────────────────────────────────────────────────────────────
+  //   alert(`Soft delete pending backend column.\nAdvance ID: ${id}\n\nRequired: ALTER TABLE advances ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;`)
+  // }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await advancesApi.remove(id)
+      setRows(prev => prev.filter(r => r.id !== id))
+      setSelected(null)
+    } catch (err) {
+      console.error('Failed to delete advance', err)
+    }
   }
 
   const upd = (key: keyof typeof form, val: string | number) => {
@@ -327,107 +398,118 @@ export default function AdvancesPage() {
         <StatCard icon={<AlertCircle size={20} />}  label="Outstanding"       value={fmt(totalPending)}   iconBg="#fef3c7" iconColor="#b45309" accent={totalPending > 0 ? '#b91c1c' : '#15803d'} />
       </div>
 
-      {/* Full-width table */}
-      <div style={{ background: '#fff', border: '1px solid var(--gray-100)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--gray-100)', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--gray-900)' }}>
-            All Advances
-            <span style={{ marginLeft: 8, fontSize: '.75rem', color: 'var(--gray-400)', fontWeight: 500 }}>{filtered.length} records</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
-              <input
-                id="advance-search"
-                placeholder="Search by party, purpose…"
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(1) }}
-                style={{ padding: '8px 12px 8px 32px', border: '1.5px solid var(--gray-200)', borderRadius: 8, fontSize: '.85rem', outline: 'none', fontFamily: 'inherit', width: 220 }}
-                onFocus={e => (e.target.style.borderColor = 'var(--brand-500)')}
-                onBlur={e  => (e.target.style.borderColor = 'var(--gray-200)')}
-              />
+      {/* Main table */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, minHeight: 0, flex: 1 }}>
+
+        {/* Table */}
+        <div style={{ background: '#fff', border: '1px solid var(--gray-100)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--gray-100)', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--gray-900)' }}>
+              All Advances
+              <span style={{ marginLeft: 8, fontSize: '.75rem', color: 'var(--gray-400)', fontWeight: 500 }}>{filtered.length} records</span>
             </div>
-            <button
-              id="advance-add-btn"
-              onClick={() => { setForm(emptyForm()); setErrors({}); setAddOpen(true) }}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--brand-600)', color: '#fff', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'background .15s' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-700)')}
-              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-600)')}>
-              <Plus size={15} /> Add Advance
-            </button>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
+                <input
+                  id="advance-search"
+                  placeholder="Search by party, purpose…"
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setPage(1) }}
+                  style={{ padding: '8px 12px 8px 32px', border: '1.5px solid var(--gray-200)', borderRadius: 8, fontSize: '.85rem', outline: 'none', fontFamily: 'inherit', width: 220 }}
+                  onFocus={e => (e.target.style.borderColor = 'var(--brand-500)')}
+                  onBlur={e  => (e.target.style.borderColor = 'var(--gray-200)')}
+                />
+              </div>
+              <button
+                id="advance-add-btn"
+                onClick={() => { setForm(emptyForm()); setErrors({}); setFormError(''); setAddOpen(true) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--brand-600)', color: '#fff', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'background .15s' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-700)')}
+                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-600)')}>
+                <Plus size={15} /> Add Advance
+              </button>
+            </div>
           </div>
+
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
+              <thead style={{ position: 'sticky', top: 0 }}>
+                <tr>
+                  {['#', 'ID', 'Party', 'Date', 'Amount', 'Mode', 'Recovered', 'Status', 'Action'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--gray-500)', background: 'var(--surface-1)', borderBottom: '1px solid var(--gray-100)', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading advances...</td></tr>
+                ) : filtered.length === 0 ? (
+                  <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No advances match your search.</td></tr>
+                ) : pageRows.map((row, i) => {
+                  const sm = statusMeta[row.recovery_status]
+                  return (
+                    <tr key={row.id} id={`advance-row-${row.id}`}
+                      style={{ cursor: 'default', background: 'transparent', borderLeft: '3px solid transparent', transition: 'background .15s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-1)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}>
+                      <td style={{ padding: '12px 14px', color: 'var(--gray-400)', fontSize: '.8rem' }}>{(safePage - 1) * pageSize + i + 1}</td>
+                      <td style={{ padding: '12px 14px', color: 'var(--brand-700)', fontWeight: 600, fontSize: '.8rem' }}>{row.id}</td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--gray-900)', fontSize: '.85rem' }}>{row.party_name}</div>
+                        <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', textTransform: 'capitalize' }}>{row.party_type}</div>
+                      </td>
+                      <td style={{ padding: '12px 14px', color: 'var(--gray-600)', fontSize: '.83rem' }}>{row.advance_date}</td>
+                      <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--gray-900)' }}>{fmt(row.amount)}</td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 'var(--radius-full)', fontSize: '.7rem', fontWeight: 700, textTransform: 'uppercase', background: modeBadgeBg[row.mode], color: modeBadgeColor[row.mode] }}>{row.mode}</span>
+                      </td>
+                      <td style={{ padding: '12px 14px', fontWeight: 600, color: row.amount_recovered > 0 ? '#15803d' : 'var(--gray-400)' }}>{fmt(row.amount_recovered)}</td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-full)', fontSize: '.72rem', fontWeight: 700, background: sm.bg, color: sm.color }}>{sm.icon}{sm.label}</span>
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          style={{ padding: '5px 12px', fontSize: '.78rem' }}
+                          onClick={() => { setSelected(row); setViewOpen(true) }}
+                          title="View details"
+                        >
+                          <Eye size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pagination total={filtered.length} page={safePage} pageSize={pageSize} onPage={setPage} onPageSize={setPageSize} />
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
-            <thead>
-              <tr>
-                {['#', 'ID', 'Party', 'Date', 'Amount', 'Mode', 'Recovered', 'Status', 'Action'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--gray-500)', background: 'var(--surface-1)', borderBottom: '1px solid var(--gray-100)', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No advances match your search.</td></tr>
-              ) : pageRows.map((row, i) => {
-                const sm = statusMeta[row.recovery_status]
-                return (
-                  <tr key={row.id} id={`advance-row-${row.id}`}
-                    style={{ cursor: 'pointer', transition: 'background .15s' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-1)'}
-                    onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = 'transparent'}>
-                    <td style={{ padding: '12px 14px', color: 'var(--gray-400)', fontSize: '.8rem' }}>{(safePage - 1) * pageSize + i + 1}</td>
-                    <td style={{ padding: '12px 14px', color: 'var(--brand-700)', fontWeight: 600, fontSize: '.8rem' }}>{row.id}</td>
-                    <td style={{ padding: '12px 14px' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--gray-900)', fontSize: '.85rem' }}>{row.party_name}</div>
-                      <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', textTransform: 'capitalize' }}>{row.party_type}</div>
-                    </td>
-                    <td style={{ padding: '12px 14px', color: 'var(--gray-600)', fontSize: '.83rem' }}>{row.advance_date}</td>
-                    <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--gray-900)' }}>{fmt(row.amount)}</td>
-                    <td style={{ padding: '12px 14px' }}>
-                      <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 'var(--radius-full)', fontSize: '.7rem', fontWeight: 700, textTransform: 'uppercase', background: modeBadgeBg[row.mode], color: modeBadgeColor[row.mode] }}>{row.mode}</span>
-                    </td>
-                    <td style={{ padding: '12px 14px', fontWeight: 600, color: row.amount_recovered > 0 ? '#15803d' : 'var(--gray-400)' }}>{fmt(row.amount_recovered)}</td>
-                    <td style={{ padding: '12px 14px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-full)', fontSize: '.72rem', fontWeight: 700, background: sm.bg, color: sm.color }}>{sm.icon}{sm.label}</span>
-                    </td>
-                    <td style={{ padding: '12px 14px' }}>
-                      <button
-                        className="btn btn-outline btn-sm"
-                        style={{ padding: '5px 12px', fontSize: '.78rem' }}
-                        onClick={() => { setSelected(row); setViewOpen(true) }}
-                        title="View details"
-                      >
-                        <Eye size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        <Pagination total={filtered.length} page={safePage} pageSize={pageSize} onPage={setPage} onPageSize={setPageSize} />
-      </div>
+        {viewOpen && selected && (
+          <div className="modal-backdrop" onClick={closeView}>
+            <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <div>
+                  <div style={{ fontSize: '.7rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Advance Detail</div>
+                  <h3 style={{ margin: 0 }}>Advance - {selected.id}</h3>
+                </div>
+                <button className="btn btn-ghost btn-sm" onClick={closeView}>
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="modal-body">
 
-
-      {/* ── Detail popup modal ── */}
-      {viewOpen && selected && (
-        <div className="modal-backdrop" onClick={closeView}>
-          <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Advance — {selected.id}</h3>
-              <button className="btn btn-ghost btn-sm" onClick={closeView}><X size={16} /></button>
-            </div>
-            <div className="modal-body">
-              {/* Avatar + amounts */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0 20px', borderBottom: '1px solid var(--gray-100)', marginBottom: 16 }}>
+              {/* Party avatar + amounts */}
+              <div style={{ padding: '18px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '1px solid var(--gray-100)', marginBottom: 16 }}>
                 <div style={{ width: 54, height: 54, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-500), var(--brand-700))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800, marginBottom: 10, boxShadow: '0 4px 12px rgba(37,99,235,.25)' }}>
                   {selected.party_name.slice(0, 2).toUpperCase()}
                 </div>
                 <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--gray-900)' }}>{selected.party_name}</div>
                 <div style={{ fontSize: '.8rem', color: 'var(--gray-400)', marginTop: 2, textTransform: 'capitalize' }}>{selected.party_type}</div>
+
+                {/* Amount breakdown */}
                 <div style={{ width: '100%', marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <div style={{ padding: '8px 10px', background: '#eff6ff', borderRadius: 8, textAlign: 'center' }}>
                     <div style={{ fontSize: '.68rem', color: '#1d4ed8', fontWeight: 600, textTransform: 'uppercase' }}>Advanced</div>
@@ -439,14 +521,22 @@ export default function AdvancesPage() {
                   </div>
                   <div style={{ padding: '8px 10px', background: selected.amount - selected.amount_recovered > 0 ? '#fef3c7' : '#dcfce7', borderRadius: 8, textAlign: 'center', gridColumn: '1 / -1' }}>
                     <div style={{ fontSize: '.68rem', color: selected.amount - selected.amount_recovered > 0 ? '#92400e' : '#15803d', fontWeight: 600, textTransform: 'uppercase' }}>Pending</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: selected.amount - selected.amount_recovered > 0 ? '#b91c1c' : '#15803d' }}>{fmt(selected.amount - selected.amount_recovered)}</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: selected.amount - selected.amount_recovered > 0 ? '#b91c1c' : '#15803d' }}>
+                      {fmt(selected.amount - selected.amount_recovered)}
+                    </div>
                   </div>
                 </div>
+
+                {/* Status badge */}
                 <div style={{ marginTop: 10 }}>
                   {(() => { const sm = statusMeta[selected.recovery_status]; return (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '.78rem', fontWeight: 700, background: sm.bg, color: sm.color }}>{sm.icon}{sm.label}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '.78rem', fontWeight: 700, background: sm.bg, color: sm.color }}>
+                      {sm.icon}{sm.label}
+                    </span>
                   )})()}
                 </div>
+
+                {/* Edit + Delete */}
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                   <button id={`advance-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--brand-200)', background: 'var(--brand-50)', color: 'var(--brand-700)', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
@@ -462,7 +552,9 @@ export default function AdvancesPage() {
                   </button>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+              {/* Detail rows */}
+              <div style={{ padding: '4px 18px 16px', overflowY: 'auto', flex: 1 }}>
                 <DetailRow icon={<Hash size={14} />}       label="Advance ID"         value={selected.id} />
                 <DetailRow icon={<Calendar size={14} />}   label="Advance Date"       value={selected.advance_date} />
                 <DetailRow icon={<CreditCard size={14} />} label="Payment Mode"       value={<span style={{ textTransform: 'uppercase' }}>{selected.mode}</span>} />
@@ -472,19 +564,21 @@ export default function AdvancesPage() {
                 <DetailRow icon={<AlignLeft size={14} />}  label="Purpose"            value={selected.purpose || '—'} />
                 <DetailRow icon={<AlignLeft size={14} />}  label="Remarks"            value={selected.remarks || '—'} />
               </div>
+              </div>
             </div>
           </div>
+        )}
         </div>
-      )}
 
       {/* ── Add Modal ── */}
-      <Modal open={addOpen} title="Add Advance" onClose={() => { setAddOpen(false); setErrors({}) }} onSubmit={handleAdd} submitLabel="Add Advance" maxWidth="680px">
+      <Modal open={addOpen} title="Add Advance" onClose={() => { setAddOpen(false); setErrors({}); setFormError('') }} onSubmit={handleAdd} submitLabel="Add Advance" maxWidth="680px">
+        {formError && <div className="form-error" style={{ marginBottom: 12 }}>{formError}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {/* Party Type */}
           <FormField label="Party Type *">
             <select id="advance-add-party-type" className="form-select" style={{ width: '100%' }}
               value={form.party_type}
-              onChange={e => { upd('party_type', e.target.value); upd('dealer_id', ''); upd('broker_id', '') }}>
+              onChange={e => { upd('party_type', e.target.value as PartyType); upd('dealer_id', ''); upd('broker_id', '') }}>
               <option value="dealer">Dealer</option>
               <option value="broker">Broker</option>
             </select>
@@ -496,7 +590,7 @@ export default function AdvancesPage() {
               <select id="advance-add-dealer" className={`form-input ${errors.dealer_id ? 'error' : ''}`} style={{ width: '100%' }}
                 value={form.dealer_id} onChange={e => upd('dealer_id', e.target.value)}>
                 <option value="">Select dealer…</option>
-                {mockDealers.map(d => <option key={d.id} value={d.id}>{d.name} — {d.city}</option>)}
+                {dealers.map(d => <option key={d.id} value={d.id}>{d.name} — {d.city}</option>)}
               </select>
             </FormField>
           ) : (
@@ -504,7 +598,11 @@ export default function AdvancesPage() {
               <select id="advance-add-broker" className={`form-input ${errors.broker_id ? 'error' : ''}`} style={{ width: '100%' }}
                 value={form.broker_id} onChange={e => upd('broker_id', e.target.value)}>
                 <option value="">Select broker…</option>
-                {mockBrokers.map(b => <option key={b.id} value={b.id}>{b.broker_name} — {b.district}</option>)}
+                {brokers.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {b.broker_name} — {b.district}
+                  </option>
+                ))}
               </select>
             </FormField>
           )}
@@ -522,7 +620,7 @@ export default function AdvancesPage() {
           <FormField label="Payment Mode *">
             <select id="advance-add-mode" className="form-select" style={{ width: '100%' }}
               value={form.mode}
-              onChange={e => { upd('mode', e.target.value); upd('utr_cheque_number', '') }}>
+              onChange={e => { upd('mode', e.target.value as Mode); upd('utr_cheque_number', '') }}>
               {MODES.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
             </select>
           </FormField>
@@ -574,7 +672,7 @@ export default function AdvancesPage() {
       </Modal>
 
       {/* ── Edit Modal (recovery only) ── */}
-      <Modal open={editOpen} title={`Update Recovery — ${selected?.id}`} onClose={() => { setEditOpen(false); setErrors({}); setSelected(null) }} onSubmit={handleEdit} submitLabel="Save Recovery" maxWidth="480px">
+      <Modal open={editOpen} title={`Update Recovery — ${selected?.id}`} onClose={() => { setEditOpen(false); setErrors({}) }} onSubmit={handleEdit} submitLabel="Save Recovery" maxWidth="480px">
         <div style={{ marginBottom: 14, padding: '10px 14px', background: 'var(--brand-50)', borderRadius: 8, border: '1px solid var(--brand-100)', fontSize: '.83rem', color: 'var(--brand-700)' }}>
           <strong>Total Advanced:</strong> {selected ? fmt(selected.amount) : '—'} &nbsp;|&nbsp; <strong>Previously Recovered:</strong> {selected ? fmt(selected.amount_recovered) : '—'}
         </div>
