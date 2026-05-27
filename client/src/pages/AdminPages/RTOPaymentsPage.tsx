@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Receipt, X, Search, Plus,
+  X, Search, Plus,
   FileText, Banknote, Calendar, CreditCard,
   Hash, AlignLeft, Building2, Users,
   TrendingUp, Landmark, Pencil, Trash2,
@@ -222,7 +222,7 @@ export default function RTOPaymentsPage() {
 
   const fetchDealers = async () => {
     try {
-      const res = await dealersApi.list(1, 1000)
+      const res = await dealersApi.list()
       setDealersList(res.data || [])
     } catch (err) {
       console.error('Failed to fetch dealers:', err)

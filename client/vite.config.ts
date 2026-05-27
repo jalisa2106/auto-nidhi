@@ -12,7 +12,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // All /api requests are forwarded to FastAPI
+      // All /api requests are forwarded to FastAPI locally
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
@@ -20,4 +20,19 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // ✅ Safely splits the heavy third-party assets away from your core page routes
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('lucide-react') || id.includes('lucide')) {
+              return 'vendor-ui-assets';
+            }
+            return 'vendor-core';
+          }
+        }
+      }
+    }
+  }
 })
