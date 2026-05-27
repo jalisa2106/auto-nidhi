@@ -1,15 +1,10 @@
 import React from 'react'
-import { Card } from 'antd'
 
-interface AuthCardProps {
-  children: React.ReactNode
-}
-
-const AuthCard: React.FC<AuthCardProps> = ({ children }) => {
+const AuthCard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <Card className="auth-card">
+    <div className="auth-card">
       {children}
-    </Card>
+    </div>
   )
 }
 
