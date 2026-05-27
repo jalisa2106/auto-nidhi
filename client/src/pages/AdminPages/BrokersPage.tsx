@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
 import { message } from 'antd'
-import { Phone, MapPin, Search, Plus, Pencil, Trash2, Handshake, TrendingDown } from 'lucide-react'
+import { Phone, MapPin, Search, Plus, Pencil, Trash2, Handshake, TrendingDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import Modal from '../../components/app/Modal'
 import { brokersApi } from '../../api/services'
 
@@ -57,6 +57,48 @@ function StatCard({ icon, label, value, iconBg, iconColor, accent }: {
   )
 }
 
+function Pagination({
+  total, page, pageSize, onPage, onPageSize,
+}: {
+  total: number; page: number; pageSize: number
+  onPage: (p: number) => void; onPageSize: (s: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const start = Math.min((page - 1) * pageSize + 1, total)
+  const end   = Math.min(page * pageSize, total)
+  const pages: (number | '...')[] = []
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (page > 3) pages.push('...')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
+    if (page < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+  }
+  return (
+    <div className="pagination-bar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="pagination-info">Showing {start}–{end} of {total} records</span>
+        <select className="page-size-select" value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}>
+          {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
+        </select>
+      </div>
+      <div className="pagination-controls">
+        <button className="page-btn" onClick={() => onPage(1)} disabled={page === 1} title="First"><ChevronsLeft size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} title="Prev"><ChevronLeft size={14} /></button>
+        {pages.map((p, i) => p === '...' ? (
+          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>…</span>
+        ) : (
+          <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => onPage(p as number)}>{p}</button>
+        ))}
+        <button className="page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages} title="Next"><ChevronRight size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(totalPages)} disabled={page === totalPages} title="Last"><ChevronsRight size={14} /></button>
+      </div>
+    </div>
+  )
+}
+
 function FormField({ label, children, error }: { label: string; children: ReactNode; error?: string }) {
   return (
     <div className="form-group">
@@ -75,6 +117,8 @@ export default function BrokersPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<Omit<Broker, 'id'>>(emptyForm())
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [page, setPage]         = useState(1)
+  const [pageSize, setPageSize] = useState(5)
 
   const loadBrokers = async () => {
     try {
@@ -100,6 +144,10 @@ export default function BrokersPage() {
     )
   })
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safePage   = Math.min(page, totalPages)
+  const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+
   const totalBrokers = rows.length
   const districtCount = new Set(rows.map(r => r.district).filter(Boolean)).size
   const areaCount = new Set(rows.map(r => r.area).filter(Boolean)).size
@@ -107,7 +155,13 @@ export default function BrokersPage() {
   const validate = () => {
     const nextErrors: Record<string, string> = {}
     if (!form.broker_name.trim()) nextErrors.broker_name = 'Broker name is required'
-    if (form.phone && !/^\d{10}$/.test(form.phone.replace(/\D/g, ''))) nextErrors.phone = 'Phone must be 10 digits'
+    if (!form.area.trim()) nextErrors.area = 'Area is required'
+    if (!form.district.trim()) nextErrors.district = 'District is required'
+    if (!form.phone.trim()) {
+      nextErrors.phone = 'Phone is required'
+    } else if (!/^\d{10}$/.test(form.phone.replace(/\D/g, ''))) {
+      nextErrors.phone = 'Phone must be exactly 10 digits'
+    }
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -191,7 +245,7 @@ export default function BrokersPage() {
                 id="broker-search"
                 placeholder="Search name, area, district..."
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1) }}
                 style={{ padding: '8px 12px 8px 32px', border: '1.5px solid var(--gray-200)', borderRadius: 8, fontSize: '.85rem', outline: 'none', fontFamily: 'inherit', width: 240 }}
                 onFocus={e => (e.target.style.borderColor = 'var(--brand-500)')}
                 onBlur={e => (e.target.style.borderColor = 'var(--gray-200)')}
@@ -213,19 +267,20 @@ export default function BrokersPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
             <thead style={{ position: 'sticky', top: 0 }}>
               <tr>
-                {['ID', 'Broker Name', 'Area', 'District', 'Phone', 'Actions'].map(h => (
+                {['#', 'ID', 'Broker Name', 'Area', 'District', 'Phone', 'Actions'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--gray-500)', background: 'var(--surface-1)', borderBottom: '1px solid var(--gray-100)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No brokers found.</td></tr>
-              ) : filtered.map(row => (
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No brokers found.</td></tr>
+              ) : pageRows.map((row, i) => (
                 <tr key={row.id}
                   style={{ borderBottom: '1px solid var(--gray-50)', transition: 'background .12s' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-1)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <td style={{ padding:'11px 14px', color:'var(--gray-400)', fontSize:'.8rem' }}>{(safePage-1)*pageSize+i+1}</td>
                   <td title={row.id} style={{ padding: '12px 14px', color: 'var(--brand-700)', fontWeight: 600, fontSize: '.8rem', fontFamily: 'monospace' }}>{formatBrokerId(row.id)}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -269,6 +324,7 @@ export default function BrokersPage() {
             </tbody>
           </table>
         </div>
+        <Pagination total={filtered.length} page={safePage} pageSize={pageSize} onPage={setPage} onPageSize={setPageSize} />
       </div>
 
       <Modal open={addOpen} title="Add Broker" onClose={() => { setAddOpen(false); setErrors({}) }} onSubmit={handleAdd} submitLabel="Add Broker" maxWidth="560px">
@@ -278,36 +334,36 @@ export default function BrokersPage() {
               <input id="broker-add-name" className={`form-input ${errors.broker_name ? 'error' : ''}`} value={form.broker_name} onChange={f('broker_name')} placeholder="e.g. S. Joshi Associates" required />
             </FormField>
           </div>
-          <FormField label="Area" error={errors.area}>
-            <input id="broker-add-area" className="form-input" value={form.area} onChange={f('area')} placeholder="e.g. Kothrud" />
+          <FormField label="Area *" error={errors.area}>
+            <input id="broker-add-area" className={`form-input ${errors.area ? 'error' : ''}`} value={form.area} onChange={f('area')} placeholder="e.g. Kothrud" required />
           </FormField>
-          <FormField label="District" error={errors.district}>
-            <input id="broker-add-district" className="form-input" value={form.district} onChange={f('district')} placeholder="e.g. Pune" />
+          <FormField label="District *" error={errors.district}>
+            <input id="broker-add-district" className={`form-input ${errors.district ? 'error' : ''}`} value={form.district} onChange={f('district')} placeholder="e.g. Pune" required />
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
-            <FormField label="Phone" error={errors.phone}>
-              <input id="broker-add-phone" className={`form-input ${errors.phone ? 'error' : ''}`} value={form.phone} onChange={f('phone')} placeholder="10-digit mobile number" maxLength={10} />
+            <FormField label="Phone *" error={errors.phone}>
+              <input id="broker-add-phone" className={`form-input ${errors.phone ? 'error' : ''}`} value={form.phone} onChange={f('phone')} placeholder="10-digit mobile number" maxLength={10} required />
             </FormField>
           </div>
         </div>
       </Modal>
-
+ 
       <Modal open={editOpen} title="Edit Broker" onClose={() => { setEditOpen(false); setErrors({}) }} onSubmit={handleEdit} submitLabel="Save Changes" maxWidth="560px">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div style={{ gridColumn: '1 / -1' }}>
             <FormField label="Broker Name *" error={errors.broker_name}>
-              <input id="broker-edit-name" className={`form-input ${errors.broker_name ? 'error' : ''}`} value={form.broker_name} onChange={f('broker_name')} required />
+              <input id="broker-edit-name" className={`form-input ${errors.broker_name ? 'error' : ''}`} value={form.broker_name} onChange={f('broker_name')} placeholder="e.g. S. Joshi Associates" required />
             </FormField>
           </div>
-          <FormField label="Area" error={errors.area}>
-            <input id="broker-edit-area" className="form-input" value={form.area} onChange={f('area')} />
+          <FormField label="Area *" error={errors.area}>
+            <input id="broker-edit-area" className={`form-input ${errors.area ? 'error' : ''}`} value={form.area} onChange={f('area')} placeholder="e.g. Kothrud" required />
           </FormField>
-          <FormField label="District" error={errors.district}>
-            <input id="broker-edit-district" className="form-input" value={form.district} onChange={f('district')} />
+          <FormField label="District *" error={errors.district}>
+            <input id="broker-edit-district" className={`form-input ${errors.district ? 'error' : ''}`} value={form.district} onChange={f('district')} placeholder="e.g. Pune" required />
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
-            <FormField label="Phone" error={errors.phone}>
-              <input id="broker-edit-phone" className={`form-input ${errors.phone ? 'error' : ''}`} value={form.phone} onChange={f('phone')} maxLength={10} />
+            <FormField label="Phone *" error={errors.phone}>
+              <input id="broker-edit-phone" className={`form-input ${errors.phone ? 'error' : ''}`} value={form.phone} onChange={f('phone')} placeholder="10-digit mobile number" maxLength={10} required />
             </FormField>
           </div>
         </div>

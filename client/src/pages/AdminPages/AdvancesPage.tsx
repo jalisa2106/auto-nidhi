@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   TrendingDown, TrendingUp, Clock,
-  Search, Plus, X, Pencil, Trash2,
+  Search, Plus, X, Pencil, Trash2, Eye,
   Hash, Calendar, Banknote, AlignLeft,
   CreditCard, CheckCircle2, AlertCircle, RefreshCw,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
 import { mockAdvances, mockDealers, mockBrokers } from '../../lib/mockData'
@@ -85,6 +86,48 @@ const modeBadgeColor: Record<Mode, string> = {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+function Pagination({
+  total, page, pageSize, onPage, onPageSize,
+}: {
+  total: number; page: number; pageSize: number
+  onPage: (p: number) => void; onPageSize: (s: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const start = Math.min((page - 1) * pageSize + 1, total)
+  const end   = Math.min(page * pageSize, total)
+  const pages: (number | '...')[] = []
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (page > 3) pages.push('...')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
+    if (page < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+  }
+  return (
+    <div className="pagination-bar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="pagination-info">Showing {start}–{end} of {total} records</span>
+        <select className="page-size-select" value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}>
+          {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
+        </select>
+      </div>
+      <div className="pagination-controls">
+        <button className="page-btn" onClick={() => onPage(1)} disabled={page === 1} title="First"><ChevronsLeft size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} title="Prev"><ChevronLeft size={14} /></button>
+        {pages.map((p, i) => p === '...' ? (
+          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>…</span>
+        ) : (
+          <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => onPage(p as number)}>{p}</button>
+        ))}
+        <button className="page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages} title="Next"><ChevronRight size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(totalPages)} disabled={page === totalPages} title="Last"><ChevronsRight size={14} /></button>
+      </div>
+    </div>
+  )
+}
+
 function StatCard({ icon, label, value, iconBg, iconColor, accent }: {
   icon: React.ReactNode; label: string; value: string
   iconBg: string; iconColor: string; accent?: string
@@ -130,13 +173,25 @@ export default function AdvancesPage() {
   const [rows,     setRows]     = useState<Advance[]>(mockAdvances as Advance[])
   const [search,   setSearch]   = useState('')
   const [selected, setSelected] = useState<Advance | null>(null)
+  const [viewOpen, setViewOpen] = useState(false)
 
   const [addOpen,  setAddOpen]  = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [form,     setForm]     = useState(emptyForm())
   const [errors,   setErrors]   = useState<Record<string, string>>({})
 
-  // Stats
+  // Pagination
+  const [page, setPage]         = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+
+  const closeView = useCallback(() => { setViewOpen(false); setSelected(null) }, [])
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeView() }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [closeView])
+
   const totalAmount    = rows.reduce((s, r) => s + r.amount, 0)
   const totalRecovered = rows.reduce((s, r) => s + r.amount_recovered, 0)
   const totalPending   = totalAmount - totalRecovered
@@ -151,6 +206,10 @@ export default function AdvancesPage() {
       r.recovery_status.toLowerCase().includes(q)
     )
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safePage   = Math.min(page, totalPages)
+  const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   // ── Validation ──
   const validate = (isEdit = false) => {
@@ -237,8 +296,8 @@ export default function AdvancesPage() {
         ? { ...r, amount_recovered: form.amount_recovered, remarks: form.remarks, recovery_status: newStatus }
         : r
     ))
-    setSelected(prev => prev ? { ...prev, amount_recovered: form.amount_recovered, remarks: form.remarks, recovery_status: newStatus } : prev)
     setEditOpen(false)
+    setSelected(null)
   }
 
   const handleDelete = (id: string) => {
@@ -268,110 +327,107 @@ export default function AdvancesPage() {
         <StatCard icon={<AlertCircle size={20} />}  label="Outstanding"       value={fmt(totalPending)}   iconBg="#fef3c7" iconColor="#b45309" accent={totalPending > 0 ? '#b91c1c' : '#15803d'} />
       </div>
 
-      {/* Main split layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, minHeight: 0, flex: 1 }}>
-
-        {/* Table */}
-        <div style={{ background: '#fff', border: '1px solid var(--gray-100)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--gray-100)', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--gray-900)' }}>
-              All Advances
-              <span style={{ marginLeft: 8, fontSize: '.75rem', color: 'var(--gray-400)', fontWeight: 500 }}>{filtered.length} records</span>
-            </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <div style={{ position: 'relative' }}>
-                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
-                <input
-                  id="advance-search"
-                  placeholder="Search by party, purpose…"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  style={{ padding: '8px 12px 8px 32px', border: '1.5px solid var(--gray-200)', borderRadius: 8, fontSize: '.85rem', outline: 'none', fontFamily: 'inherit', width: 220 }}
-                  onFocus={e => (e.target.style.borderColor = 'var(--brand-500)')}
-                  onBlur={e  => (e.target.style.borderColor = 'var(--gray-200)')}
-                />
-              </div>
-              <button
-                id="advance-add-btn"
-                onClick={() => { setForm(emptyForm()); setErrors({}); setAddOpen(true) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--brand-600)', color: '#fff', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'background .15s' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-700)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-600)')}>
-                <Plus size={15} /> Add Advance
-              </button>
-            </div>
+      {/* Full-width table */}
+      <div style={{ background: '#fff', border: '1px solid var(--gray-100)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--gray-100)', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--gray-900)' }}>
+            All Advances
+            <span style={{ marginLeft: 8, fontSize: '.75rem', color: 'var(--gray-400)', fontWeight: 500 }}>{filtered.length} records</span>
           </div>
-
-          <div style={{ overflowY: 'auto', flex: 1 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
-              <thead style={{ position: 'sticky', top: 0 }}>
-                <tr>
-                  {['ID', 'Party', 'Date', 'Amount', 'Mode', 'Recovered', 'Status'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--gray-500)', background: 'var(--surface-1)', borderBottom: '1px solid var(--gray-100)', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No advances match your search.</td></tr>
-                ) : filtered.map(row => {
-                  const isSelected = selected?.id === row.id
-                  const sm = statusMeta[row.recovery_status]
-                  return (
-                    <tr key={row.id} id={`advance-row-${row.id}`}
-                      onClick={() => setSelected(isSelected ? null : row)}
-                      style={{ cursor: 'pointer', background: isSelected ? 'var(--brand-50)' : 'transparent', borderLeft: isSelected ? '3px solid var(--brand-500)' : '3px solid transparent', transition: 'background .15s' }}
-                      onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-1)' }}
-                      onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}>
-                      <td style={{ padding: '12px 14px', color: 'var(--brand-700)', fontWeight: 600, fontSize: '.8rem' }}>{row.id}</td>
-                      <td style={{ padding: '12px 14px' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--gray-900)', fontSize: '.85rem' }}>{row.party_name}</div>
-                        <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', textTransform: 'capitalize' }}>{row.party_type}</div>
-                      </td>
-                      <td style={{ padding: '12px 14px', color: 'var(--gray-600)', fontSize: '.83rem' }}>{row.advance_date}</td>
-                      <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--gray-900)' }}>{fmt(row.amount)}</td>
-                      <td style={{ padding: '12px 14px' }}>
-                        <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 'var(--radius-full)', fontSize: '.7rem', fontWeight: 700, textTransform: 'uppercase', background: modeBadgeBg[row.mode], color: modeBadgeColor[row.mode] }}>{row.mode}</span>
-                      </td>
-                      <td style={{ padding: '12px 14px', fontWeight: 600, color: row.amount_recovered > 0 ? '#15803d' : 'var(--gray-400)' }}>{fmt(row.amount_recovered)}</td>
-                      <td style={{ padding: '12px 14px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-full)', fontSize: '.72rem', fontWeight: 700, background: sm.bg, color: sm.color }}>{sm.icon}{sm.label}</span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
+              <input
+                id="advance-search"
+                placeholder="Search by party, purpose…"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+                style={{ padding: '8px 12px 8px 32px', border: '1.5px solid var(--gray-200)', borderRadius: 8, fontSize: '.85rem', outline: 'none', fontFamily: 'inherit', width: 220 }}
+                onFocus={e => (e.target.style.borderColor = 'var(--brand-500)')}
+                onBlur={e  => (e.target.style.borderColor = 'var(--gray-200)')}
+              />
+            </div>
+            <button
+              id="advance-add-btn"
+              onClick={() => { setForm(emptyForm()); setErrors({}); setAddOpen(true) }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--brand-600)', color: '#fff', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'background .15s' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-700)')}
+              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-600)')}>
+              <Plus size={15} /> Add Advance
+            </button>
           </div>
         </div>
 
-        {/* Detail panel */}
-        <div style={{ background: '#fff', border: '1px solid var(--gray-100)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {selected ? (
-            <>
-              {/* Panel header */}
-              <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, var(--brand-800), var(--brand-900))' }}>
-                <div>
-                  <div style={{ fontSize: '.7rem', color: 'rgba(255,255,255,.6)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Advance Detail</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginTop: 2 }}>{selected.id}</div>
-                </div>
-                <button id="close-advance-detail" onClick={() => setSelected(null)}
-                  style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,.15)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 'none' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.25)')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.15)')}>
-                  <X size={14} />
-                </button>
-              </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
+            <thead>
+              <tr>
+                {['#', 'ID', 'Party', 'Date', 'Amount', 'Mode', 'Recovered', 'Status', 'Action'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--gray-500)', background: 'var(--surface-1)', borderBottom: '1px solid var(--gray-100)', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No advances match your search.</td></tr>
+              ) : pageRows.map((row, i) => {
+                const sm = statusMeta[row.recovery_status]
+                return (
+                  <tr key={row.id} id={`advance-row-${row.id}`}
+                    style={{ cursor: 'pointer', transition: 'background .15s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-1)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = 'transparent'}>
+                    <td style={{ padding: '12px 14px', color: 'var(--gray-400)', fontSize: '.8rem' }}>{(safePage - 1) * pageSize + i + 1}</td>
+                    <td style={{ padding: '12px 14px', color: 'var(--brand-700)', fontWeight: 600, fontSize: '.8rem' }}>{row.id}</td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--gray-900)', fontSize: '.85rem' }}>{row.party_name}</div>
+                      <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', textTransform: 'capitalize' }}>{row.party_type}</div>
+                    </td>
+                    <td style={{ padding: '12px 14px', color: 'var(--gray-600)', fontSize: '.83rem' }}>{row.advance_date}</td>
+                    <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--gray-900)' }}>{fmt(row.amount)}</td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 'var(--radius-full)', fontSize: '.7rem', fontWeight: 700, textTransform: 'uppercase', background: modeBadgeBg[row.mode], color: modeBadgeColor[row.mode] }}>{row.mode}</span>
+                    </td>
+                    <td style={{ padding: '12px 14px', fontWeight: 600, color: row.amount_recovered > 0 ? '#15803d' : 'var(--gray-400)' }}>{fmt(row.amount_recovered)}</td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-full)', fontSize: '.72rem', fontWeight: 700, background: sm.bg, color: sm.color }}>{sm.icon}{sm.label}</span>
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <button
+                        className="btn btn-outline btn-sm"
+                        style={{ padding: '5px 12px', fontSize: '.78rem' }}
+                        onClick={() => { setSelected(row); setViewOpen(true) }}
+                        title="View details"
+                      >
+                        <Eye size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <Pagination total={filtered.length} page={safePage} pageSize={pageSize} onPage={setPage} onPageSize={setPageSize} />
+      </div>
 
-              {/* Party avatar + amounts */}
-              <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '1px solid var(--gray-100)' }}>
+
+      {/* ── Detail popup modal ── */}
+      {viewOpen && selected && (
+        <div className="modal-backdrop" onClick={closeView}>
+          <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Advance — {selected.id}</h3>
+              <button className="btn btn-ghost btn-sm" onClick={closeView}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              {/* Avatar + amounts */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0 20px', borderBottom: '1px solid var(--gray-100)', marginBottom: 16 }}>
                 <div style={{ width: 54, height: 54, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-500), var(--brand-700))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800, marginBottom: 10, boxShadow: '0 4px 12px rgba(37,99,235,.25)' }}>
                   {selected.party_name.slice(0, 2).toUpperCase()}
                 </div>
                 <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--gray-900)' }}>{selected.party_name}</div>
                 <div style={{ fontSize: '.8rem', color: 'var(--gray-400)', marginTop: 2, textTransform: 'capitalize' }}>{selected.party_type}</div>
-
-                {/* Amount breakdown */}
                 <div style={{ width: '100%', marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <div style={{ padding: '8px 10px', background: '#eff6ff', borderRadius: 8, textAlign: 'center' }}>
                     <div style={{ fontSize: '.68rem', color: '#1d4ed8', fontWeight: 600, textTransform: 'uppercase' }}>Advanced</div>
@@ -383,30 +439,22 @@ export default function AdvancesPage() {
                   </div>
                   <div style={{ padding: '8px 10px', background: selected.amount - selected.amount_recovered > 0 ? '#fef3c7' : '#dcfce7', borderRadius: 8, textAlign: 'center', gridColumn: '1 / -1' }}>
                     <div style={{ fontSize: '.68rem', color: selected.amount - selected.amount_recovered > 0 ? '#92400e' : '#15803d', fontWeight: 600, textTransform: 'uppercase' }}>Pending</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: selected.amount - selected.amount_recovered > 0 ? '#b91c1c' : '#15803d' }}>
-                      {fmt(selected.amount - selected.amount_recovered)}
-                    </div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: selected.amount - selected.amount_recovered > 0 ? '#b91c1c' : '#15803d' }}>{fmt(selected.amount - selected.amount_recovered)}</div>
                   </div>
                 </div>
-
-                {/* Status badge */}
                 <div style={{ marginTop: 10 }}>
                   {(() => { const sm = statusMeta[selected.recovery_status]; return (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '.78rem', fontWeight: 700, background: sm.bg, color: sm.color }}>
-                      {sm.icon}{sm.label}
-                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '.78rem', fontWeight: 700, background: sm.bg, color: sm.color }}>{sm.icon}{sm.label}</span>
                   )})()}
                 </div>
-
-                {/* Edit + Delete */}
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                  <button id={`advance-edit-${selected.id}`} onClick={() => openEdit(selected)}
+                  <button id={`advance-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--brand-200)', background: 'var(--brand-50)', color: 'var(--brand-700)', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
                     onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-100)')}
                     onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-50)')}>
                     <Pencil size={13} /> Edit Recovery
                   </button>
-                  <button id={`advance-delete-${selected.id}`} onClick={() => handleDelete(selected.id)}
+                  <button id={`advance-delete-${selected.id}`} onClick={() => { handleDelete(selected.id); closeView() }}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid #fee2e2', background: '#fff5f5', color: '#b91c1c', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
                     onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = '#fee2e2')}
                     onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = '#fff5f5')}>
@@ -414,9 +462,7 @@ export default function AdvancesPage() {
                   </button>
                 </div>
               </div>
-
-              {/* Detail rows */}
-              <div style={{ padding: '4px 18px 16px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 <DetailRow icon={<Hash size={14} />}       label="Advance ID"         value={selected.id} />
                 <DetailRow icon={<Calendar size={14} />}   label="Advance Date"       value={selected.advance_date} />
                 <DetailRow icon={<CreditCard size={14} />} label="Payment Mode"       value={<span style={{ textTransform: 'uppercase' }}>{selected.mode}</span>} />
@@ -426,16 +472,10 @@ export default function AdvancesPage() {
                 <DetailRow icon={<AlignLeft size={14} />}  label="Purpose"            value={selected.purpose || '—'} />
                 <DetailRow icon={<AlignLeft size={14} />}  label="Remarks"            value={selected.remarks || '—'} />
               </div>
-            </>
-          ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', color: 'var(--gray-300)' }}>
-              <TrendingDown size={52} strokeWidth={1.2} />
-              <div style={{ marginTop: 14, fontSize: '.9rem', fontWeight: 600, color: 'var(--gray-400)' }}>Select an advance</div>
-              <div style={{ fontSize: '.8rem', color: 'var(--gray-300)', marginTop: 4 }}>Click any row to view full details here.</div>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Add Modal ── */}
       <Modal open={addOpen} title="Add Advance" onClose={() => { setAddOpen(false); setErrors({}) }} onSubmit={handleAdd} submitLabel="Add Advance" maxWidth="680px">
@@ -534,7 +574,7 @@ export default function AdvancesPage() {
       </Modal>
 
       {/* ── Edit Modal (recovery only) ── */}
-      <Modal open={editOpen} title={`Update Recovery — ${selected?.id}`} onClose={() => { setEditOpen(false); setErrors({}) }} onSubmit={handleEdit} submitLabel="Save Recovery" maxWidth="480px">
+      <Modal open={editOpen} title={`Update Recovery — ${selected?.id}`} onClose={() => { setEditOpen(false); setErrors({}); setSelected(null) }} onSubmit={handleEdit} submitLabel="Save Recovery" maxWidth="480px">
         <div style={{ marginBottom: 14, padding: '10px 14px', background: 'var(--brand-50)', borderRadius: 8, border: '1px solid var(--brand-100)', fontSize: '.83rem', color: 'var(--brand-700)' }}>
           <strong>Total Advanced:</strong> {selected ? fmt(selected.amount) : '—'} &nbsp;|&nbsp; <strong>Previously Recovered:</strong> {selected ? fmt(selected.amount_recovered) : '—'}
         </div>
