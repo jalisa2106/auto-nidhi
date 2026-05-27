@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { message } from 'antd'
+import { Pencil, Trash2 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
@@ -108,16 +109,24 @@ export default function InsuranceTypesPage() {
             key: 'actions',
             label: 'Actions',
             render: (r: InsuranceType) => (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => openEdit(r)}>Edit</button>
+              <div style={{ display: 'flex', gap: 6 }}>
                 <button
-                  className="btn btn-ghost btn-sm"
-                  style={{ color: '#ef4444' }}
+                  className="btn btn-outline btn-sm"
+                  style={{ padding: '5px 10px', fontSize: '.78rem' }}
+                  title="Edit"
+                  onClick={() => openEdit(r)}
+                >
+                  <Pencil size={12} />
+                </button>
+                <button
+                  className="btn btn-sm"
+                  style={{ padding: '5px 10px', fontSize: '.78rem', background: '#fff5f5', color: '#b91c1c', border: '1.5px solid #fee2e2' }}
+                  title="Delete"
                   onClick={() => {
                     if (window.confirm(`Delete "${r.insurance_type_name}"?`)) handleDelete(r)
                   }}
                 >
-                  Delete
+                  <Trash2 size={12} />
                 </button>
               </div>
             ),
