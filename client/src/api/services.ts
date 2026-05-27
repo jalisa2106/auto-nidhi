@@ -295,3 +295,49 @@ export const financeBanksApi = {
   },
 }
 
+// ── Insurance Companies (master_insurance_company) ──────────────────────────
+export const insuranceCompaniesApi = {
+  list: async (search = '') => {
+    const { data } = await api.get('/masters/insurance-companies', {
+      params: { search: search || undefined },
+    })
+    return data
+  },
+  create: async (payload: {
+    company_name: string
+    contact_person?: string | null
+    mobile_no?: string | null
+    phone_no?: string | null
+  }) => {
+    const { data } = await api.post('/masters/insurance-companies', payload)
+    return data
+  },
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/masters/insurance-companies/${id}`, payload)
+    return data
+  },
+  remove: async (id: string) => {
+    await api.delete(`/masters/insurance-companies/${id}`)
+  },
+}
+
+// ── Insurance Types (master_insurance_type) ──────────────────────────────────
+export const insuranceTypesApi = {
+  list: async () => {
+    const { data } = await api.get('/masters/insurance-types')
+    return data
+  },
+  create: async (payload: { insurance_type_name: string }) => {
+    const { data } = await api.post('/masters/insurance-types', payload)
+    return data
+  },
+  update: async (id: string, payload: { insurance_type_name: string }) => {
+    const { data } = await api.put(`/masters/insurance-types/${id}`, payload)
+    return data
+  },
+  remove: async (id: string) => {
+    await api.delete(`/masters/insurance-types/${id}`)
+  },
+}
+
+
