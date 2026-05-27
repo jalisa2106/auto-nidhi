@@ -12,6 +12,7 @@ class LoginData(BaseModel):
     email: str
     password: str
 
+
 # ================= Login Route =================
 # Since we put prefix="/api/v1/auth" in main.py, this route becomes /api/v1/auth/login
 @router.post("/login")
