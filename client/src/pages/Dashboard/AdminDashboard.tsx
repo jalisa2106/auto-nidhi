@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FolderOpen,
   ArrowDownToLine, ArrowUpFromLine, BadgePercent, HandCoins,
   Receipt, ShieldCheck, Wallet, Landmark,
-  Database, Settings, LogOut, Car, BellRing, PiggyBank,
+  Database, Settings, LogOut, Car, Bell, PiggyBank,
+  User, ChevronDown,
 } from 'lucide-react'
+import NotificationPanel from '../../components/app/NotificationPanel'
+import { subscribe, unreadCount } from '../../store/notificationStore'
 import '../../pages.css'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
@@ -72,21 +75,64 @@ const staffNav: NavGroup[] = [
 ]
 
 export default function AdminLayout() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [userName, setUserName] = useState('Admin')
-  const [userRole, setUserRole] = useState('admin')
+  const navigate  = useNavigate()
+  const location  = useLocation()
+  const [userName, setUserName]     = useState('Admin')
+  const [userRole, setUserRole]     = useState('admin')
+  const [badgeCount, setBadgeCount] = useState(0)
 
+  // Dropdown states
+  const [showNotifs,  setShowNotifs]  = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+
+  const profileRef = useRef<HTMLDivElement>(null)
+
+  // Load user from either localStorage or sessionStorage.
+  // Always use user_role (written on every login) to decide which storage
+  // has the CURRENT user — prevents old "remember me" sessions bleeding through.
   useEffect(() => {
     const role = localStorage.getItem('user_role') || 'admin'
     setUserRole(role)
     try {
-      const stored = localStorage.getItem('an_current_user')
+      const lsRaw = localStorage.getItem('an_current_user')
+      const ssRaw = sessionStorage.getItem('an_current_user')
+
+      // Prefer the storage whose stored role matches user_role
+      let stored: string | null = null
+      if (lsRaw) {
+        const ls = JSON.parse(lsRaw)
+        if (ls.role === role) stored = lsRaw
+      }
+      if (!stored && ssRaw) {
+        const ss = JSON.parse(ssRaw)
+        if (ss.role === role) stored = ssRaw
+      }
+      if (!stored) stored = lsRaw || ssRaw   // fallback
+
       if (stored) {
         const u = JSON.parse(stored)
-        setUserName(u.first_name || u.email?.split('@')[0] || 'Admin')
+        // Support both 'first_name' (new) and 'name' (old) keys
+        setUserName(u.first_name || u.name || u.email?.split('@')[0] || 'Admin')
       }
     } catch { /* ignore */ }
+  }, [])
+
+  // Subscribe to notification count changes
+  useEffect(() => {
+    setBadgeCount(unreadCount())
+    const unsub = subscribe(() => setBadgeCount(unreadCount()))
+    return unsub
+  }, [])
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setShowProfile(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
   const handleLogout = () => {
@@ -94,8 +140,11 @@ export default function AdminLayout() {
     localStorage.removeItem('refresh_token')
     localStorage.removeItem('an_current_user')
     localStorage.removeItem('user_role')
+    sessionStorage.removeItem('an_current_user')
     navigate('/')
   }
+
+  const closeNotifs = useCallback(() => setShowNotifs(false), [])
 
   // Derive page title from current path
   const pathTitleMap: Record<string, string> = {
@@ -112,8 +161,12 @@ export default function AdminLayout() {
     '/settings/company': 'Company Settings',
     '/settings/banks': 'Bank Accounts',
     '/settings/users': 'User Management',
+    '/admin/profile': 'My Profile',
+    '/admin/settings': 'Account Settings',
   }
   const pageTitle = pathTitleMap[location.pathname] || 'AutoNidhi'
+
+  const initials = userName.slice(0, 1).toUpperCase()
 
   return (
     <div className="app-shell">
@@ -155,22 +208,166 @@ export default function AdminLayout() {
       <div className="app-main">
         <header className="app-topbar">
           <h1>{pageTitle}</h1>
-          <div className="app-user">
-            <BellRing size={18} color="#64748b" />
-            <div className="app-avatar">{userName.slice(0, 1).toUpperCase()}</div>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={handleLogout}
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            >
-              <LogOut size={14} /> Logout
-            </button>
+
+          <div className="app-user" style={{ position: 'relative' }}>
+
+            {/* ── Bell Icon with badge ── */}
+            <div style={{ position: 'relative' }}>
+              <button
+                id="notif-bell-btn"
+                onClick={() => { setShowNotifs(p => !p); setShowProfile(false) }}
+                style={{
+                  background: showNotifs ? '#eff6ff' : 'transparent',
+                  border: '1.5px solid',
+                  borderColor: showNotifs ? '#bfdbfe' : 'transparent',
+                  borderRadius: '10px',
+                  padding: '7px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all .15s',
+                  color: showNotifs ? '#2563eb' : '#64748b',
+                }}
+                title="Notifications"
+                aria-label="Notifications"
+              >
+                <Bell size={18} />
+              </button>
+              {badgeCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: '-4px', right: '-4px',
+                  background: '#ef4444', color: '#fff',
+                  fontSize: '10px', fontWeight: 700,
+                  minWidth: '17px', height: '17px',
+                  borderRadius: '10px', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px', lineHeight: 1,
+                  border: '2px solid #fff',
+                  pointerEvents: 'none',
+                }}>
+                  {badgeCount > 99 ? '99+' : badgeCount}
+                </span>
+              )}
+            </div>
+
+            {/* ── Avatar + dropdown ── */}
+            <div ref={profileRef} style={{ position: 'relative' }}>
+              <button
+                id="profile-avatar-btn"
+                onClick={() => { setShowProfile(p => !p); setShowNotifs(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '7px',
+                  background: showProfile ? '#eff6ff' : 'transparent',
+                  border: '1.5px solid',
+                  borderColor: showProfile ? '#bfdbfe' : 'transparent',
+                  borderRadius: '10px',
+                  padding: '5px 10px 5px 5px',
+                  cursor: 'pointer',
+                  transition: 'all .15s',
+                }}
+                aria-label="User menu"
+              >
+                {/* Avatar circle */}
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '13px', fontWeight: 700, color: '#fff', flexShrink: 0,
+                }}>
+                  {initials}
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155', maxWidth: '90px',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {userName}
+                </span>
+                <ChevronDown size={14} color="#94a3b8"
+                  style={{ transform: showProfile ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+              </button>
+
+              {/* Profile dropdown */}
+              {showProfile && (
+                <div style={{
+                  position: 'absolute', top: '46px', right: 0,
+                  width: '200px', background: '#fff',
+                  borderRadius: '14px',
+                  boxShadow: '0 8px 32px rgba(15,23,42,.14), 0 2px 6px rgba(15,23,42,.06)',
+                  border: '1px solid #e2e8f0',
+                  zIndex: 1000, overflow: 'hidden',
+                  animation: 'notifPanelIn .15s ease',
+                }}>
+                  {/* User info top */}
+                  <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{userName}</div>
+                    <div style={{ fontSize: '11.5px', color: '#94a3b8', textTransform: 'capitalize' }}>
+                      {userRole.replace('_', ' ')}
+                    </div>
+                  </div>
+
+                  {/* Menu items */}
+                  <DropdownItem
+                    icon={<User size={14} />}
+                    label="My Profile"
+                    onClick={() => { navigate('/admin/profile'); setShowProfile(false) }}
+                  />
+                  <DropdownItem
+                    icon={<Settings size={14} />}
+                    label="Account Settings"
+                    onClick={() => { navigate('/admin/settings'); setShowProfile(false) }}
+                  />
+                  <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 0' }} />
+                  <DropdownItem
+                    icon={<LogOut size={14} />}
+                    label="Logout"
+                    onClick={handleLogout}
+                    danger
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </header>
+
+        {/* Notification Panel — absolutely positioned */}
+        {showNotifs && <NotificationPanel onClose={closeNotifs} />}
+
         <main className="app-content">
           <Outlet />
         </main>
       </div>
+
+      <style>{`
+        @keyframes notifPanelIn {
+          from { opacity: 0; transform: translateY(-6px) scale(.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
     </div>
+  )
+}
+
+// ── Dropdown menu item ────────────────────────────────────────────────────────
+function DropdownItem({
+  icon, label, onClick, danger,
+}: {
+  icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean
+}) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '9px 14px', background: hover ? (danger ? '#fff1f2' : '#f8fafc') : 'transparent',
+        border: 'none', cursor: 'pointer', textAlign: 'left',
+        color: danger ? '#dc2626' : '#334155',
+        fontSize: '13px', fontWeight: 500, transition: 'background .12s',
+      }}
+    >
+      {icon}
+      {label}
+    </button>
   )
 }

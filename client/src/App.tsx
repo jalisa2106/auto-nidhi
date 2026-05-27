@@ -59,6 +59,8 @@ import CompanySettingsPage    from './pages/AdminPages/CompanySettingsPage'
 import BankAccountsPage       from './pages/AdminPages/BankAccountsPage'
 import UsersPage              from './pages/AdminPages/UsersPage'
 import LoansPage              from './pages/AdminPages/LoansPage'
+import AdminProfilePage       from './pages/AdminPages/AdminProfilePage'
+import AdminSettingsPage      from './pages/AdminPages/AdminSettingsPage'
 
 function App() {
   return (
@@ -127,6 +129,9 @@ function App() {
           <Route path="/settings/company"             element={<CompanySettingsPage />}    />
           <Route path="/settings/banks"               element={<BankAccountsPage />}       />
           <Route path="/settings/users"               element={<UsersPage />}              />
+          {/* Profile & Account */}
+          <Route path="/admin/profile"                element={<AdminProfilePage />}       />
+          <Route path="/admin/settings"               element={<AdminSettingsPage />}      />
         </Route>
 
         {/* Fallback */}

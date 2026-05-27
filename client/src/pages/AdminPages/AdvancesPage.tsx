@@ -69,6 +69,14 @@ type RecoveryStatus = Advance['recovery_status']
 
 const MODES: Mode[] = ['cash', 'cheque', 'rtgs', 'neft', 'imps', 'upi']
 
+const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const formatAdvanceId = (id: string) => {
+  if (!id) return ''
+  if (uuidRe.test(id)) return `ADVANCE-${id.slice(0, 8)}`
+  return id
+}
+
 const emptyForm = () => ({
   party_type        : 'broker' as PartyType,
   dealer_id         : '',
@@ -454,7 +462,7 @@ export default function AdvancesPage() {
                       onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-1)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}>
                       <td style={{ padding: '12px 14px', color: 'var(--gray-400)', fontSize: '.8rem' }}>{(safePage - 1) * pageSize + i + 1}</td>
-                      <td style={{ padding: '12px 14px', color: 'var(--brand-700)', fontWeight: 600, fontSize: '.8rem' }}>{row.id}</td>
+                      <td title={row.id} style={{ padding: '12px 14px', color: 'var(--brand-700)', fontWeight: 600, fontSize: '.8rem', fontFamily: 'monospace' }}>{formatAdvanceId(row.id)}</td>
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ fontWeight: 600, color: 'var(--gray-900)', fontSize: '.85rem' }}>{row.party_name}</div>
                         <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', textTransform: 'capitalize' }}>{row.party_type}</div>
@@ -493,7 +501,7 @@ export default function AdvancesPage() {
               <div className="modal-header">
                 <div>
                   <div style={{ fontSize: '.7rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Advance Detail</div>
-                  <h3 style={{ margin: 0 }}>Advance - {selected.id}</h3>
+                  <h3 style={{ margin: 0 }}>Advance - {formatAdvanceId(selected.id)}</h3>
                 </div>
                 <button className="btn btn-ghost btn-sm" onClick={closeView}>
                   <X size={14} />
@@ -555,7 +563,7 @@ export default function AdvancesPage() {
 
               {/* Detail rows */}
               <div style={{ padding: '4px 18px 16px', overflowY: 'auto', flex: 1 }}>
-                <DetailRow icon={<Hash size={14} />}       label="Advance ID"         value={selected.id} />
+                <DetailRow icon={<Hash size={14} />}       label="Advance ID"         value={formatAdvanceId(selected.id)} />
                 <DetailRow icon={<Calendar size={14} />}   label="Advance Date"       value={selected.advance_date} />
                 <DetailRow icon={<CreditCard size={14} />} label="Payment Mode"       value={<span style={{ textTransform: 'uppercase' }}>{selected.mode}</span>} />
                 <DetailRow icon={<Hash size={14} />}       label="UTR / Cheque No."   value={selected.utr_cheque_number || '—'} />

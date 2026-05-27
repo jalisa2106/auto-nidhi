@@ -6,6 +6,7 @@ import {
 import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
 import { paymentsInApi, filesApi, bankAccountsApi } from '../../api/services'
+import { addNotification } from '../../store/notificationStore'
 
 const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 const PAYMENT_FROM  = ['Customer', 'Bank', 'Insurer', 'Other'] as const
@@ -235,11 +236,13 @@ export default function PaymentInPage() {
     try {
       await paymentsInApi.create(payload)
       message.success("Payment recorded successfully")
+      addNotification('added', `Payment of ₹${Number(form.payment_amount).toLocaleString('en-IN')} added (${form.payment_mode})`, 'Payment IN')
       setShowAdd(false)
       setForm({ ...EMPTY_FORM })
       loadPayments()
     } catch (err: any) {
       message.error(err.response?.data?.detail || "Failed to save payment")
+      addNotification('error', 'Failed to record payment. Please try again.', 'Payment IN')
     }
   }
 

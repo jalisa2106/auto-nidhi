@@ -91,15 +91,27 @@ const Login: React.FC = () => {
         return
       }
 
-      // Persist auth
-      const storage = remember ? localStorage : sessionStorage
-      storage.setItem('an_current_user', JSON.stringify({
-        email: data.user.email,
-        role:  data.user.role,
-        name:  data.user.first_name || 'User',
-      }))
-      localStorage.setItem('user_role',     data.user.role)
-      localStorage.setItem('access_token',  data.access_token || '')
+      // Persist auth — always clear the OTHER storage first to prevent
+      // stale sessions (e.g. customer "remember me" bleeding into admin login).
+      const userPayload = JSON.stringify({
+        email:       data.user.email,
+        role:        data.user.role,
+        first_name:  data.user.first_name  || '',
+        last_name:   data.user.last_name   || '',
+        phone:       data.user.phone_number || '',
+        is_active:   data.user.is_active   ?? true,
+        last_login:  data.user.last_login  || new Date().toISOString(),
+        created_at:  data.user.created_at  || '',
+      })
+      if (remember) {
+        localStorage.setItem('an_current_user', userPayload)
+        sessionStorage.removeItem('an_current_user')   // clear any old session-only login
+      } else {
+        sessionStorage.setItem('an_current_user', userPayload)
+        localStorage.removeItem('an_current_user')     // clear any old "remember me" login
+      }
+      localStorage.setItem('user_role',    data.user.role)
+      localStorage.setItem('access_token', data.access_token || '')
 
       // Redirect by role
       const role = data.user.role
