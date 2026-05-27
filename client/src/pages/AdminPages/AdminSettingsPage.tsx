@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { adminSettingsApi } from '../../api/services'
 import {
   Bell, Monitor, Clock, Info, Shield, CheckCircle,
   ChevronDown, ChevronUp,
@@ -8,6 +9,32 @@ import {
 
 interface NotifPref { key: string; label: string; desc: string; enabled: boolean; color: string; icon: string }
 
+interface AdminSession {
+  user_id: string
+  email: string
+  name: string
+  role: string | null
+  issued_at?: number
+  expires_at?: number
+  token_storage: string
+  authentication: string
+  is_active: boolean
+  last_login?: string | null
+}
+
+interface SecurityItem {
+  status: 'enabled' | 'disabled' | 'not_enabled'
+  note: string
+}
+
+interface AdminSecurity {
+  two_factor_authentication: SecurityItem
+  password_protection: SecurityItem
+  jwt_token_auth: SecurityItem
+  role_based_access: SecurityItem
+  account_status: SecurityItem
+}
+
 const DEFAULT_PREFS: NotifPref[] = [
   { key: 'added',   label: 'Record Added',    desc: 'When payments, customers or files are created', color: '#16a34a', icon: '✚', enabled: true  },
   { key: 'deleted', label: 'Record Deleted',  desc: 'When any record is removed from the system',    color: '#dc2626', icon: '✕', enabled: true  },
@@ -16,34 +43,7 @@ const DEFAULT_PREFS: NotifPref[] = [
   { key: 'error',   label: 'Error Alerts',    desc: 'Failed operations or system warnings',          color: '#d97706', icon: '⚠', enabled: true  },
 ]
 
-const PREF_KEY = 'an_notif_prefs'
-
-function loadPrefs(): NotifPref[] {
-  try {
-    const raw = localStorage.getItem(PREF_KEY)
-    if (raw) {
-      const saved: Record<string, boolean> = JSON.parse(raw)
-      return DEFAULT_PREFS.map(p => ({ ...p, enabled: saved[p.key] ?? p.enabled }))
-    }
-  } catch { /* ignore */ }
-  return DEFAULT_PREFS
-}
-
-function savePrefs(prefs: NotifPref[]) {
-  const map: Record<string, boolean> = {}
-  prefs.forEach(p => { map[p.key] = p.enabled })
-  localStorage.setItem(PREF_KEY, JSON.stringify(map))
-}
-
 // ── JWT decode helper ─────────────────────────────────────────────────────────
-
-function decodeJwt(): { iat?: number; exp?: number; sub?: string; role?: string } {
-  try {
-    const token = localStorage.getItem('access_token')
-    if (token) return JSON.parse(atob(token.split('.')[1]))
-  } catch { /* ignore */ }
-  return {}
-}
 
 function fmtDate(ts?: number) {
   if (!ts) return '—'
@@ -53,8 +53,12 @@ function fmtDate(ts?: number) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminSettingsPage() {
-  const [prefs,    setPrefs]   = useState<NotifPref[]>(loadPrefs)
+  const [prefs, setPrefs] = useState<NotifPref[]>(DEFAULT_PREFS)
   const [prefSaved, setPrefSaved] = useState(false)
+  const [prefLoading, setPrefLoading] = useState(false)
+
+  const [session, setSession] = useState<AdminSession | null>(null)
+  const [security, setSecurity] = useState<AdminSecurity | null>(null)
 
   // Section collapse state
   const [notifOpen,   setNotifOpen]   = useState(true)
@@ -62,19 +66,51 @@ export default function AdminSettingsPage() {
   const [sessionOpen, setSessionOpen] = useState(false)
   const [securityOpen,setSecurityOpen]= useState(false)
 
-  const jwt     = decodeJwt()
-  const role    = localStorage.getItem('user_role') || 'admin'
-  const hasToken = !!localStorage.getItem('access_token')
+  useEffect(() => {
+    const loadAdminSettings = async () => {
+      setPrefLoading(true)
+      try {
+        const [savedPrefs, sessionData, securityData] = await Promise.all([
+          adminSettingsApi.getNotificationPreferences(),
+          adminSettingsApi.getSession(),
+          adminSettingsApi.getSecurity(),
+        ])
+
+        setPrefs(DEFAULT_PREFS.map(pref => ({
+          ...pref,
+          enabled: savedPrefs[pref.key] ?? pref.enabled,
+        })))
+        setSession(sessionData)
+        setSecurity(securityData)
+      } catch (err) {
+        console.error('Failed to load admin settings', err)
+      } finally {
+        setPrefLoading(false)
+      }
+    }
+
+    loadAdminSettings()
+  }, [])
 
   const togglePref = (key: string) => {
     setPrefs(prev => prev.map(p => p.key === key ? { ...p, enabled: !p.enabled } : p))
     setPrefSaved(false)
   }
 
-  const handleSavePrefs = () => {
-    savePrefs(prefs)
-    setPrefSaved(true)
-    setTimeout(() => setPrefSaved(false), 2500)
+  const handleSavePrefs = async () => {
+    const map: Record<string, boolean> = {}
+
+    prefs.forEach(pref => {
+      map[pref.key] = pref.enabled
+    })
+
+    try {
+      await adminSettingsApi.updateNotificationPreferences(map)
+      setPrefSaved(true)
+      setTimeout(() => setPrefSaved(false), 2500)
+    } catch (err) {
+      console.error('Failed to save notification preferences', err)
+    }
   }
 
   const enabledCount = prefs.filter(p => p.enabled).length
@@ -125,9 +161,12 @@ export default function AdminSettingsPage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button className="btn btn-primary btn-sm" onClick={handleSavePrefs}
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleSavePrefs}
+            disabled={prefLoading}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <CheckCircle size={14} /> Save Preferences
+            <CheckCircle size={14} /> {prefLoading ? 'Loading...' : 'Save Preferences'}
           </button>
           {prefSaved && (
             <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', animation: 'fadeIn .2s ease' }}>
@@ -135,7 +174,10 @@ export default function AdminSettingsPage() {
             </span>
           )}
           <button
-            onClick={() => { setPrefs(DEFAULT_PREFS); setPrefSaved(false) }}
+            onClick={() => {
+              setPrefs(DEFAULT_PREFS)
+              setPrefSaved(false)
+            }}
             style={{ fontSize: '12.5px', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
             Reset to defaults
           </button>
@@ -175,12 +217,12 @@ export default function AdminSettingsPage() {
         onToggle={() => setSessionOpen(p => !p)}
       >
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-          <SessionBox label="Session Started"   value={fmtDate(jwt.iat)} />
-          <SessionBox label="Session Expires"   value={fmtDate(jwt.exp)} />
-          <SessionBox label="Role"              value={role.replace('_', ' ')} capitalize />
-          <SessionBox label="Token Storage"     value={hasToken ? 'Local (Remembered)' : 'Session Only'} />
-          <SessionBox label="Authentication"    value="JWT Bearer Token" />
-          <SessionBox label="Account ID"        value={jwt.sub ? `…${jwt.sub.slice(-8)}` : '—'} />
+          <SessionBox label="Session Started" value={fmtDate(session?.issued_at)} />
+          <SessionBox label="Session Expires" value={fmtDate(session?.expires_at)} />
+          <SessionBox label="Role" value={(session?.role || 'admin').replace('_', ' ')} capitalize />
+          <SessionBox label="Token Storage" value={session?.token_storage || '—'} />
+          <SessionBox label="Authentication" value={session?.authentication || '—'} />
+          <SessionBox label="Account ID" value={session?.user_id ? `…${session.user_id.slice(-8)}` : '—'} />
         </div>
         <div style={{
           display: 'flex', alignItems: 'flex-start', gap: '8px',
@@ -203,10 +245,31 @@ export default function AdminSettingsPage() {
         open={securityOpen}
         onToggle={() => setSecurityOpen(p => !p)}
       >
-        <SecurityRow label="Two-Factor Authentication" status="not_enabled" note="Coming soon" />
-        <SecurityRow label="Password Protection"       status="enabled"     note="Password is set" />
-        <SecurityRow label="JWT Token Auth"            status="enabled"     note="Active session" />
-        <SecurityRow label="Role-Based Access"         status="enabled"     note={`Access level: ${role.replace('_', ' ')}`} />
+      <SecurityRow
+        label="Two-Factor Authentication"
+        status={security?.two_factor_authentication.status || 'not_enabled'}
+        note={security?.two_factor_authentication.note || 'Coming soon'}
+      />
+      <SecurityRow
+        label="Password Protection"
+        status={security?.password_protection.status || 'disabled'}
+        note={security?.password_protection.note || '—'}
+      />
+      <SecurityRow
+        label="JWT Token Auth"
+        status={security?.jwt_token_auth.status || 'disabled'}
+        note={security?.jwt_token_auth.note || '—'}
+      />
+      <SecurityRow
+        label="Role-Based Access"
+        status={security?.role_based_access.status || 'disabled'}
+        note={security?.role_based_access.note || '—'}
+      />
+      <SecurityRow
+        label="Account Status"
+        status={security?.account_status.status || 'disabled'}
+        note={security?.account_status.note || '—'}
+      />
         <div style={{ marginTop: '14px', background: '#fefce8', border: '1px solid #fef08a', borderRadius: '10px', padding: '10px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
             <Info size={13} color="#a16207" />

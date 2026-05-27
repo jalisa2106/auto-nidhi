@@ -367,3 +367,15 @@ class InsurancePayment(Base):
     payee_broker = relationship("MasterBroker", foreign_keys=[payee_broker_id])
     company_bank = relationship("MasterCompanyBank", foreign_keys=[company_bank_id])
     insurance_company = relationship("MasterInsuranceCompany")
+
+class UserNotificationPreference(Base):
+    __tablename__ = "user_notification_preferences"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("system_user.id"), nullable=False)
+    preference_key = Column(String(50), nullable=False)
+    enabled = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+    user = relationship("SystemUser", foreign_keys=[user_id])

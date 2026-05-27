@@ -501,3 +501,27 @@ export const expenseCategoriesApi = {
     await api.delete(`/expense-categories/${id}`)
   },
 }
+
+export const adminSettingsApi = {
+  getNotificationPreferences: async () => {
+    const { data } = await api.get('/admin/settings/notification-preferences')
+    return data
+  },
+
+  updateNotificationPreferences: async (preferences: Record<string, boolean>) => {
+    const { data } = await api.put('/admin/settings/notification-preferences', {
+      preferences,
+    })
+    return data
+  },
+
+  getSession: async () => {
+    const { data } = await api.get('/admin/settings/session')
+    return data
+  },
+
+  getSecurity: async () => {
+    const { data } = await api.get('/admin/settings/security')
+    return data
+  },
+}
