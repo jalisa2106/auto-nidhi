@@ -28,7 +28,7 @@ type InsurancePaymentForm = {
 }
 
 export default function InsurancePaymentsPage() {
-  const [rows, setRows] = useState<any[]>([])
+  const [rows, setRows] = useState<InsurancePayment[]>([])
   const [files, setFiles] = useState<{ id: string; file_number: string; customer: string }[]>([])
   const [companyBanks, setCompanyBanks] = useState<any[]>([]) 
   const [insuranceCompanies, setInsuranceCompanies] = useState<any[]>([]) // 👈 New state for companies

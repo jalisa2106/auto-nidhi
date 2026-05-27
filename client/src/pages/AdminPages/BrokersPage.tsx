@@ -38,7 +38,7 @@ const formatBrokerId = (id: string) => {
 
 function StatCard({ icon, label, value, iconBg, iconColor, accent }: {
   icon: ReactNode
-  label: string
+  label: string 
   value: string | number
   iconBg: string
   iconColor: string
@@ -99,10 +99,12 @@ function Pagination({
   )
 }
 
-function FormField({ label, children, error }: { label: string; children: ReactNode; error?: string }) {
+function FormField({ label, children, error, required }: { label: string; children: ReactNode; error?: string; required?: boolean }) {
   return (
     <div className="form-group">
-      <label className="form-label">{label}</label>
+      <label className="form-label">
+        {label} {required && <span style={{ color: 'red' }}>*</span>}
+      </label>
       {children}
       {error && <span className="form-error">{error}</span>}
     </div>
@@ -330,18 +332,18 @@ export default function BrokersPage() {
       <Modal open={addOpen} title="Add Broker" onClose={() => { setAddOpen(false); setErrors({}) }} onSubmit={handleAdd} submitLabel="Add Broker" maxWidth="560px">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div style={{ gridColumn: '1 / -1' }}>
-            <FormField label="Broker Name *" error={errors.broker_name}>
-              <input id="broker-add-name" className={`form-input ${errors.broker_name ? 'error' : ''}`} value={form.broker_name} onChange={f('broker_name')} placeholder="e.g. S. Joshi Associates" required />
+            <FormField label="Broker Name" required={true} error={errors.broker_name}>
+                <input className={`form-input ${errors.broker_name ? 'error' : ''}`} value={form.broker_name} onChange={f('broker_name')} />
             </FormField>
           </div>
-          <FormField label="Area *" error={errors.area}>
+          <FormField label="Area" required={true} error={errors.area}>
             <input id="broker-add-area" className={`form-input ${errors.area ? 'error' : ''}`} value={form.area} onChange={f('area')} placeholder="e.g. Kothrud" required />
           </FormField>
-          <FormField label="District *" error={errors.district}>
+          <FormField label="District" required={true} error={errors.district}>
             <input id="broker-add-district" className={`form-input ${errors.district ? 'error' : ''}`} value={form.district} onChange={f('district')} placeholder="e.g. Pune" required />
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
-            <FormField label="Phone *" error={errors.phone}>
+            <FormField label="Phone" required={true} error={errors.phone}>
               <input id="broker-add-phone" className={`form-input ${errors.phone ? 'error' : ''}`} value={form.phone} onChange={f('phone')} placeholder="10-digit mobile number" maxLength={10} required />
             </FormField>
           </div>

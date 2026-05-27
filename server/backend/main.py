@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.signup import router as signup_router
 from backend.routes.login import router as login_router
 from backend.routes.forgot_password import router as forgot_password_router
-
+from backend.routes.profile import router as profile_router
 # Admin Routes
 from backend.routes.admin.dashboard import router as dashboard_router
 from backend.routes.admin.customers import router as customers_router
@@ -59,6 +59,7 @@ def test():
 app.include_router(signup_router, prefix="/api/v1/auth")
 app.include_router(login_router, prefix="/api/v1/auth")
 app.include_router(forgot_password_router, prefix="/api/v1/auth")
+app.include_router(profile_router)
 
 # Admin Dashboard & Data
 app.include_router(dashboard_router)
@@ -69,10 +70,6 @@ app.include_router(loans_router)
 app.include_router(payments_out_router)
 app.include_router(rto_payments_router)
 app.include_router(commissions_in_router)
-app.include_router(commissions_out_router)
-app.include_router(payments_out_router)
-app.include_router(rto_payments_router)
-app.include_router(expenses_router)
 app.include_router(commissions_out_router)
 app.include_router(expenses_router)
 app.include_router(advances_router)

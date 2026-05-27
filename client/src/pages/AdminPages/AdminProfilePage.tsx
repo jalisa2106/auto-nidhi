@@ -17,10 +17,10 @@ interface UserProfile {
 }
 
 const ROLE_META: Record<string, { bg: string; color: string; border: string; label: string; icon: string }> = {
-  admin:      { bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)', color: '#1d4ed8', border: '#bfdbfe', label: 'Administrator', icon: '🛡️' },
-  accountant: { bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', color: '#15803d', border: '#bbf7d0', label: 'Accountant',    icon: '📊' },
-  data_entry: { bg: 'linear-gradient(135deg,#fefce8,#fef9c3)', color: '#a16207', border: '#fde68a', label: 'Data Entry',    icon: '📝' },
-  customer:   { bg: 'linear-gradient(135deg,#fdf4ff,#fae8ff)', color: '#7e22ce', border: '#e9d5ff', label: 'Customer',      icon: '👤' },
+  admin:      { bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)', color: '#1d4ed8', border: '#bfdbfe', label: 'Administrator', icon: 'ðŸ›¡ï¸' },
+  accountant: { bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', color: '#15803d', border: '#bbf7d0', label: 'Accountant',    icon: 'ðŸ“Š' },
+  data_entry: { bg: 'linear-gradient(135deg,#fefce8,#fef9c3)', color: '#a16207', border: '#fde68a', label: 'Data Entry',    icon: 'ðŸ“' },
+  customer:   { bg: 'linear-gradient(135deg,#fdf4ff,#fae8ff)', color: '#7e22ce', border: '#e9d5ff', label: 'Customer',      icon: 'ðŸ‘¤' },
 }
 
 /** Read the correct user from storage, using user_role to disambiguate */
@@ -76,11 +76,11 @@ function writeCurrentUser(updates: Partial<UserProfile>) {
 }
 
 function fmt(iso: string) {
-  if (!iso) return '—'
+  if (!iso) return 'â€”'
   try { return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return iso }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function AdminProfilePage() {
   const [profile,    setProfile]    = useState<UserProfile>(readCurrentUser)
@@ -149,7 +149,7 @@ export default function AdminProfilePage() {
         showBanner('ok', 'Profile updated successfully!')
       }
     } catch {
-      // API not yet wired — save locally
+      // API not yet wired â€” save locally
       writeCurrentUser(editForm)
       setProfile({ ...editForm })
       setEditing(false)
@@ -193,7 +193,7 @@ export default function AdminProfilePage() {
   return (
     <div style={{ maxWidth: '720px', margin: '0 auto', paddingBottom: '32px' }}>
 
-      {/* ── Global Banner ── */}
+      {/* â”€â”€ Global Banner â”€â”€ */}
       {banner && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: '10px',
@@ -209,7 +209,7 @@ export default function AdminProfilePage() {
         </div>
       )}
 
-      {/* ── Hero Card ── */}
+      {/* â”€â”€ Hero Card â”€â”€ */}
       <div style={{
         background: 'linear-gradient(135deg, #1e40af 0%, #4f46e5 55%, #7c3aed 100%)',
         borderRadius: '18px', padding: '22px 24px', marginBottom: '16px',
@@ -266,7 +266,7 @@ export default function AdminProfilePage() {
             </div>
           </div>
 
-          {/* Edit Profile button — always on the far right */}
+          {/* Edit Profile button â€” always on the far right */}
           {!editing && (
             <button
               onClick={() => { setEditing(true); setEditForm(profile); setBanner(null) }}
@@ -284,7 +284,7 @@ export default function AdminProfilePage() {
         </div>
       </div>
 
-      {/* ── Profile Details Card ── */}
+      {/* â”€â”€ Profile Details Card â”€â”€ */}
       <div className="card" style={{ marginBottom: '14px', padding: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ width: '3px', height: '16px', background: 'linear-gradient(#2563eb,#7c3aed)', borderRadius: '2px' }} />
@@ -294,11 +294,11 @@ export default function AdminProfilePage() {
         {!editing ? (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #f8fafc' }}>
-              <RowField icon={<User size={13}/>}  label="FIRST NAME"    value={profile.first_name  || '—'} />
-              <RowField icon={<User size={13}/>}  label="LAST NAME"     value={profile.last_name   || '—'} border />
+              <RowField icon={<User size={13}/>}  label="FIRST NAME"    value={profile.first_name  || 'â€”'} />
+              <RowField icon={<User size={13}/>}  label="LAST NAME"     value={profile.last_name   || 'â€”'} border />
             </div>
             <div style={{ borderBottom: '1px solid #f8fafc' }}>
-              <RowField icon={<Mail size={13}/>}  label="EMAIL ADDRESS" value={profile.email || '—'} />
+              <RowField icon={<Mail size={13}/>}  label="EMAIL ADDRESS" value={profile.email || 'â€”'} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
               <RowField icon={<Phone size={13}/>}  label="PHONE NUMBER" value={profile.phone_number || 'Not provided'} empty={!profile.phone_number} />
@@ -339,14 +339,14 @@ export default function AdminProfilePage() {
                 onChange={v => setEditForm(p => ({ ...p, phone_number: v }))}
                 icon={<Phone size={14} color="#94a3b8"/>}
                 placeholder="+91 98765 43210"
-                hint="Optional — used for contact purposes"
+                hint="Optional â€” used for contact purposes"
               />
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
               <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
+                <Save size={14} /> {saving ? 'Savingâ€¦' : 'Save Changes'}
               </button>
               <button className="btn btn-ghost btn-sm" onClick={() => { setEditing(false); setBanner(null) }}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -357,7 +357,7 @@ export default function AdminProfilePage() {
         )}
       </div>
 
-      {/* ── Account Details Card ── */}
+      {/* â”€â”€ Account Details Card â”€â”€ */}
       <div className="card" style={{ marginBottom: '14px', padding: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ width: '3px', height: '16px', background: 'linear-gradient(#22c55e,#16a34a)', borderRadius: '2px' }} />
@@ -381,7 +381,7 @@ export default function AdminProfilePage() {
         </div>
       </div>
 
-      {/* ── Change Password Card ── */}
+      {/* â”€â”€ Change Password Card â”€â”€ */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
 
         {/* Header row */}
@@ -471,7 +471,7 @@ export default function AdminProfilePage() {
                 onChange={setConfPwd} onToggle={() => setShowConf(p => !p)} />
               {confPwd && newPwd !== confPwd && (
                 <div style={{ marginTop: '6px', fontSize: '12px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  ⚠ Passwords do not match
+                  âš  Passwords do not match
                 </div>
               )}
             </div>
@@ -483,7 +483,7 @@ export default function AdminProfilePage() {
                 onClick={handlePwdChange}
                 disabled={pwdSaving}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#dc2626', borderColor: '#dc2626' }}>
-                <Lock size={14} /> {pwdSaving ? 'Updating…' : 'Update Password'}
+                <Lock size={14} /> {pwdSaving ? 'Updatingâ€¦' : 'Update Password'}
               </button>
               <button
                 className="btn btn-ghost btn-sm"
@@ -503,9 +503,9 @@ export default function AdminProfilePage() {
   )
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+// â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/** Clean row-style field — no individual card background, separated by parent grid borders */
+/** Clean row-style field â€” no individual card background, separated by parent grid borders */
 function RowField({ icon, label, value, border, valueColor, empty }: {
   icon: React.ReactNode; label: string; value: string;
   border?: boolean; valueColor?: string; empty?: boolean
@@ -588,7 +588,7 @@ function PwdField({ label, value, show, onChange, onToggle }: {
         <input
           type={show ? 'text' : 'password'} value={value}
           onChange={e => onChange(e.target.value)}
-          placeholder="••••••••"
+          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
           style={{
             width: '100%', height: '42px', padding: '0 44px 0 36px',
             border: '1.5px solid #e2e8f0', borderRadius: '10px',
