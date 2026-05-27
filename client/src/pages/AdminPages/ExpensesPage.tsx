@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
 import { filesApi } from '../../api/services'
+import { mockExpenseCategories } from '../../lib/mockData'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
@@ -38,15 +39,9 @@ interface Expense {
   created_by_name      : string   // system_user first+last name (joined via created_by)
 }
 
-const CATEGORIES = [
-  'Office Supplies','Travel & Conveyance','Printing & Stationery',
-  'Staff Meal','Internet & Phone','Repair & Maintenance',
-  'Advertisement','Postage & Courier','Miscellaneous',
-]
-
-const emptyForm = (): Omit<Expense, 'id' | 'created_at'> => ({
+const emptyForm = (defaultCategory = ''): Omit<Expense, 'id' | 'created_at'> => ({
   amount: 0, expense_date: '', remarks: '',
-  expense_category_name: CATEGORIES[0],
+  expense_category_name: defaultCategory,
   file_number: '', created_by_name: '',
 })
 
@@ -150,6 +145,19 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function ExpensesPage() {
+  const [categoriesList, setCategoriesList] = useState<string[]>(() => {
+    const saved = localStorage.getItem('nidhi_expense_categories')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        return parsed.map((c: any) => c.name)
+      } catch (e) {
+        console.error('Failed to load expense categories in ExpensesPage:', e)
+      }
+    }
+    return mockExpenseCategories.map(c => c.name)
+  })
+
   const [rows,           setRows]           = useState<Expense[]>(mockExpenses)
   const [search,         setSearch]         = useState('')
   const [selected,       setSelected]       = useState<Expense | null>(null)
@@ -160,7 +168,7 @@ export default function ExpensesPage() {
   // Modal states
   const [addOpen,  setAddOpen]  = useState(false)
   const [editOpen, setEditOpen] = useState(false)
-  const [form,     setForm]     = useState<Omit<Expense,'id'|'created_at'>>(emptyForm())
+  const [form,     setForm]     = useState<Omit<Expense,'id'|'created_at'>>(() => emptyForm(categoriesList[0] || ''))
 
   const [viewOpen, setViewOpen] = useState(false)
   const [page, setPage]         = useState(1)
@@ -169,6 +177,17 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     fetchFiles()
+    
+    // Load categories dynamically from localStorage
+    const saved = localStorage.getItem('nidhi_expense_categories')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        setCategoriesList(parsed.map((c: any) => c.name))
+      } catch (e) {
+        console.error('Failed to load expense categories:', e)
+      }
+    }
   }, [])
 
   const fetchFiles = async () => {
@@ -186,7 +205,7 @@ export default function ExpensesPage() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [closeView])
 
-  const categories = ['All', ...CATEGORIES]
+  const categories = ['All', ...categoriesList]
 
   const filtered = rows.filter(e => {
     const q = search.toLowerCase()
@@ -224,7 +243,7 @@ export default function ExpensesPage() {
       ...form,
     }
     setRows(prev => [newRow, ...prev])
-    setForm(emptyForm())
+    setForm(emptyForm(categoriesList[0] || ''))
     setAddOpen(false)
   }
 
@@ -302,7 +321,7 @@ export default function ExpensesPage() {
                   onFocus={e => (e.target.style.borderColor='var(--brand-500)')}
                   onBlur={e  => (e.target.style.borderColor='var(--gray-200)')} />
               </div>
-              <button id="expense-add-btn" onClick={() => { setForm(emptyForm()); setAddOpen(true) }}
+              <button id="expense-add-btn" onClick={() => { setForm(emptyForm(categoriesList[0] || '')); setAddOpen(true) }}
                 style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:'var(--radius-sm)', background:'var(--brand-600)', color:'#fff', fontSize:'.85rem', fontWeight:600, cursor:'pointer', border:'none', transition:'background .15s' }}
                 onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-700)')}
                 onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-600)')}>
@@ -413,7 +432,7 @@ export default function ExpensesPage() {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <FormField label="Category *">
               <select className="form-select" style={{ width:'100%' }} value={form.expense_category_name} onChange={f('expense_category_name')}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </FormField>
             <FormField label="Amount (₹) *"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required /></FormField>
@@ -439,7 +458,7 @@ export default function ExpensesPage() {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <FormField label="Category *">
               <select className="form-select" style={{ width:'100%' }} value={form.expense_category_name} onChange={f('expense_category_name')}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </FormField>
             <FormField label="Amount (₹) *"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required /></FormField>
