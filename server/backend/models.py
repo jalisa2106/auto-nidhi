@@ -128,6 +128,21 @@ class MasterCompanyBank(Base):
     account_number = Column(String(50), nullable=False, unique=True)
     ifsc_code = Column(String(20), nullable=False)
 
+class MasterInsuranceCompany(Base):
+    __tablename__ = "master_insurance_company"
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    company_name = Column(String(255), nullable=False)
+    contact_person = Column(String(255))
+    mobile_no = Column(String(15))
+    phone_no = Column(String(15))
+    is_deleted = Column(Boolean, nullable=False, default=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+class MasterInsuranceType(Base):
+    __tablename__ = "master_insurance_type"
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    insurance_type_name = Column(String(255), nullable=False, unique=True)
+    is_deleted = Column(Boolean, nullable=False, default=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 class PaymentIn(Base):
     __tablename__ = "payment_in"
     
