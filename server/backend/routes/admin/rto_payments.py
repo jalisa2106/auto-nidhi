@@ -7,7 +7,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import RTOPayment, FileRecord, Customer
+from backend.models import RTOPayment, FileRecord, Customer, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/rto-payments", tags=["Admin RTO Payments"])
 
@@ -27,6 +28,19 @@ class RTOPaymentCreate(BaseModel):
     cheque_amount: Optional[float] = None
     utr_no: Optional[str] = None
     remarks: Optional[str] = None
+
+def _serialize(payment: RTOPayment) -> dict:
+    return {
+        "id": str(payment.id),
+        "file_id": str(payment.file_id),
+        "payment_date": str(payment.payment_date),
+        "payment_mode": payment.payment_mode,
+        "amount": float(payment.amount),
+        "payee_dealer_id": str(payment.payee_dealer_id) if payment.payee_dealer_id else None,
+        "payee_broker_id": str(payment.payee_broker_id) if payment.payee_broker_id else None,
+        "remarks": payment.remarks,
+        "is_deleted": bool(payment.is_deleted),
+    }
 
 @router.get("/")
 def list_rto_payments(
@@ -83,7 +97,11 @@ def list_rto_payments(
     return {"data": data, "total": total, "page": page, "limit": limit}
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_rto_payment(payload: RTOPaymentCreate, db: Session = Depends(get_db)):
+def create_rto_payment(
+    payload: RTOPaymentCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     if payload.payee_dealer_id and payload.payee_broker_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only one payee type can be provided")
 
@@ -106,6 +124,17 @@ def create_rto_payment(payload: RTOPaymentCreate, db: Session = Depends(get_db))
     )
     db.add(new_payment)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created rto payment",
+            table_name="rto_payment",
+            record_id=new_payment.id,
+            message=f"RTO payment of {new_payment.amount} was recorded",
+            preference_key="added",
+            new_values=_serialize(new_payment),
+        )
         db.commit()
         db.refresh(new_payment)
         return {"status": "success", "id": str(new_payment.id)}
@@ -115,14 +144,29 @@ def create_rto_payment(payload: RTOPaymentCreate, db: Session = Depends(get_db))
 
 # --- Soft Delete Route Added Here ---
 @router.delete("/{payment_id}", status_code=status.HTTP_200_OK)
-def delete_rto_payment(payment_id: UUID, db: Session = Depends(get_db)):
+def delete_rto_payment(
+    payment_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     payment = db.query(RTOPayment).filter(RTOPayment.id == payment_id, RTOPayment.is_deleted == False).first()
     
     if not payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
         
+    old_values = _serialize(payment)
     payment.is_deleted = True
     payment.deleted_at = datetime.utcnow()
+    record_dashboard_event(
+        db,
+        current_admin,
+        action="deleted rto payment",
+        table_name="rto_payment",
+        record_id=payment.id,
+        message=f"RTO payment of {payment.amount} was deleted",
+        preference_key="deleted",
+        old_values=old_values,
+    )
     db.commit()
     
     return {"status": "success", "message": "Payment soft-deleted successfully"}
@@ -144,11 +188,18 @@ class RTOPaymentUpdate(BaseModel):
     remarks: Optional[str] = None
 
 @router.patch("/{payment_id}", status_code=status.HTTP_200_OK)
-def update_rto_payment(payment_id: UUID, payload: RTOPaymentUpdate, db: Session = Depends(get_db)):
+def update_rto_payment(
+    payment_id: UUID,
+    payload: RTOPaymentUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     payment = db.query(RTOPayment).filter(RTOPayment.id == payment_id, RTOPayment.is_deleted == False).first()
     
     if not payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+
+    old_values = _serialize(payment)
 
     # Get only the fields that were explicitly sent in the request
     update_data = payload.dict(exclude_unset=True)
@@ -163,6 +214,17 @@ def update_rto_payment(payment_id: UUID, payload: RTOPaymentUpdate, db: Session 
         setattr(payment, key, value)
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated rto payment",
+            table_name="rto_payment",
+            record_id=payment.id,
+            message=f"RTO payment of {payment.amount} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values=_serialize(payment),
+        )
         db.commit()
         db.refresh(payment)
         return {"status": "success", "message": "Payment updated successfully"}

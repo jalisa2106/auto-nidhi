@@ -3,10 +3,13 @@ import bcrypt
 import jwt
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
+from typing import Any, Optional
+import json
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from backend.database import get_db
 from backend.models import SystemUser, MasterRole
@@ -113,3 +116,67 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     hashed_password_bytes = hashed_password.encode('utf-8')
     
     return bcrypt.checkpw(password_bytes, hashed_password_bytes)
+
+
+def _jsonb(value: Optional[dict[str, Any]]) -> Optional[str]:
+    if value is None:
+        return None
+    return json.dumps(value, default=str)
+
+
+def _notification_enabled(db: Session, user_id: UUID, preference_key: str) -> bool:
+    row = db.execute(
+        text(
+            """
+            SELECT enabled
+            FROM user_notification_preferences
+            WHERE user_id = :user_id AND preference_key = :preference_key
+            """
+        ),
+        {"user_id": str(user_id), "preference_key": preference_key},
+    ).mappings().first()
+
+    return True if row is None else bool(row["enabled"])
+
+
+def record_dashboard_event(
+    db: Session,
+    user: SystemUser,
+    *,
+    action: str,
+    table_name: str,
+    record_id: Optional[UUID],
+    message: str,
+    preference_key: str = "info",
+    old_values: Optional[dict[str, Any]] = None,
+    new_values: Optional[dict[str, Any]] = None,
+) -> None:
+    db.execute(
+        text(
+            """
+            INSERT INTO audit_logs (user_id, action, table_name, record_id, old_values, new_values)
+            VALUES (:user_id, :action, :table_name, :record_id, CAST(:old_values AS JSONB), CAST(:new_values AS JSONB))
+            """
+        ),
+        {
+            "user_id": str(user.id),
+            "action": action,
+            "table_name": table_name,
+            "record_id": str(record_id) if record_id else None,
+            "old_values": _jsonb(old_values),
+            "new_values": _jsonb(new_values),
+        },
+    )
+
+    if not _notification_enabled(db, user.id, preference_key):
+        return
+
+    db.execute(
+        text(
+            """
+            INSERT INTO notifications (user_id, notification_type, message)
+            VALUES (:user_id, 'general', :message)
+            """
+        ),
+        {"user_id": str(user.id), "message": message},
+    )

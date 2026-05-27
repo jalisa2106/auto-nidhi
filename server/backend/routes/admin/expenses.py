@@ -12,6 +12,7 @@ from backend.models import (
     FileRecord,
     SystemUser
 )
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(tags=["Admin Expenses"])
 
@@ -35,6 +36,19 @@ class ExpenseUpdate(BaseModel):
     expense_category_id: Optional[str]
     file_id: Optional[str]
     created_by: Optional[str]
+
+
+def _serialize_expense(expense: ExpenseLedger) -> dict:
+    return {
+        "id": str(expense.id),
+        "amount": float(expense.amount or 0),
+        "expense_date": str(expense.expense_date) if expense.expense_date else None,
+        "remarks": expense.remarks,
+        "expense_category_id": str(expense.expense_category_id) if expense.expense_category_id else None,
+        "file_id": str(expense.file_id) if expense.file_id else None,
+        "created_by": str(expense.created_by) if expense.created_by else None,
+        "is_deleted": bool(expense.is_deleted),
+    }
 
 
 # ─────────────────────────────────────────────
@@ -79,7 +93,11 @@ def get_expenses(db: Session = Depends(get_db)):
 # CREATE EXPENSE
 # ─────────────────────────────────────────────
 @router.post("/api/expenses")
-def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)):
+def create_expense(
+    payload: ExpenseCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     try:
         # category
         category = db.query(MasterExpenseCategory).filter(
@@ -117,6 +135,17 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)):
         )
 
         db.add(new_expense)
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created expense",
+            table_name="expense_ledger",
+            record_id=new_expense.id,
+            message=f"Expense of {new_expense.amount} was added under {category.expense_name}",
+            preference_key="added",
+            new_values=_serialize_expense(new_expense),
+        )
         db.commit()
         db.refresh(new_expense)
 
@@ -131,7 +160,12 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)):
 # UPDATE EXPENSE
 # ─────────────────────────────────────────────
 @router.patch("/api/expenses/{expense_id}")
-def update_expense(expense_id: str, payload: ExpenseUpdate, db: Session = Depends(get_db)):
+def update_expense(
+    expense_id: str,
+    payload: ExpenseUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     try:
         expense = db.query(ExpenseLedger).filter(
             ExpenseLedger.id == expense_id,
@@ -140,6 +174,8 @@ def update_expense(expense_id: str, payload: ExpenseUpdate, db: Session = Depend
 
         if not expense:
             raise HTTPException(status_code=404, detail="Expense not found")
+
+        old_values = _serialize_expense(expense)
 
         if payload.amount is not None:
             expense.amount = payload.amount
@@ -170,6 +206,17 @@ def update_expense(expense_id: str, payload: ExpenseUpdate, db: Session = Depend
             if user:
                 expense.created_by = user.id
 
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated expense",
+            table_name="expense_ledger",
+            record_id=expense.id,
+            message=f"Expense of {expense.amount} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values=_serialize_expense(expense),
+        )
         db.commit()
 
         return {"message": "Expense updated"}
@@ -183,7 +230,11 @@ def update_expense(expense_id: str, payload: ExpenseUpdate, db: Session = Depend
 # SOFT DELETE
 # ─────────────────────────────────────────────
 @router.delete("/api/expenses/{expense_id}")
-def delete_expense(expense_id: str, db: Session = Depends(get_db)):
+def delete_expense(
+    expense_id: str,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     try:
         expense = db.query(ExpenseLedger).filter(
             ExpenseLedger.id == expense_id,
@@ -193,7 +244,18 @@ def delete_expense(expense_id: str, db: Session = Depends(get_db)):
         if not expense:
             raise HTTPException(status_code=404, detail="Expense not found")
 
+        old_values = _serialize_expense(expense)
         expense.is_deleted = True
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="deleted expense",
+            table_name="expense_ledger",
+            record_id=expense.id,
+            message=f"Expense of {expense.amount} was deleted",
+            preference_key="deleted",
+            old_values=old_values,
+        )
         db.commit()
 
         return {"message": "Expense deleted (soft)"}

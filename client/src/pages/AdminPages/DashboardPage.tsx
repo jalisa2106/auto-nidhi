@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   FolderOpen, TrendingUp, TrendingDown,
   BadgePercent, ShieldAlert, ArrowRight, Activity,
-  Bell, Clock, CheckCircle2, AlertTriangle,
+  Bell, Clock, CheckCircle2,
   Car, Banknote, ChevronRight, Users,
 } from 'lucide-react'
 import api from '../../api/axios'
@@ -226,7 +226,7 @@ export default function DashboardPage() {
   }))
 
   const recentFiles = dashboard.recent_files.slice(0, 5)
-  const unreadNotifs = dashboard.notifications.filter((n) => !n.read)
+  const recentActivity = dashboard.activity.slice(0, 4)
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'
 
   return (
@@ -422,7 +422,7 @@ export default function DashboardPage() {
                   <div className="db-card-title"><Clock size={16} /> Recent Activity</div>
                 </div>
                 <div className="db-activity-list">
-                  {dashboard.activity.map((a) => (
+                  {recentActivity.map((a) => (
                     <div key={a.id} className="db-activity-row">
                       <div className="db-activity-dot" />
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -433,7 +433,7 @@ export default function DashboardPage() {
                       <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{timeLabel(a.created_at)}</div>
                     </div>
                   ))}
-                  {dashboard.activity.length === 0 && <div className="db-empty"><span>No recent activity</span></div>}
+                  {recentActivity.length === 0 && <div className="db-empty"><span>No recent activity</span></div>}
                 </div>
               </div>
 
@@ -441,28 +441,10 @@ export default function DashboardPage() {
                 <div className="db-card-header">
                   <div className="db-card-title">
                     <Bell size={16} /> Notifications
-                    {(dashboard.unread_notifications || unreadNotifs.length) > 0 && (
-                      <span className="db-notif-badge">{dashboard.unread_notifications || unreadNotifs.length}</span>
-                    )}
                   </div>
                 </div>
                 <div>
-                  {dashboard.notifications.map((n) => (
-                    <div key={n.id} className={`db-notif-row ${!n.read ? 'db-notif-unread' : ''}`}>
-                      <div className="db-notif-icon">
-                        {!n.read
-                          ? <AlertTriangle size={13} color="#f59e0b" />
-                          : <CheckCircle2 size={13} color="#94a3b8" />}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '.84rem', color: 'var(--gray-800)', fontWeight: n.read ? 400 : 600 }}>
-                          {n.message}
-                        </div>
-                        <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', marginTop: 2 }}>{timeLabel(n.created_at)}</div>
-                      </div>
-                    </div>
-                  ))}
-                  {dashboard.notifications.length === 0 && <div className="db-empty"><span>No notifications</span></div>}
+                  <div className="db-empty"><span>No notifications</span></div>
                 </div>
               </div>
             </div>

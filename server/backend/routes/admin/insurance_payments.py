@@ -5,8 +5,8 @@ from typing import Optional
 from uuid import UUID
 from datetime import date
 from backend.database import get_db
-from backend.models import InsurancePayment, FileRecord, MasterCompanyBank, MasterInsuranceCompany
-from backend.utils import get_current_admin
+from backend.models import InsurancePayment, FileRecord, MasterCompanyBank, MasterInsuranceCompany, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/insurance-payments", tags=["Admin Insurance Payments"])
 
@@ -24,6 +24,18 @@ class InsurancePaymentCreate(BaseModel):
     cheque_date: Optional[date] = None
     utr_no: Optional[str] = None
     remarks: Optional[str] = None
+
+def _serialize(payment: InsurancePayment) -> dict:
+    return {
+        "id": str(payment.id),
+        "file_id": str(payment.file_id),
+        "payment_date": str(payment.payment_date),
+        "payment_mode": payment.payment_mode,
+        "amount": float(payment.amount),
+        "insurance_company_id": str(payment.insurance_company_id) if payment.insurance_company_id else None,
+        "valid_to": str(payment.valid_to) if payment.valid_to else None,
+        "is_deleted": bool(payment.is_deleted),
+    }
 
 @router.get("/")
 def list_insurance_payments(db: Session = Depends(get_db)):
@@ -52,17 +64,47 @@ def list_insurance_payments(db: Session = Depends(get_db)):
     return {"data": data}
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_insurance_payment(payload: InsurancePaymentCreate, db: Session = Depends(get_db)):
+def create_insurance_payment(
+    payload: InsurancePaymentCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     new_payment = InsurancePayment(**payload.dict())
     db.add(new_payment)
+    db.flush()
+    record_dashboard_event(
+        db,
+        current_admin,
+        action="created insurance payment",
+        table_name="insurance_payment",
+        record_id=new_payment.id,
+        message=f"Insurance payment of {new_payment.amount} was recorded",
+        preference_key="added",
+        new_values=_serialize(new_payment),
+    )
     db.commit()
     db.refresh(new_payment)
     return new_payment
 
 @router.patch("/{payment_id}/delete")
-def soft_delete(payment_id: UUID, db: Session = Depends(get_db)):
+def soft_delete(
+    payment_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     payment = db.query(InsurancePayment).filter(InsurancePayment.id == payment_id).first()
     if not payment: raise HTTPException(status_code=404)
+    old_values = _serialize(payment)
     payment.is_deleted = True
+    record_dashboard_event(
+        db,
+        current_admin,
+        action="deleted insurance payment",
+        table_name="insurance_payment",
+        record_id=payment.id,
+        message=f"Insurance payment of {payment.amount} was deleted",
+        preference_key="deleted",
+        old_values=old_values,
+    )
     db.commit()
     return {"status": "success"}

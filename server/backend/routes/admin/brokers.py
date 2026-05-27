@@ -8,7 +8,8 @@ from pydantic import BaseModel, validator
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import MasterBroker
+from backend.models import MasterBroker, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/brokers", tags=["Admin Brokers"])
 
@@ -107,7 +108,11 @@ def list_brokers(search: Optional[str] = None, db: Session = Depends(get_db)):
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_broker(payload: BrokerCreate, db: Session = Depends(get_db)):
+def create_broker(
+    payload: BrokerCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     if payload.phone:
         existing = db.query(MasterBroker).filter(MasterBroker.phone == payload.phone, MasterBroker.is_deleted == False).first()
         if existing:
@@ -121,6 +126,17 @@ def create_broker(payload: BrokerCreate, db: Session = Depends(get_db)):
     )
     db.add(broker)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created broker",
+            table_name="master_broker",
+            record_id=broker.id,
+            message=f"Broker {broker.broker_name} was added",
+            preference_key="added",
+            new_values=_serialize(broker),
+        )
         db.commit()
         db.refresh(broker)
         return _serialize(broker)
@@ -130,11 +146,17 @@ def create_broker(payload: BrokerCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{broker_id}")
-def update_broker(broker_id: UUID, payload: BrokerUpdate, db: Session = Depends(get_db)):
+def update_broker(
+    broker_id: UUID,
+    payload: BrokerUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     broker = db.query(MasterBroker).filter(MasterBroker.id == broker_id, MasterBroker.is_deleted == False).first()
     if not broker:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Broker not found")
 
+    old_values = _serialize(broker)
     update_data = payload.dict(exclude_none=True)
     if "phone" in update_data and update_data["phone"]:
         conflict = db.query(MasterBroker).filter(
@@ -149,6 +171,17 @@ def update_broker(broker_id: UUID, payload: BrokerUpdate, db: Session = Depends(
         setattr(broker, field, value)
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated broker",
+            table_name="master_broker",
+            record_id=broker.id,
+            message=f"Broker {broker.broker_name} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values=_serialize(broker),
+        )
         db.commit()
         db.refresh(broker)
         return _serialize(broker)
@@ -158,7 +191,11 @@ def update_broker(broker_id: UUID, payload: BrokerUpdate, db: Session = Depends(
 
 
 @router.delete("/{broker_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_broker(broker_id: UUID, db: Session = Depends(get_db)):
+def delete_broker(
+    broker_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     broker = db.query(MasterBroker).filter(MasterBroker.id == broker_id).first()
     if not broker:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Broker not found")
@@ -166,6 +203,16 @@ def delete_broker(broker_id: UUID, db: Session = Depends(get_db)):
     try:
         broker.is_deleted = True
         broker.deleted_at = datetime.datetime.utcnow()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="deleted broker",
+            table_name="master_broker",
+            record_id=broker.id,
+            message=f"Broker {broker.broker_name} was deleted",
+            preference_key="deleted",
+            old_values=_serialize(broker),
+        )
         db.commit()
     except Exception as exc:
         db.rollback()

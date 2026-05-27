@@ -8,7 +8,8 @@ from pydantic import BaseModel, validator
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import MasterDealer
+from backend.models import MasterDealer, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/dealers", tags=["Admin Dealers"])
 
@@ -100,7 +101,11 @@ def list_dealers(search: Optional[str] = None, db: Session = Depends(get_db)):
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_dealer(payload: DealerCreate, db: Session = Depends(get_db)):
+def create_dealer(
+    payload: DealerCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     if payload.phone:
         existing = db.query(MasterDealer).filter(
             MasterDealer.phone == payload.phone,
@@ -119,6 +124,17 @@ def create_dealer(payload: DealerCreate, db: Session = Depends(get_db)):
     db.add(dealer)
 
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created dealer",
+            table_name="master_dealer",
+            record_id=dealer.id,
+            message=f"Dealer {dealer.dealer_name} was added",
+            preference_key="added",
+            new_values=_serialize(dealer),
+        )
         db.commit()
         db.refresh(dealer)
         return _serialize(dealer)
@@ -128,7 +144,12 @@ def create_dealer(payload: DealerCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{dealer_id}")
-def update_dealer(dealer_id: UUID, payload: DealerUpdate, db: Session = Depends(get_db)):
+def update_dealer(
+    dealer_id: UUID,
+    payload: DealerUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     dealer = db.query(MasterDealer).filter(
         MasterDealer.id == dealer_id,
         MasterDealer.is_deleted == False,
@@ -137,6 +158,7 @@ def update_dealer(dealer_id: UUID, payload: DealerUpdate, db: Session = Depends(
     if not dealer:
         raise HTTPException(status_code=404, detail="Dealer not found")
 
+    old_values = _serialize(dealer)
     update_data = payload.dict(exclude_unset=True)
 
     if "phone" in update_data and update_data["phone"]:
@@ -158,6 +180,17 @@ def update_dealer(dealer_id: UUID, payload: DealerUpdate, db: Session = Depends(
         dealer.email = update_data["email"]
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated dealer",
+            table_name="master_dealer",
+            record_id=dealer.id,
+            message=f"Dealer {dealer.dealer_name} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values=_serialize(dealer),
+        )
         db.commit()
         db.refresh(dealer)
         return _serialize(dealer)
@@ -167,7 +200,11 @@ def update_dealer(dealer_id: UUID, payload: DealerUpdate, db: Session = Depends(
 
 
 @router.delete("/{dealer_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_dealer(dealer_id: UUID, db: Session = Depends(get_db)):
+def delete_dealer(
+    dealer_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     dealer = db.query(MasterDealer).filter(MasterDealer.id == dealer_id).first()
 
     if not dealer:
@@ -177,6 +214,16 @@ def delete_dealer(dealer_id: UUID, db: Session = Depends(get_db)):
     dealer.deleted_at = datetime.datetime.utcnow()
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="deleted dealer",
+            table_name="master_dealer",
+            record_id=dealer.id,
+            message=f"Dealer {dealer.dealer_name} was deleted",
+            preference_key="deleted",
+            old_values=_serialize(dealer),
+        )
         db.commit()
     except Exception as exc:
         db.rollback()

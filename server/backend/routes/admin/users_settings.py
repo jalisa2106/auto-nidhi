@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import SystemUser, MasterRole
-from backend.utils import get_password_hash
+from backend.utils import get_current_admin, get_password_hash, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/settings", tags=["Settings - Users"])
 
@@ -125,7 +125,11 @@ def list_users(
 
 
 @router.post("/users", status_code=status.HTTP_201_CREATED)
-def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    payload: UserCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """Create a new system user with a hashed password."""
     # Validate unique email
     existing = db.query(SystemUser).filter(SystemUser.email == payload.email.lower()).first()
@@ -152,6 +156,17 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     )
     db.add(user)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created user",
+            table_name="system_user",
+            record_id=user.id,
+            message=f"User {user.email} was added",
+            preference_key="added",
+            new_values=_serialize(user),
+        )
         db.commit()
         db.refresh(user)
         role_name = db.query(MasterRole).filter(MasterRole.id == user.role_id).first()
@@ -162,11 +177,18 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/users/{user_id}")
-def update_user(user_id: UUID, payload: UserUpdate, db: Session = Depends(get_db)):
+def update_user(
+    user_id: UUID,
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """Update user profile — name, phone, role, or active status."""
     user = db.query(SystemUser).filter(SystemUser.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    old_values = _serialize(user)
 
     if payload.role_id:
         role = db.query(MasterRole).filter(MasterRole.id == payload.role_id).first()
@@ -180,6 +202,17 @@ def update_user(user_id: UUID, payload: UserUpdate, db: Session = Depends(get_db
         setattr(user, field, value)
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated user",
+            table_name="system_user",
+            record_id=user.id,
+            message=f"User {user.email} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values=_serialize(user),
+        )
         db.commit()
         db.refresh(user)
         role_name = db.query(MasterRole).filter(MasterRole.id == user.role_id).first()
@@ -190,7 +223,11 @@ def update_user(user_id: UUID, payload: UserUpdate, db: Session = Depends(get_db
 
 
 @router.patch("/users/{user_id}/toggle-active")
-def toggle_user_active(user_id: UUID, db: Session = Depends(get_db)):
+def toggle_user_active(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """Toggle a user's active/inactive status."""
     user = db.query(SystemUser).filter(SystemUser.id == user_id).first()
     if not user:
@@ -198,6 +235,17 @@ def toggle_user_active(user_id: UUID, db: Session = Depends(get_db)):
 
     user.is_active = not user.is_active
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated user status",
+            table_name="system_user",
+            record_id=user.id,
+            message=f"User {user.email} was {'activated' if user.is_active else 'deactivated'}",
+            preference_key="updated",
+            old_values={"is_active": not user.is_active},
+            new_values={"is_active": user.is_active},
+        )
         db.commit()
         db.refresh(user)
         role = db.query(MasterRole).filter(MasterRole.id == user.role_id).first()

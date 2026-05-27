@@ -4,6 +4,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.database import get_db
+from backend.models import SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/masters", tags=["Insurance Companies"])
 
@@ -32,18 +34,42 @@ def list_insurance_companies(db: Session = Depends(get_db)):
     return [dict(r) for r in rows]
 
 @router.post("/insurance-companies", status_code=201)
-def create_insurance_company(data: InsuranceCompanyIn, db: Session = Depends(get_db)):
+def create_insurance_company(
+    data: InsuranceCompanyIn,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     result = db.execute(text("""
         INSERT INTO master_insurance_company (company_name, contact_person, mobile_no, phone_no)
         VALUES (:company_name, :contact_person, :mobile_no, :phone_no)
         RETURNING id, company_name, contact_person, mobile_no, phone_no
     """), data.model_dump())
+    row = dict(result.mappings().one())
+    record_dashboard_event(
+        db,
+        current_admin,
+        action="created insurance company",
+        table_name="master_insurance_company",
+        record_id=row["id"],
+        message=f"Insurance company {row['company_name']} was added",
+        preference_key="added",
+        new_values=row,
+    )
     db.commit()
-    return dict(result.mappings().one())
+    return row
 
 @router.put("/insurance-companies/{id}")
-def update_insurance_company(id: str, data: InsuranceCompanyUpdate, db: Session = Depends(get_db)):
-    existing = db.execute(text("SELECT id FROM master_insurance_company WHERE id = :id"), {"id": id}).first()
+def update_insurance_company(
+    id: str,
+    data: InsuranceCompanyUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    existing = db.execute(text("""
+        SELECT id, company_name, contact_person, mobile_no, phone_no
+        FROM master_insurance_company
+        WHERE id = :id
+    """), {"id": id}).mappings().first()
     if not existing:
         raise HTTPException(status_code=404, detail="Insurance company not found")
     fields = {k: v for k, v in data.model_dump().items() if v is not None}
@@ -56,12 +82,32 @@ def update_insurance_company(id: str, data: InsuranceCompanyUpdate, db: Session 
         WHERE id = :id
         RETURNING id, company_name, contact_person, mobile_no, phone_no
     """), fields)
+    row = dict(result.mappings().one())
+    record_dashboard_event(
+        db,
+        current_admin,
+        action="updated insurance company",
+        table_name="master_insurance_company",
+        record_id=row["id"],
+        message=f"Insurance company {row['company_name']} was updated",
+        preference_key="updated",
+        old_values=dict(existing),
+        new_values=row,
+    )
     db.commit()
-    return dict(result.mappings().one())
+    return row
 
 @router.delete("/insurance-companies/{id}", status_code=204)
-def delete_insurance_company(id: str, db: Session = Depends(get_db)):
-    existing = db.execute(text("SELECT id FROM master_insurance_company WHERE id = :id AND is_deleted = FALSE"), {"id": id}).first()
+def delete_insurance_company(
+    id: str,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    existing = db.execute(text("""
+        SELECT id, company_name, contact_person, mobile_no, phone_no
+        FROM master_insurance_company
+        WHERE id = :id AND is_deleted = FALSE
+    """), {"id": id}).mappings().first()
     if not existing:
         raise HTTPException(status_code=404, detail="Insurance company not found")
     db.execute(text("""
@@ -70,4 +116,14 @@ def delete_insurance_company(id: str, db: Session = Depends(get_db)):
             deleted_at = NOW()
         WHERE id = :id
     """), {"id": id})
+    record_dashboard_event(
+        db,
+        current_admin,
+        action="deleted insurance company",
+        table_name="master_insurance_company",
+        record_id=existing["id"],
+        message=f"Insurance company {existing['company_name']} was deleted",
+        preference_key="deleted",
+        old_values=dict(existing),
+    )
     db.commit()

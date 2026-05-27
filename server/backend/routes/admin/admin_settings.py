@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import UserNotificationPreference, SystemUser, MasterRole
-from backend.utils import get_current_admin
+from backend.utils import get_current_admin, record_dashboard_event
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-this-secret-key")
 ALGORITHM = "HS256"
@@ -61,6 +61,7 @@ def update_notification_preferences(
     current_admin: SystemUser = Depends(get_current_admin),
 ):
     allowed_keys = set(DEFAULT_PREFS.keys())
+    old_preferences = get_notification_preferences(db, current_admin)
 
     for key, enabled in payload.preferences.items():
         if key not in allowed_keys:
@@ -81,6 +82,17 @@ def update_notification_preferences(
             ))
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated notification settings",
+            table_name="user_notification_preferences",
+            record_id=current_admin.id,
+            message="Notification preferences were updated",
+            preference_key="updated",
+            old_values=old_preferences,
+            new_values={**old_preferences, **payload.preferences},
+        )
         db.commit()
         return {"message": "Notification preferences saved"}
     except Exception as exc:

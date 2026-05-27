@@ -7,7 +7,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import PaymentIn, FileRecord, Customer, MasterCompanyBank
+from backend.models import PaymentIn, FileRecord, Customer, MasterCompanyBank, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/payments/in", tags=["Admin Payments IN"])
 
@@ -117,7 +118,11 @@ def list_payments_in(
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_payment_in(payload: PaymentInCreate, db: Session = Depends(get_db)):
+def create_payment_in(
+    payload: PaymentInCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     new_payment = PaymentIn(
         file_id=payload.file_id,
         payment_amount=payload.payment_amount,
@@ -137,6 +142,23 @@ def create_payment_in(payload: PaymentInCreate, db: Session = Depends(get_db)):
     )
     db.add(new_payment)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created payment in",
+            table_name="payment_in",
+            record_id=new_payment.id,
+            message=f"Payment in of {new_payment.payment_amount} was recorded",
+            preference_key="added",
+            new_values={
+                "id": str(new_payment.id),
+                "file_id": str(new_payment.file_id),
+                "payment_amount": float(new_payment.payment_amount),
+                "payment_mode": new_payment.payment_mode,
+                "payment_date": str(new_payment.payment_date),
+            },
+        )
         db.commit()
         db.refresh(new_payment)
         return {"status": "success", "id": str(new_payment.id)}

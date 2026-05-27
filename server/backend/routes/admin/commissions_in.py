@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import CommissionIn, FileRecord
+from backend.models import CommissionIn, FileRecord, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/commissions/in", tags=["Admin Commission IN"])
 
@@ -132,7 +133,11 @@ def list_commissions_in(
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_commission_in(payload: CommissionInCreate, db: Session = Depends(get_db)):
+def create_commission_in(
+    payload: CommissionInCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     new_row = CommissionIn(
         file_id=payload.file_id,
         payment_by=payload.source_name,
@@ -143,6 +148,23 @@ def create_commission_in(payload: CommissionInCreate, db: Session = Depends(get_
     )
     db.add(new_row)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created commission in",
+            table_name="commission_in",
+            record_id=new_row.id,
+            message=f"Commission in of {new_row.amount} was recorded",
+            preference_key="added",
+            new_values={
+                "id": str(new_row.id),
+                "file_id": str(new_row.file_id),
+                "payment_by": new_row.payment_by,
+                "amount": float(new_row.amount),
+                "payment_date": str(new_row.payment_date),
+            },
+        )
         db.commit()
         db.refresh(new_row)
         return {"status": "success", "id": str(new_row.id)}

@@ -4,6 +4,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.database import get_db
+from backend.models import SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/masters", tags=["Insurance Types"])
 
@@ -30,7 +32,11 @@ def list_insurance_types(db: Session = Depends(get_db)):
     return [dict(r) for r in rows]
 
 @router.post("/insurance-types", status_code=201)
-def create_insurance_type(data: InsuranceTypeIn, db: Session = Depends(get_db)):
+def create_insurance_type(
+    data: InsuranceTypeIn,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """
     Create a new insurance type.
     Requires: insurance_type_name (must be unique)
@@ -41,8 +47,19 @@ def create_insurance_type(data: InsuranceTypeIn, db: Session = Depends(get_db)):
             VALUES (:insurance_type_name)
             RETURNING id, insurance_type_name
         """), data.model_dump())
+        row = dict(result.mappings().one())
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created insurance type",
+            table_name="master_insurance_type",
+            record_id=row["id"],
+            message=f"Insurance type {row['insurance_type_name']} was added",
+            preference_key="added",
+            new_values=row,
+        )
         db.commit()
-        return dict(result.mappings().one())
+        return row
     except Exception as e:
         db.rollback()
         if "unique" in str(e).lower():
@@ -65,13 +82,22 @@ def get_insurance_type(id: str, db: Session = Depends(get_db)):
     return dict(result)
 
 @router.put("/insurance-types/{id}")
-def update_insurance_type(id: str, data: InsuranceTypeUpdate, db: Session = Depends(get_db)):
+def update_insurance_type(
+    id: str,
+    data: InsuranceTypeUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """
     Update an insurance type by ID.
     Only provided fields will be updated.
     """
     # Check if insurance type exists
-    existing = db.execute(text("SELECT id FROM master_insurance_type WHERE id = :id"), {"id": id}).first()
+    existing = db.execute(text("""
+        SELECT id, insurance_type_name
+        FROM master_insurance_type
+        WHERE id = :id
+    """), {"id": id}).mappings().first()
     if not existing:
         raise HTTPException(status_code=404, detail="Insurance type not found")
     
@@ -89,8 +115,20 @@ def update_insurance_type(id: str, data: InsuranceTypeUpdate, db: Session = Depe
             WHERE id = :id
             RETURNING id, insurance_type_name
         """), fields)
+        row = dict(result.mappings().one())
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated insurance type",
+            table_name="master_insurance_type",
+            record_id=row["id"],
+            message=f"Insurance type {row['insurance_type_name']} was updated",
+            preference_key="updated",
+            old_values=dict(existing),
+            new_values=row,
+        )
         db.commit()
-        return dict(result.mappings().one())
+        return row
     except Exception as e:
         db.rollback()
         if "unique" in str(e).lower():
@@ -98,11 +136,19 @@ def update_insurance_type(id: str, data: InsuranceTypeUpdate, db: Session = Depe
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/insurance-types/{id}", status_code=204)
-def delete_insurance_type(id: str, db: Session = Depends(get_db)):
+def delete_insurance_type(
+    id: str,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """
     Soft delete an insurance type by ID.
     """
-    existing = db.execute(text("SELECT id FROM master_insurance_type WHERE id = :id AND is_deleted = FALSE"), {"id": id}).first()
+    existing = db.execute(text("""
+        SELECT id, insurance_type_name
+        FROM master_insurance_type
+        WHERE id = :id AND is_deleted = FALSE
+    """), {"id": id}).mappings().first()
     if not existing:
         raise HTTPException(status_code=404, detail="Insurance type not found")
     
@@ -113,6 +159,16 @@ def delete_insurance_type(id: str, db: Session = Depends(get_db)):
                 deleted_at = NOW()
             WHERE id = :id
         """), {"id": id})
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="deleted insurance type",
+            table_name="master_insurance_type",
+            record_id=existing["id"],
+            message=f"Insurance type {existing['insurance_type_name']} was deleted",
+            preference_key="deleted",
+            old_values=dict(existing),
+        )
         db.commit()
     except Exception as e:
         db.rollback()

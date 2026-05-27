@@ -9,7 +9,7 @@ import re
 
 from backend.database import get_db
 from backend.models import Customer, FileRecord, SystemUser
-from backend.utils import get_current_admin
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/customers", tags=["Admin Customers"])
 
@@ -74,6 +74,24 @@ def create_customer(payload: CustomerCreate, db: Session = Depends(get_db), curr
     new_customer.created_by = current_user.id 
     db.add(new_customer)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_user,
+            action="created customer",
+            table_name="customer",
+            record_id=new_customer.id,
+            message=f"Customer {new_customer.full_name} was added",
+            preference_key="added",
+            new_values={
+                "id": str(new_customer.id),
+                "full_name": new_customer.full_name,
+                "mobile_1": new_customer.mobile_1,
+                "email": new_customer.email,
+                "city": new_customer.city,
+                "customer_type": new_customer.customer_type,
+            },
+        )
         db.commit()
     except Exception as e:
         db.rollback()

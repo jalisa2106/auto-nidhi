@@ -199,29 +199,56 @@ def _get_financials(db: Session):
     ).mappings().first()
 
 
-def _get_insurance_expiring(db: Session, days: int = 30):
+def _get_insurance_expiring(db: Session, days: int = 7):
     return _rows(
         db,
         """
+        WITH expiring_policies AS (
+            SELECT
+                f.id AS file_id,
+                f.file_number,
+                c.full_name AS customer,
+                ii.policy_number AS policy,
+                mit.insurance_type_name AS insurance_type,
+                ii.valid_to AS expires_on
+            FROM file_record f
+            JOIN customer c ON c.id = f.customer_id
+            JOIN insurance_info ii ON ii.file_id = f.id
+            LEFT JOIN master_insurance_type mit ON mit.id = ii.insurance_type_id
+            WHERE f.is_deleted = FALSE
+            AND ii.valid_to IS NOT NULL
+
+            UNION ALL
+
+            SELECT
+                f.id AS file_id,
+                f.file_number,
+                c.full_name AS customer,
+                NULL AS policy,
+                mic.company_name AS insurance_type,
+                ip.valid_to AS expires_on
+            FROM insurance_payment ip
+            JOIN file_record f ON f.id = ip.file_id
+            JOIN customer c ON c.id = f.customer_id
+            LEFT JOIN master_insurance_company mic ON mic.id = ip.insurance_company_id
+            WHERE f.is_deleted = FALSE
+            AND ip.is_deleted = FALSE
+            AND ip.valid_to IS NOT NULL
+        )
         SELECT
-            f.id::text AS file_id,
-            f.file_number,
-            COALESCE(f.file_number, f.id::text) AS file,
-            c.full_name AS customer,
-            ii.policy_number AS policy,
-            mit.insurance_type_name AS insurance_type,
-            ii.valid_to AS expires_on,
-            (ii.valid_to - CURRENT_DATE) AS expires_in,
-            CONCAT((ii.valid_to - CURRENT_DATE), ' days') AS days_label
-        FROM file_record f
-        JOIN customer c ON c.id = f.customer_id
-        JOIN insurance_info ii ON ii.file_id = f.id
-        LEFT JOIN master_insurance_type mit ON mit.id = ii.insurance_type_id
-        WHERE f.is_deleted = FALSE
-        AND ii.valid_to IS NOT NULL
-        AND ii.valid_to >= CURRENT_DATE
-        AND ii.valid_to <= CURRENT_DATE + (:days * INTERVAL '1 day')
-        ORDER BY ii.valid_to ASC
+            file_id::text AS file_id,
+            file_number,
+            COALESCE(file_number, file_id::text) AS file,
+            customer,
+            policy,
+            insurance_type,
+            expires_on,
+            (expires_on - CURRENT_DATE) AS expires_in,
+            CONCAT((expires_on - CURRENT_DATE), ' days') AS days_label
+        FROM expiring_policies
+        WHERE expires_on >= CURRENT_DATE
+        AND expires_on <= CURRENT_DATE + (:days * INTERVAL '1 day')
+        ORDER BY expires_on ASC
         LIMIT 10
         """,
         {"days": days},
@@ -337,7 +364,7 @@ def get_dashboard_financials(
 
 @router.get("/insurance-expiring")
 def get_dashboard_insurance_expiring(
-    days: int = 30,
+    days: int = 7,
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_admin),
 ):

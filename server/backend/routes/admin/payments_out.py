@@ -7,8 +7,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import PaymentOut, FileRecord, Customer, MasterCompanyBank
-from backend.utils import get_current_admin
+from backend.models import PaymentOut, FileRecord, Customer, MasterCompanyBank, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/payments/out", tags=["Admin Payments OUT"])
 
@@ -131,7 +131,11 @@ def list_payments_out(
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_payment_out(payload: PaymentOutCreate, db: Session = Depends(get_db)):
+def create_payment_out(
+    payload: PaymentOutCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     # Validate company_bank_id if provided
     if payload.company_bank_id:
         bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == payload.company_bank_id).first()
@@ -157,6 +161,24 @@ def create_payment_out(payload: PaymentOutCreate, db: Session = Depends(get_db))
     )
     db.add(new_payment)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created payment out",
+            table_name="payment_out",
+            record_id=new_payment.id,
+            message=f"Payment out of {new_payment.amount} was recorded",
+            preference_key="added",
+            new_values={
+                "id": str(new_payment.id),
+                "file_id": str(new_payment.file_id),
+                "amount": float(new_payment.amount),
+                "payment_to": new_payment.payment_to,
+                "payment_mode": new_payment.payment_mode,
+                "payment_date": str(new_payment.payment_date),
+            },
+        )
         db.commit()
         db.refresh(new_payment)
         return {"status": "success", "id": str(new_payment.id)}

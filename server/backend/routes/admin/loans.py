@@ -5,7 +5,7 @@ from typing import Optional
 
 from backend.database import get_db
 from backend.models import Customer, FileRecord, FinanceInfo, MasterBank, SystemUser
-from backend.utils import get_current_admin
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/loans", tags=["Admin Loans"])
 
@@ -121,12 +121,25 @@ def update_loan(
     if not loan:
         raise HTTPException(status_code=404, detail="Loan not found")
 
+    old_values = serialize_loan(loan)
+
     if "status" in payload and payload["status"] is not None:
         loan.status = payload["status"]
 
     if "remarks" in payload:
         loan.remarks = payload["remarks"]
 
+    record_dashboard_event(
+        db,
+        current_admin,
+        action="updated loan",
+        table_name="file_record",
+        record_id=loan.id,
+        message=f"Loan file {loan.file_number} was updated",
+        preference_key="updated",
+        old_values=old_values,
+        new_values=serialize_loan(loan),
+    )
     db.commit()
     db.refresh(loan)
 
@@ -149,9 +162,20 @@ def delete_loan_record(
     if not loan:
         raise HTTPException(status_code=404, detail="Loan not found")
 
+    old_values = serialize_loan(loan)
     loan.is_deleted = True
     loan.status = "cancelled"
 
+    record_dashboard_event(
+        db,
+        current_admin,
+        action="deleted loan",
+        table_name="file_record",
+        record_id=loan.id,
+        message=f"Loan file {loan.file_number} was deleted",
+        preference_key="deleted",
+        old_values=old_values,
+    )
     db.commit()
     db.refresh(loan)
 

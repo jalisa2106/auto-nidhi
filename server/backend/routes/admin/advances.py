@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Advance, MasterDealer, MasterBroker, SystemUser
-from backend.utils import get_current_admin
+from backend.utils import get_current_admin, record_dashboard_event
 
 
 router = APIRouter(prefix="/api/v1/advances", tags=["Admin Advances"])
@@ -160,6 +160,17 @@ def create_advance(
     db.add(advance)
 
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created advance",
+            table_name="advances",
+            record_id=advance.id,
+            message=f"Advance of {advance.amount} was added for {advance.dealer.dealer_name if advance.dealer else advance.broker.broker_name}",
+            preference_key="added",
+            new_values=_serialize(advance),
+        )
         db.commit()
         db.refresh(advance)
         return _serialize(advance)
@@ -183,9 +194,21 @@ def update_advance(
     if not advance:
         raise HTTPException(status_code=404, detail="Advance not found")
 
+    old_values = _serialize(advance)
+
     if payload.is_deleted is True:
         advance.is_deleted = True
         advance.deleted_at = datetime.datetime.utcnow()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="deleted advance",
+            table_name="advances",
+            record_id=advance.id,
+            message=f"Advance of {advance.amount} was deleted",
+            preference_key="deleted",
+            old_values=old_values,
+        )
         db.commit()
         return {"status": "success"}
 
@@ -206,6 +229,17 @@ def update_advance(
         advance.remarks = payload.remarks
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated advance",
+            table_name="advances",
+            record_id=advance.id,
+            message=f"Advance recovery was updated to {advance.recovery_status}",
+            preference_key="updated",
+            old_values=old_values,
+            new_values=_serialize(advance),
+        )
         db.commit()
         db.refresh(advance)
         return _serialize(advance)
@@ -232,6 +266,16 @@ def delete_advance(
     advance.deleted_at = datetime.datetime.utcnow()
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="deleted advance",
+            table_name="advances",
+            record_id=advance.id,
+            message=f"Advance of {advance.amount} was deleted",
+            preference_key="deleted",
+            old_values=_serialize(advance),
+        )
         db.commit()
     except Exception as exc:
         db.rollback()

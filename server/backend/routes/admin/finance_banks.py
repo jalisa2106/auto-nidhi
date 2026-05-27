@@ -6,7 +6,8 @@ from pydantic import BaseModel, validator
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import MasterBank
+from backend.models import MasterBank, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/finance-banks", tags=["Finance Banks"])
 
@@ -93,7 +94,11 @@ def list_all_finance_banks(db: Session = Depends(get_db)):
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_finance_bank(payload: FinanceBankCreate, db: Session = Depends(get_db)):
+def create_finance_bank(
+    payload: FinanceBankCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """Create a new finance bank."""
     # Check duplicate name
     existing = db.query(MasterBank).filter(
@@ -111,6 +116,17 @@ def create_finance_bank(payload: FinanceBankCreate, db: Session = Depends(get_db
     )
     db.add(bank)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created finance bank",
+            table_name="master_bank",
+            record_id=bank.id,
+            message=f"Finance bank {bank.bank_name} was added",
+            preference_key="added",
+            new_values=_serialize(bank),
+        )
         db.commit()
         db.refresh(bank)
         return _serialize(bank)
@@ -124,17 +140,30 @@ def update_finance_bank(
     bank_id: UUID,
     payload: FinanceBankUpdate,
     db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     """Update an existing finance bank."""
     bank = db.query(MasterBank).filter(MasterBank.id == bank_id).first()
     if not bank:
         raise HTTPException(status_code=404, detail="Finance bank not found")
 
+    old_values = _serialize(bank)
     update_data = payload.dict(exclude_none=True)
     for field, value in update_data.items():
         setattr(bank, field, value.strip() if isinstance(value, str) else value)
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated finance bank",
+            table_name="master_bank",
+            record_id=bank.id,
+            message=f"Finance bank {bank.bank_name} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values=_serialize(bank),
+        )
         db.commit()
         db.refresh(bank)
         return _serialize(bank)
@@ -144,12 +173,27 @@ def update_finance_bank(
 
 
 @router.delete("/{bank_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_finance_bank(bank_id: UUID, db: Session = Depends(get_db)):
+def delete_finance_bank(
+    bank_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """Delete a finance bank (fails if linked to loans)."""
     bank = db.query(MasterBank).filter(MasterBank.id == bank_id).first()
     if not bank:
         raise HTTPException(status_code=404, detail="Finance bank not found")
     try:
+        old_values = _serialize(bank)
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="deleted finance bank",
+            table_name="master_bank",
+            record_id=bank.id,
+            message=f"Finance bank {bank.bank_name} was deleted",
+            preference_key="deleted",
+            old_values=old_values,
+        )
         db.delete(bank)
         db.commit()
     except Exception as exc:

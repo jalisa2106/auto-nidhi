@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import CommissionOut, FileRecord, MasterCompanyBank
+from backend.models import CommissionOut, FileRecord, MasterCompanyBank, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/commissions/out", tags=["Admin Commission OUT"])
 
@@ -140,7 +141,11 @@ def list_commissions_out(
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_commission_out(payload: CommissionOutCreate, db: Session = Depends(get_db)):
+def create_commission_out(
+    payload: CommissionOutCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     # Validate company_bank_id if provided
     if payload.company_bank_id:
         bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == payload.company_bank_id).first()
@@ -164,6 +169,24 @@ def create_commission_out(payload: CommissionOutCreate, db: Session = Depends(ge
     )
     db.add(new_row)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created commission out",
+            table_name="commission_out",
+            record_id=new_row.id,
+            message=f"Commission out of {new_row.amount} was recorded",
+            preference_key="added",
+            new_values={
+                "id": str(new_row.id),
+                "file_id": str(new_row.file_id),
+                "payee_type": new_row.payee_type,
+                "amount": float(new_row.amount),
+                "payment_mode": new_row.payment_mode,
+                "payment_date": str(new_row.payment_date),
+            },
+        )
         db.commit()
         db.refresh(new_row)
         return {"status": "success", "id": str(new_row.id)}

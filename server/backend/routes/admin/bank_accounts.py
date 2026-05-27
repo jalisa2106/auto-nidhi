@@ -7,7 +7,8 @@ from pydantic import BaseModel, validator
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import MasterCompanyBank
+from backend.models import MasterCompanyBank, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/settings/banks", tags=["Settings - Bank Accounts"])
 
@@ -112,7 +113,11 @@ def list_bank_accounts(
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_bank_account(payload: BankAccountCreate, db: Session = Depends(get_db)):
+def create_bank_account(
+    payload: BankAccountCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """Create a new company bank account."""
     # Check for duplicate account number
     existing = db.query(MasterCompanyBank).filter(
@@ -132,6 +137,17 @@ def create_bank_account(payload: BankAccountCreate, db: Session = Depends(get_db
     )
     db.add(bank)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created company bank account",
+            table_name="master_company_bank",
+            record_id=bank.id,
+            message=f"Company bank account {bank.bank_name} was added",
+            preference_key="added",
+            new_values=_serialize(bank),
+        )
         db.commit()
         db.refresh(bank)
         return _serialize(bank)
@@ -145,11 +161,14 @@ def update_bank_account(
     bank_id: UUID,
     payload: BankAccountUpdate,
     db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     """Update an existing bank account by UUID."""
     bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == bank_id).first()
     if not bank:
         raise HTTPException(status_code=404, detail="Bank account not found")
+
+    old_values = _serialize(bank)
 
     # Check for duplicate account number only if it's being changed
     if payload.account_number and payload.account_number != bank.account_number:
@@ -170,6 +189,17 @@ def update_bank_account(
         setattr(bank, field, value)
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated company bank account",
+            table_name="master_company_bank",
+            record_id=bank.id,
+            message=f"Company bank account {bank.bank_name} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values=_serialize(bank),
+        )
         db.commit()
         db.refresh(bank)
         return _serialize(bank)
@@ -179,13 +209,28 @@ def update_bank_account(
 
 
 @router.delete("/{bank_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_bank_account(bank_id: UUID, db: Session = Depends(get_db)):
+def delete_bank_account(
+    bank_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """Delete a company bank account by UUID."""
     bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == bank_id).first()
     if not bank:
         raise HTTPException(status_code=404, detail="Bank account not found")
 
     try:
+        old_values = _serialize(bank)
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="deleted company bank account",
+            table_name="master_company_bank",
+            record_id=bank.id,
+            message=f"Company bank account {bank.bank_name} was deleted",
+            preference_key="deleted",
+            old_values=old_values,
+        )
         db.delete(bank)
         db.commit()
     except Exception as exc:

@@ -7,7 +7,8 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import MasterCompanyProfile
+from backend.models import MasterCompanyProfile, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/settings/company", tags=["Settings - Company"])
 
@@ -86,15 +87,31 @@ def get_company_profile(db: Session = Depends(get_db)):
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_company_profile(payload: CompanyProfileCreate, db: Session = Depends(get_db)):
+def create_company_profile(
+    payload: CompanyProfileCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     """Create company profile. Only one record is expected."""
     existing = db.query(MasterCompanyProfile).first()
     if existing:
         # Instead of failing, update the latest one to prevent UI from being stuck
         latest = db.query(MasterCompanyProfile).order_by(MasterCompanyProfile.updated_at.desc()).first()
+        old_values = _serialize(latest)
         for field, value in payload.dict().items():
             setattr(latest, field, value)
         try:
+            record_dashboard_event(
+                db,
+                current_admin,
+                action="updated company profile",
+                table_name="master_company_profile",
+                record_id=latest.id,
+                message=f"Company profile {latest.company_name} was updated",
+                preference_key="updated",
+                old_values=old_values,
+                new_values=_serialize(latest),
+            )
             db.commit()
             db.refresh(latest)
             return _serialize(latest)
@@ -104,6 +121,17 @@ def create_company_profile(payload: CompanyProfileCreate, db: Session = Depends(
     profile = MasterCompanyProfile(**payload.dict())
     db.add(profile)
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created company profile",
+            table_name="master_company_profile",
+            record_id=profile.id,
+            message=f"Company profile {profile.company_name} was added",
+            preference_key="added",
+            new_values=_serialize(profile),
+        )
         db.commit()
         db.refresh(profile)
         return _serialize(profile)
@@ -117,16 +145,29 @@ def update_company_profile(
     profile_id: UUID,
     payload: CompanyProfileUpdate,
     db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     """Update the company profile by its UUID."""
     profile = db.query(MasterCompanyProfile).filter(MasterCompanyProfile.id == profile_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Company profile not found")
 
+    old_values = _serialize(profile)
     for field, value in payload.dict().items():
         setattr(profile, field, value)
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated company profile",
+            table_name="master_company_profile",
+            record_id=profile.id,
+            message=f"Company profile {profile.company_name} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values=_serialize(profile),
+        )
         db.commit()
         db.refresh(profile)
         return _serialize(profile)

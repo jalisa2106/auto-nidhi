@@ -47,6 +47,9 @@ interface ExpenseActionResponse {
 }
 
 const expensesBaseUrl = `${API_BASE}/api/expenses`
+const skipAuthRedirectConfig = {
+  headers: { 'X-Skip-Auth-Redirect': 'true' },
+}
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('access_token')
@@ -114,54 +117,54 @@ export const customersApi = {
   },
 
   create: async (payload: any) => {
-    const { data } = await api.post('/customers/', payload)
+    const { data } = await api.post('/customers/', payload, skipAuthRedirectConfig)
     return data
   },
 }
 
 export const brokersApi = {
   list: async (search = '') => {
-    const { data } = await api.get('/brokers', {
+    const { data } = await api.get('/brokers/', {
       params: { search: search || undefined },
     })
     return data
   },
 
   create: async (payload: { broker_name: string; area?: string; district?: string; phone?: string }) => {
-    const { data } = await api.post('/brokers', payload)
+    const { data } = await api.post('/brokers/', payload, skipAuthRedirectConfig)
     return data
   },
 
   update: async (id: string, payload: { broker_name?: string; area?: string; district?: string; phone?: string }) => {
-    const { data } = await api.put(`/brokers/${id}`, payload)
+    const { data } = await api.put(`/brokers/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
 
   remove: async (id: string) => {
-    await api.delete(`/brokers/${id}`)
+    await api.delete(`/brokers/${id}`, skipAuthRedirectConfig)
   },
 }
 
 export const dealersApi = {
   list: async (search = '') => {
-    const { data } = await api.get('/dealers', {
+    const { data } = await api.get('/dealers/', {
       params: { search: search || undefined },
     })
     return data
   },
 
   create: async (payload: { name: string; city?: string; phone?: string; email?: string }) => {
-    const { data } = await api.post('/dealers', payload)
+    const { data } = await api.post('/dealers/', payload, skipAuthRedirectConfig)
     return data
   },
 
   update: async (id: string, payload: { name?: string; city?: string; phone?: string; email?: string }) => {
-    const { data } = await api.put(`/dealers/${id}`, payload)
+    const { data } = await api.put(`/dealers/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
 
   remove: async (id: string) => {
-    await api.delete(`/dealers/${id}`)
+    await api.delete(`/dealers/${id}`, skipAuthRedirectConfig)
   },
 }
 
@@ -179,7 +182,7 @@ export const filesApi = {
   },
 
   create: async (payload: any) => {
-    const { data } = await api.post('/files/', payload)
+    const { data } = await api.post('/files/', payload, skipAuthRedirectConfig)
     return data
   }
 }
@@ -190,7 +193,7 @@ export const paymentsInApi = {
     return data
   },
   create: async (payload: any) => {
-    const { data } = await api.post('/payments/in/', payload)
+    const { data } = await api.post('/payments/in/', payload, skipAuthRedirectConfig)
     return data
   },
 }
@@ -201,7 +204,7 @@ export const paymentsOutApi = {
     return data
   },
   create: async (payload: any) => {
-    const { data } = await api.post('/payments/out/', payload)
+    const { data } = await api.post('/payments/out/', payload, skipAuthRedirectConfig)
     return data
   },
 }
@@ -212,7 +215,7 @@ export const commissionsInApi = {
     return data
   },
   create: async (payload: any) => {
-    const { data } = await api.post('/commissions/in/', payload)
+    const { data } = await api.post('/commissions/in/', payload, skipAuthRedirectConfig)
     return data
   },
 }
@@ -223,7 +226,7 @@ export const commissionsOutApi = {
     return data
   },
   create: async (payload: any) => {
-    const { data } = await api.post('/commissions/out/', payload)
+    const { data } = await api.post('/commissions/out/', payload, skipAuthRedirectConfig)
     return data
   },
 }
@@ -245,12 +248,12 @@ export const loansApi = {
     file_number: string,
     payload: { remarks?: string; status?: string }
   ) => {
-    const { data } = await api.patch(`/loans/${file_number}/`, payload)
+    const { data } = await api.patch(`/loans/${file_number}/`, payload, skipAuthRedirectConfig)
     return data
   },
 
   softDelete: async (file_number: string) => {
-    const { data } = await api.delete(`/loans/${file_number}/`)
+    const { data } = await api.delete(`/loans/${file_number}/`, skipAuthRedirectConfig)
     return data
   },
 }
@@ -261,15 +264,15 @@ export const rtoPaymentsApi = {
     return data
   },
   create: async (payload: any) => {
-    const { data } = await api.post('/rto-payments', payload)
+    const { data } = await api.post('/rto-payments/', payload, skipAuthRedirectConfig)
     return data
   },
   delete: async (id: string) => {
-    const { data } = await api.delete(`/rto-payments/${id}`)
+    const { data } = await api.delete(`/rto-payments/${id}`, skipAuthRedirectConfig)
     return data
   },
   update: async (id: string, payload: any) => {
-    const { data } = await api.patch(`/rto-payments/${id}`, payload)
+    const { data } = await api.patch(`/rto-payments/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
 }
@@ -280,11 +283,11 @@ export const insurancePaymentsApi = {
     return data;
   },
   create: async (payload: any) => {
-    const { data } = await api.post('/insurance-payments/', payload);
+    const { data } = await api.post('/insurance-payments/', payload, skipAuthRedirectConfig);
     return data;
   },
   delete: async (id: string) => {
-    const { data } = await api.patch(`/insurance-payments/${id}/delete`);
+    const { data } = await api.patch(`/insurance-payments/${id}/delete`, undefined, skipAuthRedirectConfig);
     return data;
   },
 };
@@ -297,11 +300,11 @@ export const companySettingsApi = {
     return data
   },
   create: async (payload: Record<string, any>) => {
-    const { data } = await api.post('/settings/company', payload)
+    const { data } = await api.post('/settings/company', payload, skipAuthRedirectConfig)
     return data
   },
     update: async (id: string, payload: Record<string, any>) => {
-    const { data } = await api.put(`/settings/company/${id}`, payload)
+    const { data } = await api.put(`/settings/company/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
 }
@@ -339,15 +342,15 @@ export const bankAccountsApi = {
     return data
   },
   create: async (payload: { bank_name: string; account_number: string; ifsc_code: string; area?: string }) => {
-    const { data } = await api.post('/settings/banks', payload)
+    const { data } = await api.post('/settings/banks', payload, skipAuthRedirectConfig)
     return data
   },
   update: async (id: string, payload: Record<string, any>) => {
-    const { data } = await api.put(`/settings/banks/${id}`, payload)
+    const { data } = await api.put(`/settings/banks/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
   remove: async (id: string) => {
-    await api.delete(`/settings/banks/${id}`)
+    await api.delete(`/settings/banks/${id}`, skipAuthRedirectConfig)
   },
 }
 
@@ -364,15 +367,15 @@ export const usersSettingsApi = {
     return data
   },
   create: async (payload: Record<string, any>) => {
-    const { data } = await api.post('/settings/users', payload)
+    const { data } = await api.post('/settings/users', payload, skipAuthRedirectConfig)
     return data
   },
   update: async (id: string, payload: Record<string, any>) => {
-    const { data } = await api.put(`/settings/users/${id}/`, payload)
+    const { data } = await api.put(`/settings/users/${id}/`, payload, skipAuthRedirectConfig)
     return data
   },
   toggleActive: async (id: string) => {
-    const { data } = await api.patch(`/settings/users/${id}//toggle-active`)
+    const { data } = await api.patch(`/settings/users/${id}/toggle-active`, undefined, skipAuthRedirectConfig)
     return data
   },
 }
@@ -387,15 +390,15 @@ export const financeBanksApi = {
     return data
   },
   create: async (payload: { bank_name: string; area?: string; contact_no?: string }) => {
-    const { data } = await api.post('/finance-banks', payload)
+    const { data } = await api.post('/finance-banks', payload, skipAuthRedirectConfig)
     return data
   },
   update: async (id: string, payload: Record<string, any>) => {
-    const { data } = await api.put(`/finance-banks/${id}`, payload)
+    const { data } = await api.put(`/finance-banks/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
   remove: async (id: string) => {
-    await api.delete(`/finance-banks/${id}`)
+    await api.delete(`/finance-banks/${id}`, skipAuthRedirectConfig)
   },
 }
 
@@ -412,15 +415,15 @@ export const insuranceCompaniesApi = {
     mobile_no?: string | null
     phone_no?: string | null
   }) => {
-    const { data } = await api.post('/masters/insurance-companies', payload)
+    const { data } = await api.post('/masters/insurance-companies', payload, skipAuthRedirectConfig)
     return data
   },
   update: async (id: string, payload: Record<string, any>) => {
-    const { data } = await api.put(`/masters/insurance-companies/${id}`, payload)
+    const { data } = await api.put(`/masters/insurance-companies/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
   remove: async (id: string) => {
-    await api.delete(`/masters/insurance-companies/${id}`)
+    await api.delete(`/masters/insurance-companies/${id}`, skipAuthRedirectConfig)
   },
 }
 
@@ -430,15 +433,15 @@ export const insuranceTypesApi = {
     return data
   },
   create: async (payload: { insurance_type_name: string }) => {
-    const { data } = await api.post('/masters/insurance-types', payload)
+    const { data } = await api.post('/masters/insurance-types', payload, skipAuthRedirectConfig)
     return data
   },
   update: async (id: string, payload: { insurance_type_name: string }) => {
-    const { data } = await api.put(`/masters/insurance-types/${id}`, payload)
+    const { data } = await api.put(`/masters/insurance-types/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
   remove: async (id: string) => {
-    await api.delete(`/masters/insurance-types/${id}`)
+    await api.delete(`/masters/insurance-types/${id}`, skipAuthRedirectConfig)
   },
 }
 
@@ -460,9 +463,7 @@ export const advancesApi = {
     purpose?: string
     remarks?: string
   }) => {
-    const { data } = await api.post('/advances/', payload, {
-      headers: { 'X-Skip-Auth-Redirect': 'true' },
-    })
+    const { data } = await api.post('/advances/', payload, skipAuthRedirectConfig)
     return data
   },
 
@@ -470,12 +471,12 @@ export const advancesApi = {
     id: string,
     payload: { amount_recovered: number; remarks?: string }
   ) => {
-    const { data } = await api.patch(`/advances/${id}`, payload)
+    const { data } = await api.patch(`/advances/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
 
   remove: async (id: string) => {
-    await api.delete(`/advances/${id}`)
+    await api.delete(`/advances/${id}`, skipAuthRedirectConfig)
   },
 }
 
@@ -488,17 +489,17 @@ export const expenseCategoriesApi = {
   },
 
   create: async (payload: { name: string }) => {
-    const { data } = await api.post('/expense-categories/', payload)
+    const { data } = await api.post('/expense-categories/', payload, skipAuthRedirectConfig)
     return data
   },
 
   update: async (id: string, payload: { name: string }) => {
-    const { data } = await api.put(`/expense-categories/${id}`, payload)
+    const { data } = await api.put(`/expense-categories/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
 
   remove: async (id: string) => {
-    await api.delete(`/expense-categories/${id}`)
+    await api.delete(`/expense-categories/${id}`, skipAuthRedirectConfig)
   },
 }
 
@@ -511,7 +512,7 @@ export const adminSettingsApi = {
   updateNotificationPreferences: async (preferences: Record<string, boolean>) => {
     const { data } = await api.put('/admin/settings/notification-preferences', {
       preferences,
-    })
+    }, skipAuthRedirectConfig)
     return data
   },
 

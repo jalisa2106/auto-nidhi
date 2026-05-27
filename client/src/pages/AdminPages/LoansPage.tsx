@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  PiggyBank, CheckCircle2, AlertTriangle,
+  CheckCircle2, AlertTriangle,
   LayoutList, Search, X, TrendingUp,
   Calendar, Building2, CreditCard, User,
   Phone, MapPin, Banknote, Clock, Hash,

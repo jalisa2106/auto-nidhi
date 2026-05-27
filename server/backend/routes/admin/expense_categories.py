@@ -7,7 +7,8 @@ from pydantic import BaseModel, validator
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import MasterExpenseCategory
+from backend.models import MasterExpenseCategory, SystemUser
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/expense-categories", tags=["Expense Categories"])
 
@@ -56,7 +57,11 @@ def list_expense_categories(search: Optional[str] = None, db: Session = Depends(
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_expense_category(payload: ExpenseCategoryCreate, db: Session = Depends(get_db)):
+def create_expense_category(
+    payload: ExpenseCategoryCreate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     existing = db.query(MasterExpenseCategory).filter(
         MasterExpenseCategory.expense_name.ilike(payload.name),
         MasterExpenseCategory.is_deleted == False,
@@ -69,6 +74,17 @@ def create_expense_category(payload: ExpenseCategoryCreate, db: Session = Depend
     db.add(category)
 
     try:
+        db.flush()
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="created expense category",
+            table_name="master_expense_category",
+            record_id=category.id,
+            message=f"Expense category {category.expense_name} was added",
+            preference_key="added",
+            new_values=_serialize(category),
+        )
         db.commit()
         db.refresh(category)
         return _serialize(category)
@@ -78,7 +94,12 @@ def create_expense_category(payload: ExpenseCategoryCreate, db: Session = Depend
 
 
 @router.put("/{category_id}")
-def update_expense_category(category_id: UUID, payload: ExpenseCategoryUpdate, db: Session = Depends(get_db)):
+def update_expense_category(
+    category_id: UUID,
+    payload: ExpenseCategoryUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     category = db.query(MasterExpenseCategory).filter(
         MasterExpenseCategory.id == category_id,
         MasterExpenseCategory.is_deleted == False,
@@ -87,6 +108,7 @@ def update_expense_category(category_id: UUID, payload: ExpenseCategoryUpdate, d
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
+    old_values = _serialize(category)
     if payload.name is not None:
         conflict = db.query(MasterExpenseCategory).filter(
             MasterExpenseCategory.expense_name.ilike(payload.name),
@@ -100,6 +122,17 @@ def update_expense_category(category_id: UUID, payload: ExpenseCategoryUpdate, d
         category.expense_name = payload.name
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated expense category",
+            table_name="master_expense_category",
+            record_id=category.id,
+            message=f"Expense category {category.expense_name} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values=_serialize(category),
+        )
         db.commit()
         db.refresh(category)
         return _serialize(category)
@@ -109,7 +142,11 @@ def update_expense_category(category_id: UUID, payload: ExpenseCategoryUpdate, d
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_expense_category(category_id: UUID, db: Session = Depends(get_db)):
+def delete_expense_category(
+    category_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
     category = db.query(MasterExpenseCategory).filter(
         MasterExpenseCategory.id == category_id,
         MasterExpenseCategory.is_deleted == False,
@@ -122,6 +159,16 @@ def delete_expense_category(category_id: UUID, db: Session = Depends(get_db)):
     category.deleted_at = datetime.datetime.utcnow()
 
     try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="deleted expense category",
+            table_name="master_expense_category",
+            record_id=category.id,
+            message=f"Expense category {category.expense_name} was deleted",
+            preference_key="deleted",
+            old_values=_serialize(category),
+        )
         db.commit()
     except Exception as exc:
         db.rollback()

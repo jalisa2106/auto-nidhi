@@ -8,7 +8,7 @@ import datetime
 
 from backend.database import get_db
 from backend.models import FileRecord, SystemUser, FinanceInfo
-from backend.utils import get_current_admin
+from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/files", tags=["Admin Files"])
 
@@ -97,6 +97,23 @@ def create_file(payload: FileCreate, db: Session = Depends(get_db), current_user
     db.add(new_finance_info)
 
     try:
+        record_dashboard_event(
+            db,
+            current_user,
+            action="created file",
+            table_name="file_record",
+            record_id=new_file.id,
+            message=f"File {new_file.file_number} was created",
+            preference_key="added",
+            new_values={
+                "id": str(new_file.id),
+                "file_number": new_file.file_number,
+                "customer_id": str(new_file.customer_id),
+                "file_type": new_file.file_type,
+                "status": new_file.status,
+                "bank_id": str(payload.bank_id),
+            },
+        )
         db.commit()
         db.refresh(new_file)
         return {"status": "success", "id": str(new_file.id), "file_number": new_file.file_number}
