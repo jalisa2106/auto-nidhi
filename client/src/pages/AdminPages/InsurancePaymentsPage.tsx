@@ -1,67 +1,97 @@
-import { useMemo, useState, type MouseEvent } from 'react'
+import { useMemo, useState, useEffect, type MouseEvent } from 'react'
 import {
   ShieldAlert, IndianRupee, CalendarClock, Plus, X, Eye, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw, AlertTriangle
 } from 'lucide-react'
+import { message } from 'antd' // Added import for the toast notification
 import type { InsurancePayment } from '../../lib/finance'
-import { mockInsurancePayments } from '../../lib/mockData'
+import { insurancePaymentsApi, filesApi, bankAccountsApi } from '../../api/services' // Added bankAccountsApi
 import PageHeader from '../../components/app/PageHeader'
 
 // ─── RUNTIME RE-EVALUATION CHRONO CONSTANTS ───
-const SYSTEM_ANCHOR_DATE = "2026-05-26" // Fixed system operational datetime anchor
+const SYSTEM_ANCHOR_DATE = "2026-05-26" 
 const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
-const COMPANY_BANKS = [
-  { id: 'CB001', label: 'HDFC Bank – Main A/C' },
-  { id: 'CB002', label: 'ICICI Bank – Operations' },
-]
-
-type PaymentMode = (typeof PAYMENT_MODES)[number]
 
 type InsurancePaymentForm = {
-  file_number: string
+  file_id: string
   payee_name: string
   amount: string
-  mode: PaymentMode
+  mode: string
   payment_date: string
   valid_to: string
   company_bank_id: string
+  cheque_bank_name: string
+  branch_name: string
+  cheque_no: string
+  cheque_date: string
+  utr_no: string
   remarks: string
 }
 
 export default function InsurancePaymentsPage() {
-  // Local reactive registers mapping standard collection layouts
-  const [rows, setRows] = useState<InsurancePayment[]>(() => mockInsurancePayments)
+  const [rows, setRows] = useState<any[]>([])
+  const [files, setFiles] = useState<{ id: string; file_number: string; customer: string }[]>([])
+  const [companyBanks, setCompanyBanks] = useState<any[]>([]) // New state for dynamic banks
+  
   const [showAdd, setShowAdd] = useState(false)
-  const [viewRow, setViewRow] = useState<InsurancePayment | null>(null)
+  const [viewRow, setViewRow] = useState<any | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   
-  // Filtering Registers
   const [search, setSearch] = useState('')
   const [filterMode, setFilterMode] = useState('')
   const [filterStatus, setFilterStatus] = useState('') 
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
 
-  // Pagination Configuration
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
-  // Empty Blueprint State Mapping
   const [form, setForm] = useState<InsurancePaymentForm>({
-    file_number: '', payee_name: '', amount: '', mode: 'UPI',
-    payment_date: SYSTEM_ANCHOR_DATE, valid_to: '', company_bank_id: '', remarks: ''
+    file_id: '', payee_name: '', amount: '', mode: 'UPI',
+    payment_date: SYSTEM_ANCHOR_DATE, valid_to: '', company_bank_id: '', 
+    cheque_bank_name: '', branch_name: '', cheque_no: '', cheque_date: '', utr_no: '', remarks: ''
   })
 
-  // ─── EVALUATOR ENGINE: DERIVE ACTIVE/EXPIRING/EXPIRED METRICS ───
+  // ─── INITIALIZATION PIPELINE ───
+  const fetchPayments = async () => {
+    try {
+      const paymentData = await insurancePaymentsApi.list()
+      setRows(paymentData.data || [])
+    } catch (err) {
+      console.error("Failed to load insurance data:", err)
+    }
+  }
+
+  const loadDropdownData = async () => {
+    try {
+      // Fetch Files
+      const filesRes = await filesApi.list(1, 1000) 
+      setFiles(filesRes.data || [])
+      
+      // Fetch Live Company Banks from DB
+      const banksRes = await bankAccountsApi.list(1, 100)
+      setCompanyBanks(banksRes.data || [])
+    } catch (err) { 
+      console.error("Failed to load dropdown data:", err)
+    }
+  }
+
+  useEffect(() => {
+    fetchPayments()
+    loadDropdownData()
+  }, [])
+
+  // ─── CONDITIONAL FIELD LOGIC ───
+  const isChequeLike = form.mode === 'Cheque' || form.mode === 'DD'
+  const isTransfer   = form.mode === 'NEFT' || form.mode === 'RTGS'
+
+  // ─── EVALUATOR ENGINE ───
   const evalPolicyStatus = (validToDateStr: string): 'Active' | 'Expiring' | 'Expired' => {
     if (!validToDateStr) return 'Active'
-    
     const today = new Date(SYSTEM_ANCHOR_DATE)
     const policyExpiry = new Date(validToDateStr)
-    
     const limitBoundary = new Date(today)
-    limitBoundary.setDate(limitBoundary.getDate() + 7) // Precise 7-day calendar lookahead range calculation
-    
+    limitBoundary.setDate(limitBoundary.getDate() + 7) 
     const expiryISO = policyExpiry.toISOString().slice(0, 10)
     
     if (expiryISO < SYSTEM_ANCHOR_DATE) return 'Expired'
@@ -69,30 +99,25 @@ export default function InsurancePaymentsPage() {
     return 'Active'
   }
 
-  // Count active expiring items to drive Option C Hybrid Notification Alert block
   const imminentRiskCount = useMemo(() => {
     return rows.filter(r => !r.is_deleted && evalPolicyStatus(r.valid_to) === 'Expiring').length
   }, [rows])
 
-  // ─── QUERY COMPLIANCE RECOGNITION PIPELINE ───
   const processedLedgerRows = useMemo(() => {
     return rows.filter((r) => {
-      if (r.is_deleted) return false // Standard compliance check: soft-deleted items remain locked out of direct array views
-      
+      if (r.is_deleted) return false 
       if (search) {
         const query = search.toLowerCase()
         if (
-          !r.file_number.toLowerCase().includes(query) &&
-          !r.payee_name.toLowerCase().includes(query) &&
+          !(r.file_number || '').toLowerCase().includes(query) &&
+          !(r.payee_name || '').toLowerCase().includes(query) &&
           !(r.remarks || '').toLowerCase().includes(query)
         ) return false
       }
-      
       if (filterStatus && evalPolicyStatus(r.valid_to) !== filterStatus) return false
       if (filterMode && r.mode !== filterMode) return false
       if (filterDateFrom && r.payment_date < filterDateFrom) return false
       if (filterDateTo && r.payment_date > filterDateTo) return false
-      
       return true
     })
   }, [rows, search, filterStatus, filterMode, filterDateFrom, filterDateTo])
@@ -101,49 +126,75 @@ export default function InsurancePaymentsPage() {
   const safePageIndex = Math.min(page, totalPages)
   const paginatedRows = processedLedgerRows.slice((safePageIndex - 1) * pageSize, safePageIndex * pageSize)
 
-  // ─── FINANCIAL AGGREGATE CALCULATORS ───
-  const totalPremiumsPaid = rows.filter(r => !r.is_deleted).reduce((sum, r) => sum + r.amount, 0)
+  const totalPremiumsPaid = rows.filter(r => !r.is_deleted).reduce((sum, r) => sum + Number(r.amount), 0)
   const activeCount = rows.filter(r => !r.is_deleted && evalPolicyStatus(r.valid_to) === 'Active').length
   const expiredCount = rows.filter(r => !r.is_deleted && evalPolicyStatus(r.valid_to) === 'Expired').length
 
   // ─── MUTATION COMPILER DISPATCHERS ───
   const validateFormPayload = () => {
     const errCollection: Record<string, string> = {}
-    if (!form.file_number.trim()) errCollection.file_number = 'File registration index required.'
+    if (!form.file_id.trim()) errCollection.file_id = 'File registration index required.'
     if (!form.payee_name.trim()) errCollection.payee_name = 'Carrier operational corporate identity identifier missing.'
     if (!form.amount || Number(form.amount) <= 0) errCollection.amount = 'Valid transaction premium costing metric mandatory.'
     if (!form.valid_to) errCollection.valid_to = 'Plan protection duration limit boundary target required.'
+    
+    // Conditional Validations
+    if (isChequeLike && !form.cheque_no) errCollection.cheque_no = 'Cheque / DD number required'
+    if (isTransfer && !form.utr_no) errCollection.utr_no = 'UTR / reference number required'
+
     setErrors(errCollection)
     return Object.keys(errCollection).length === 0
   }
 
-  const dispatchInsertionMutation = () => {
+  const dispatchInsertionMutation = async () => {
     if (!validateFormPayload()) return
     
-    const configuredRecord: InsurancePayment = {
-      id: `IP${String(rows.length + 1).padStart(3, '0')}`,
-      file_number: form.file_number.trim().toUpperCase(),
-      payee_name: form.payee_name.trim(),
-      amount: Number(form.amount),
-      mode: form.mode,
+    // Helper to validate UUIDs to prevent 422 DB errors
+    const isValidUUID = (str: string) => 
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+
+    const payload = {
+      file_id: form.file_id,
       payment_date: form.payment_date,
-      valid_to: form.valid_to,
-      company_bank_id: form.company_bank_id || null,
-      remarks: form.remarks.trim() || null,
-      is_deleted: false
+      payment_mode: form.mode.toLowerCase(),
+      amount: parseFloat(form.amount),
+      payee_name: form.payee_name.trim() || null,
+      valid_to: form.valid_to || null,
+      company_bank_id: form.company_bank_id && isValidUUID(form.company_bank_id) ? form.company_bank_id : null,
+      cheque_bank_name: form.cheque_bank_name.trim() || null,
+      branch_name: form.branch_name.trim() || null,
+      cheque_no: form.cheque_no.trim() || null,
+      cheque_date: form.cheque_date ? form.cheque_date : null, 
+      utr_no: form.utr_no.trim() || null,
+      remarks: form.remarks.trim() || null
     }
 
-    setRows([configuredRecord, ...rows])
-    setForm({ file_number: '', payee_name: '', amount: '', mode: 'UPI', payment_date: SYSTEM_ANCHOR_DATE, valid_to: '', company_bank_id: '', remarks: '' })
-    setErrors({})
-    setShowAdd(false)
-    setPage(1)
+    try {
+      await insurancePaymentsApi.create(payload)
+      setShowAdd(false)
+      setForm({ 
+        file_id: '', payee_name: '', amount: '', mode: 'UPI', 
+        payment_date: SYSTEM_ANCHOR_DATE, valid_to: '', 
+        company_bank_id: '', cheque_bank_name: '', branch_name: '', 
+        cheque_no: '', cheque_date: '', utr_no: '', remarks: '' 
+      })
+      fetchPayments() 
+      message.success("Insurance payment recorded successfully!") // Added success toast
+    } catch (error: any) {
+      console.error("Submission failed:", error)
+      const errorMsg = error.response?.data?.detail 
+        ? (Array.isArray(error.response.data.detail) ? error.response.data.detail[0].msg : error.response.data.detail)
+        : "Failed to save the record.";
+      message.error(errorMsg) // Now uses the correct Antd import
+    }
   }
 
-  const dispatchSoftDeletionMutation = (targetId: string, event: MouseEvent<HTMLButtonElement>) => {
+  const dispatchSoftDeletionMutation = async (targetId: string, event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
-    if (window.confirm("Perform irreversible system ledger soft-deletion? This element will bypass viewing matrices but will maintain permanent residency in low-level corporate compliance audit tables.")) {
-      setRows(prevRows => prevRows.map(r => r.id === targetId ? { ...r, is_deleted: true } : r))
+    if (window.confirm("Perform irreversible system ledger soft-deletion?")) {
+      await insurancePaymentsApi.delete(targetId)
+      fetchPayments() 
+      message.info("Record soft-deleted.")
     }
   }
 
@@ -151,7 +202,6 @@ export default function InsurancePaymentsPage() {
     <>
       <PageHeader title="Insurance Payments" subtitle="Insurance premium payments and system coverage mapping" />
 
-      {/* ── Option C Hybrid Alert Banner Engine Layer ── */}
       {imminentRiskCount > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fffbeb', border: '1px solid #fef3c7', color: '#b45309', padding: '14px 18px', borderRadius: 8, marginBottom: 20 }}>
           <ShieldAlert size={20} style={{ color: '#d97706' }} />
@@ -246,7 +296,7 @@ export default function InsurancePaymentsPage() {
                     <th>FILE REFERENCE</th>
                     <th>INSURANCE PAYEE VENDOR</th>
                     <th>AMOUNT DISBURSED</th>
-                    <th>POLICY STATUS</th> {/* 👈 Explicit Status Tracking Column */}
+                    <th>POLICY STATUS</th> 
                     <th>MODE</th>
                     <th>PAYMENT DATE</th>
                     <th>VALID UNTIL</th>
@@ -258,12 +308,11 @@ export default function InsurancePaymentsPage() {
                     const status = evalPolicyStatus(r.valid_to)
                     return (
                       <tr key={r.id}>
-                        <td style={{ fontFamily: 'monospace', color: 'var(--gray-400)', fontSize: '0.82rem' }}>{r.id}</td>
+                        <td style={{ fontFamily: 'monospace', color: 'var(--gray-400)', fontSize: '0.82rem' }}>{r.id.slice(0, 8)}</td>
                         <td><span className="db-file-id">{r.file_number}</span></td>
                         <td style={{ fontWeight: 500, color: 'var(--gray-800)' }}>{r.payee_name}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>₹{r.amount.toLocaleString('en-IN')}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>₹{Number(r.amount).toLocaleString('en-IN')}</td>
                         <td>
-                          {/* Dedicated badge evaluation rendering mapping directly into pages.css core token variables */}
                           <span className={`from-badge ${status === 'Active' ? 'from-dealer' : status === 'Expiring' ? 'from-broker' : 'from-other'}`} style={{ fontWeight: 600 }}>
                             {status.toUpperCase()}
                           </span>
@@ -286,9 +335,8 @@ export default function InsurancePaymentsPage() {
                   })}
                 </tbody>
               </table>
-            </div>
-            
-            {/* Functional Pagination Engine bar context component mapping */}
+            </div>            
+
             <div className="pagination-bar">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span className="pagination-info">Showing {Math.min((safePageIndex - 1) * pageSize + 1, processedLedgerRows.length)}–{Math.min(safePageIndex * pageSize, processedLedgerRows.length)} of {processedLedgerRows.length} records</span>
@@ -323,13 +371,18 @@ export default function InsurancePaymentsPage() {
                   <div className="modal-section-label">Coverage File & Provider Info</div>
                   
                   <div className="form-group">
-                    <label className="form-label">File Number Reference *</label>
-                    <input className={`form-input ${errors.file_number ? 'error' : ''}`} placeholder="e.g. F1003" value={form.file_number} onChange={(e) => setForm({...form, file_number: e.target.value})} />
-                    {errors.file_number && <span className="form-error">{errors.file_number}</span>}
+                    <label className="form-label">File Reference <span style={{ color: 'red' }}>*</span></label>
+                    <select className={`form-input ${errors.file_id ? 'error' : ''}`} value={form.file_id} onChange={(e) => setForm({...form, file_id: e.target.value})}>
+                      <option value="">Select active file...</option>
+                      {files.map((f: any) => (
+                        <option key={f.id} value={f.id}>{f.file_number} - {f.customer || 'Unknown'}</option>
+                      ))}
+                    </select>
+                    {errors.file_id && <span className="form-error">{errors.file_id}</span>}
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Insurer Provider Corporation *</label>
+                    <label className="form-label">Insurer Provider Corporation <span style={{ color: 'red' }}>*</span></label>
                     <input className={`form-input ${errors.payee_name ? 'error' : ''}`} placeholder="e.g. Tata AIG, HDFC Ergo" value={form.payee_name} onChange={(e) => setForm({...form, payee_name: e.target.value})} />
                     {errors.payee_name && <span className="form-error">{errors.payee_name}</span>}
                   </div>
@@ -337,37 +390,100 @@ export default function InsurancePaymentsPage() {
                   <div className="modal-section-label">Financial Parameters</div>
 
                   <div className="form-group">
-                    <label className="form-label">Premium Amount (₹) *</label>
+                    <label className="form-label">Premium Amount (₹) <span style={{ color: 'red' }}>*</span></label>
                     <input type="number" className={`form-input ${errors.amount ? 'error' : ''}`} placeholder="e.g. 9500" value={form.amount} onChange={(e) => setForm({...form, amount: e.target.value})} />
                     {errors.amount && <span className="form-error">{errors.amount}</span>}
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Payment Transaction Mode *</label>
+                    <label className="form-label">Payment Transaction Mode <span style={{ color: 'red' }}>*</span></label>
                     <select className="form-input" value={form.mode} onChange={(e) => setForm({...form, mode: e.target.value as any})}>
                       {PAYMENT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
-                  </div>
-
-                  <div className="modal-section-label">Coverage Duration Lifecycle</div>
-
-                  <div className="form-group">
-                    <label className="form-label">Premium Payment Booked Date *</label>
-                    <input type="date" className="form-input" value={form.payment_date} onChange={(e) => setForm({...form, payment_date: e.target.value})} />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Policy Expiration Target (Valid Until) *</label>
-                    <input type="date" className={`form-input ${errors.valid_to ? 'error' : ''}`} value={form.valid_to} onChange={(e) => setForm({...form, valid_to: e.target.value})} />
-                    {errors.valid_to && <span className="form-error">{errors.valid_to}</span>}
                   </div>
 
                   <div className="form-group modal-full">
                     <label className="form-label">Remittance Corporate Bank Account</label>
                     <select className="form-input" value={form.company_bank_id} onChange={(e) => setForm({...form, company_bank_id: e.target.value})}>
                       <option value="">— Select processing account —</option>
-                      {COMPANY_BANKS.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+                      {/* Map through dynamic company banks here */}
+                      {companyBanks.map((b: any) => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)}
                     </select>
+                  </div>
+
+                  {/* ─ Cheque / DD fields ─ */}
+                  {isChequeLike && (
+                    <>
+                      <div className="modal-section-label">
+                        {form.mode === 'DD' ? 'Demand Draft Details' : 'Cheque Details'}
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Cheque / DD No. <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                          className={`form-input ${errors.cheque_no ? 'error' : ''}`}
+                          placeholder="e.g. CHQ001234"
+                          value={form.cheque_no}
+                          onChange={(e) => setForm({...form, cheque_no: e.target.value})}
+                        />
+                        {errors.cheque_no && <span className="form-error">{errors.cheque_no}</span>}
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Cheque Date</label>
+                        <input
+                          type="date" className="form-input"
+                          value={form.cheque_date}
+                          onChange={(e) => setForm({...form, cheque_date: e.target.value})}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Bank Name</label>
+                        <input
+                          className="form-input"
+                          placeholder="e.g. SBI"
+                          value={form.cheque_bank_name}
+                          onChange={(e) => setForm({...form, cheque_bank_name: e.target.value})}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Branch Name</label>
+                        <input
+                          className="form-input"
+                          placeholder="e.g. Shivaji Nagar"
+                          value={form.branch_name}
+                          onChange={(e) => setForm({...form, branch_name: e.target.value})}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* ─ NEFT / RTGS fields ─ */}
+                  {isTransfer && (
+                    <>
+                      <div className="modal-section-label">Transfer Details</div>
+                      <div className="form-group modal-full">
+                        <label className="form-label">UTR / Reference No. <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                          className={`form-input ${errors.utr_no ? 'error' : ''}`}
+                          placeholder="e.g. NFT202510220089"
+                          value={form.utr_no}
+                          onChange={(e) => setForm({...form, utr_no: e.target.value})}
+                        />
+                        {errors.utr_no && <span className="form-error">{errors.utr_no}</span>}
+                      </div>
+                    </>
+                  )}
+
+                  <div className="modal-section-label">Coverage Duration Lifecycle</div>
+
+                  <div className="form-group">
+                    <label className="form-label">Premium Payment Booked Date <span style={{ color: 'red' }}>*</span></label>
+                    <input type="date" className="form-input" value={form.payment_date} onChange={(e) => setForm({...form, payment_date: e.target.value})} />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Policy Expiration Target (Valid Until) <span style={{ color: 'red' }}>*</span></label>
+                    <input type="date" className={`form-input ${errors.valid_to ? 'error' : ''}`} value={form.valid_to} onChange={(e) => setForm({...form, valid_to: e.target.value})} />
+                    {errors.valid_to && <span className="form-error">{errors.valid_to}</span>}
                   </div>
 
                   <div className="modal-section-label">Metadata Records</div>
@@ -392,7 +508,7 @@ export default function InsurancePaymentsPage() {
         <div className="modal-backdrop" onClick={() => setViewRow(null)}>
           <div className="modal" style={{ maxWidth: 550 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Insurance Plan Audit Ledger — {viewRow.id}</h3>
+              <h3>Insurance Plan Audit Ledger — {viewRow.id.slice(0, 8)}</h3>
               <button className="btn btn-ghost btn-sm" onClick={() => setViewRow(null)}><X size={16} /></button>
             </div>
             <div className="modal-body">
@@ -415,7 +531,7 @@ export default function InsurancePaymentsPage() {
                 </div>
                 <div className="pay-detail-item">
                   <div className="pay-detail-key">Premium Cost Value</div>
-                  <div className="pay-detail-val" style={{ fontWeight: 600 }}>₹{viewRow.amount.toLocaleString('en-IN')}</div>
+                  <div className="pay-detail-val" style={{ fontWeight: 600 }}>₹{Number(viewRow.amount).toLocaleString('en-IN')}</div>
                 </div>
                 <div className="pay-detail-item">
                   <div className="pay-detail-key">Transaction Channel</div>
@@ -432,9 +548,36 @@ export default function InsurancePaymentsPage() {
                 <div className="pay-detail-item" style={{ gridColumn: '1 / -1' }}>
                   <div className="pay-detail-key">Linked Ledger Settlement Bank</div>
                   <div className="pay-detail-val">
-                    {COMPANY_BANKS.find(b => b.id === viewRow.company_bank_id)?.label || '—'}
+                    {/* Read dynamically from companyBanks list */}
+                    {companyBanks.find(b => b.id === viewRow.company_bank_id)?.bank_name || '—'}
                   </div>
                 </div>
+                {viewRow.cheque_no && (
+                  <>
+                    <div className="pay-detail-item">
+                      <div className="pay-detail-key">Cheque/DD No.</div>
+                      <div className="pay-detail-val">{viewRow.cheque_no}</div>
+                    </div>
+                    <div className="pay-detail-item">
+                      <div className="pay-detail-key">Cheque Date</div>
+                      <div className="pay-detail-val">{viewRow.cheque_date || '—'}</div>
+                    </div>
+                    <div className="pay-detail-item">
+                      <div className="pay-detail-key">Bank Name</div>
+                      <div className="pay-detail-val">{viewRow.cheque_bank_name || '—'}</div>
+                    </div>
+                    <div className="pay-detail-item">
+                      <div className="pay-detail-key">Branch Name</div>
+                      <div className="pay-detail-val">{viewRow.branch_name || '—'}</div>
+                    </div>
+                  </>
+                )}
+                {viewRow.utr_no && (
+                  <div className="pay-detail-item" style={{ gridColumn: '1 / -1' }}>
+                    <div className="pay-detail-key">UTR / Reference No.</div>
+                    <div className="pay-detail-val">{viewRow.utr_no}</div>
+                  </div>
+                )}
                 <div className="pay-detail-item" style={{ gridColumn: '1 / -1' }}>
                   <div className="pay-detail-key">Audit Remarks</div>
                   <div className="pay-detail-val">{viewRow.remarks || '—'}</div>
