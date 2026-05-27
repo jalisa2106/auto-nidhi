@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { dealersApi } from '../../api/services'
 import { Edit3, Trash2 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
-import { mockDealers } from '../../lib/mockData'
 
 // Soft delete note:
 // The dealers master should use a soft-delete flag instead of hard deleting rows.
@@ -13,6 +13,7 @@ import { mockDealers } from '../../lib/mockData'
 // and soft delete by setting is_deleted = TRUE.
 // In SQLAlchemy, add:
 //   is_deleted = Column(Boolean, nullable=False, default=False)
+
 
 interface Dealer {
   id: string
@@ -30,8 +31,17 @@ const emptyDealer: Omit<Dealer, 'id'> = {
   email: '',
 }
 
+const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const formatDealerId = (id: string) => {
+  if (!id) return ''
+  if (uuidRe.test(id)) return `DEALER-${id.slice(0, 8)}`
+  return id
+}
+
 export default function DealersPage() {
-  const [rows, setRows] = useState<Dealer[]>(mockDealers.map((dealer) => ({ ...dealer, deleted: false })))
+  const [rows, setRows] = useState<Dealer[]>([])
+  const [loading, setLoading] = useState(false)  
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Dealer | null>(null)
   const [form, setForm] = useState<Omit<Dealer, 'id'>>(emptyDealer)
@@ -49,6 +59,22 @@ export default function DealersPage() {
     }
     if (formError) setFormError('')
   }
+
+  const loadDealers = async () => {
+    setLoading(true)
+    try {
+      const data = await dealersApi.list()
+      setRows(data)
+    } catch (err) {
+      console.error('Failed to load dealers', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadDealers()
+  }, [])
 
   function validateForm() {
     const nextErrors: Record<string, string> = {}
@@ -99,24 +125,36 @@ export default function DealersPage() {
     resetForm()
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) return
 
-    if (editing) {
-      setRows((prev) => prev.map((row) => (row.id === editing.id ? { ...row, ...form } : row)))
-      setOpen(false)
-      setEditing(null)
-      return
-    }
+    try {
+      if (editing) {
+        const updated = await dealersApi.update(editing.id, form)
+        setRows((prev) => prev.map((row) => (row.id === editing.id ? updated : row)))
+        setOpen(false)
+        setEditing(null)
+        return
+      }
 
-    const nextId = `D${String(rows.length + 1).padStart(3, '0')}`
-    setRows((prev) => [{ id: nextId, ...form, deleted: false }, ...prev])
-    setOpen(false)
+      const created = await dealersApi.create(form)
+      setRows((prev) => [created, ...prev])
+      setOpen(false)
+      resetForm()
+    } catch (err: any) {
+      setFormError(err.response?.data?.detail || 'Failed to save dealer')
+    }
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!window.confirm('Soft remove this dealer from active records?')) return
-    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, deleted: true } : row)))
+
+    try {
+      await dealersApi.remove(id)
+      setRows((prev) => prev.filter((row) => row.id !== id))
+    } catch (err) {
+      console.error('Failed to delete dealer', err)
+    }
   }
 
   const formTitle = editing ? 'Edit Dealer' : 'Add Dealer'
@@ -126,8 +164,10 @@ export default function DealersPage() {
     <>
       <PageHeader title="Dealers" subtitle="Dealer master for partners, showrooms, and service contacts" />
 
+      {loading && <div style={{ padding: '12px 0', color: 'var(--gray-500)' }}>Loading dealers...</div>}
+
       <DataTable
-        rows={rows.filter((row) => !row.deleted)}
+        rows={rows}
         searchKeys={['name', 'city', 'phone', 'email']}
         onAdd={openAddModal}
         addLabel="New dealer"
@@ -137,7 +177,7 @@ export default function DealersPage() {
             key: 'id',
             label: 'ID',
             render: (row) => (
-              <span style={{ fontFamily: 'monospace', color: 'var(--gray-500)', fontSize: '0.85rem' }}>{row.id}</span>
+              <span style={{ fontFamily: 'monospace', color: 'var(--gray-500)', fontSize: '0.85rem' }}>{formatDealerId(row.id)}</span>
             ),
           },
           { key: 'name', label: 'Dealer Name' },

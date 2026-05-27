@@ -6,8 +6,7 @@ import {
   CreditCard, CheckCircle2, AlertCircle, RefreshCw,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
-import { mockDealers } from '../../lib/mockData'
-import { advancesApi, brokersApi } from '../../api/services'
+import { advancesApi, brokersApi, dealersApi } from '../../api/services'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
@@ -53,6 +52,14 @@ interface Broker {
   area?: string
   district?: string
   phone?: string
+}
+
+interface Dealer {
+  id: string
+  name: string
+  city?: string
+  phone?: string
+  email?: string
 }
 
 type PartyType = 'dealer' | 'broker'
@@ -138,6 +145,7 @@ function FormField({ label, children, error }: { label: string; children: React.
 export default function AdvancesPage() {
   const [rows, setRows] = useState<Advance[]>([])
   const [brokers, setBrokers] = useState<Broker[]>([])
+  const [dealers, setDealers] = useState<Dealer[]>([])
   const [loading, setLoading] = useState(false)
 
   const [search,   setSearch]   = useState('')
@@ -185,9 +193,19 @@ export default function AdvancesPage() {
     }
   }
 
+  const loadDealers = async () => {
+    try {
+      const data = await dealersApi.list()
+      setDealers(data)
+    } catch (err) {
+      console.error('Failed to load dealers', err)
+    }
+  }
+
   useEffect(() => {
     loadAdvances()
     loadBrokers()
+    loadDealers()
   }, [])
 
   // ── Validation ──
@@ -483,7 +501,7 @@ export default function AdvancesPage() {
             <select id="advance-add-party-type" className="form-select" style={{ width: '100%' }}
               value={form.party_type}
               onChange={e => { upd('party_type', e.target.value as PartyType); upd('dealer_id', ''); upd('broker_id', '') }}>
-              <option value="dealer" disabled>Dealer</option>
+              <option value="dealer">Dealer</option>
               <option value="broker">Broker</option>
             </select>
           </FormField>
@@ -494,7 +512,7 @@ export default function AdvancesPage() {
               <select id="advance-add-dealer" className={`form-input ${errors.dealer_id ? 'error' : ''}`} style={{ width: '100%' }}
                 value={form.dealer_id} onChange={e => upd('dealer_id', e.target.value)}>
                 <option value="">Select dealer…</option>
-                {mockDealers.map(d => <option key={d.id} value={d.id}>{d.name} — {d.city}</option>)}
+                {dealers.map(d => <option key={d.id} value={d.id}>{d.name} — {d.city}</option>)}
               </select>
             </FormField>
           ) : (

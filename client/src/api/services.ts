@@ -143,19 +143,19 @@ export const brokersApi = {
 }
 
 export const dealersApi = {
-  list: async (page = 1, limit = 20, search = '') => {
+  list: async (search = '') => {
     const { data } = await api.get('/dealers', {
-      params: { page, limit, search },
+      params: { search: search || undefined },
     })
     return data
   },
 
-  create: async (payload: { dealer_name: string }) => {
+  create: async (payload: { name: string; city?: string; phone?: string; email?: string }) => {
     const { data } = await api.post('/dealers', payload)
     return data
   },
 
-  update: async (id: string, payload: { dealer_name: string }) => {
+  update: async (id: string, payload: { name?: string; city?: string; phone?: string; email?: string }) => {
     const { data } = await api.put(`/dealers/${id}`, payload)
     return data
   },
@@ -250,7 +250,7 @@ export const loansApi = {
   },
 
   softDelete: async (file_number: string) => {
-    const { data } = await api.patch(`/loans/${file_number}/delete/`)
+    const { data } = await api.delete(`/loans/${file_number}/`)
     return data
   },
 }

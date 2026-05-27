@@ -1,15 +1,36 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session, contains_eager
 from sqlalchemy import or_
 from typing import Optional
 
 from backend.database import get_db
-from backend.models import Customer, FileRecord, FinanceInfo, MasterCompanyBank, SystemUser
+from backend.models import Customer, FileRecord, FinanceInfo, MasterBank, SystemUser
 from backend.utils import get_current_admin
 
 router = APIRouter(prefix="/api/v1/loans", tags=["Admin Loans"])
 
 LOAN_STATUSES = ["disbursed", "completed", "cancelled"]
+
+
+def loans_query(db: Session, eager: bool = False):
+    query = (
+        db.query(FileRecord)
+        .join(FileRecord.customer)
+        .join(FileRecord.finance_info)
+        .join(FinanceInfo.bank)
+        .outerjoin(FileRecord.creator)
+        .filter(FileRecord.is_deleted == False)
+        .filter(FileRecord.status.in_(LOAN_STATUSES))
+    )
+
+    if eager:
+        query = query.options(
+            contains_eager(FileRecord.customer),
+            contains_eager(FileRecord.finance_info).contains_eager(FinanceInfo.bank),
+            contains_eager(FileRecord.creator),
+        )
+
+    return query
 
 
 def serialize_loan(file: FileRecord):
@@ -38,22 +59,10 @@ def serialize_loan(file: FileRecord):
 
 def get_loan_stats(db: Session):
     return {
-        "total": db.query(FileRecord)
-        .filter(FileRecord.is_deleted == False)
-        .filter(FileRecord.status.in_(LOAN_STATUSES))
-        .count(),
-        "running": db.query(FileRecord)
-        .filter(FileRecord.is_deleted == False)
-        .filter(FileRecord.status == "disbursed")
-        .count(),
-        "completed": db.query(FileRecord)
-        .filter(FileRecord.is_deleted == False)
-        .filter(FileRecord.status == "completed")
-        .count(),
-        "premature": db.query(FileRecord)
-        .filter(FileRecord.is_deleted == False)
-        .filter(FileRecord.status == "cancelled")
-        .count(),
+        "total": loans_query(db).count(),
+        "running": loans_query(db).filter(FileRecord.status == "disbursed").count(),
+        "completed": loans_query(db).filter(FileRecord.status == "completed").count(),
+        "premature": loans_query(db).filter(FileRecord.status == "cancelled").count(),
     }
 
 
@@ -64,29 +73,19 @@ def list_loans(
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_admin),
 ):
-    query = (
-        db.query(FileRecord)
-        .options(
-            joinedload(FileRecord.customer),
-            joinedload(FileRecord.creator),
-            joinedload(FileRecord.finance_info).joinedload(FinanceInfo.bank),
-        )
-        .filter(FileRecord.is_deleted == False)
-        .filter(FileRecord.status.in_(LOAN_STATUSES))
-    )
+    query = loans_query(db, eager=True)
 
     if status and status != "All":
         query = query.filter(FileRecord.status == status)
 
     if search:
         term = f"%{search}%"
-        query = query.join(FileRecord.finance_info).join(FinanceInfo.bank)
         query = query.filter(
             or_(
                 FileRecord.file_number.ilike(term),
                 FinanceInfo.lan_number.ilike(term),
                 Customer.full_name.ilike(term),
-                MasterCompanyBank.bank_name.ilike(term),
+                MasterBank.bank_name.ilike(term),
             )
         )
 
@@ -99,6 +98,14 @@ def list_loans(
     }
 
 
+@router.get("/stats/")
+def loan_stats(
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    return get_loan_stats(db)
+
+
 @router.patch("/{file_number}")
 def update_loan(
     file_number: str,
@@ -107,9 +114,8 @@ def update_loan(
     current_admin: SystemUser = Depends(get_current_admin),
 ):
     loan = (
-        db.query(FileRecord)
+        loans_query(db)
         .filter(FileRecord.file_number == file_number)
-        .filter(FileRecord.is_deleted == False)
         .first()
     )
     if not loan:
@@ -130,16 +136,14 @@ def update_loan(
     }
 
 
-@router.patch("/{file_number}/delete")
-def soft_delete_loan(
+def delete_loan_record(
     file_number: str,
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_admin),
 ):
     loan = (
-        db.query(FileRecord)
+        loans_query(db)
         .filter(FileRecord.file_number == file_number)
-        .filter(FileRecord.is_deleted == False)
         .first()
     )
     if not loan:
@@ -155,3 +159,12 @@ def soft_delete_loan(
         "message": "Loan soft deleted successfully",
         "data": serialize_loan(loan),
     }
+
+
+@router.delete("/{file_number}")
+def delete_loan(
+    file_number: str,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    return delete_loan_record(file_number, db, current_admin)
