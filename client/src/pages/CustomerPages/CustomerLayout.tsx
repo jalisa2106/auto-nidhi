@@ -20,9 +20,17 @@ export default function CustomerLayout() {
 
   useEffect(() => {
     const role = localStorage.getItem('user_role')
-    const name = localStorage.getItem('user_name') || 'Customer'
+    let name = 'Customer'
+    try {
+      const stored = localStorage.getItem('an_current_user')
+      if (stored) {
+        const u = JSON.parse(stored)
+        name = u.first_name || u.name || 'Customer'
+      }
+    } catch { /* ignore */ }
     setUserName(name)
-    if (!localStorage.getItem('access_token') || (role && role !== 'customer')) {
+    
+    if (!localStorage.getItem('access_token') || (role && role.toLowerCase() !== 'customer')) {
       navigate('/login', { replace: true })
     }
   }, [navigate])
