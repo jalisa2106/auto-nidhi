@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   TrendingDown, TrendingUp, Clock,
-  Search, Plus, X, Pencil, Trash2,
+  Search, Plus, X, Pencil, Trash2, Eye,
   Hash, Calendar, Banknote, AlignLeft,
   CreditCard, CheckCircle2, AlertCircle, RefreshCw,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
 import { advancesApi, brokersApi, dealersApi } from '../../api/services'
@@ -101,6 +102,50 @@ const modeBadgeColor: Record<Mode, string> = {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+function Pagination({
+  total, page, pageSize, onPage, onPageSize,
+}: {
+  total: number; page: number; pageSize: number
+  onPage: (p: number) => void; onPageSize: (s: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const start = total === 0 ? 0 : Math.min((page - 1) * pageSize + 1, total)
+  const end = Math.min(page * pageSize, total)
+  const pages: (number | '...')[] = []
+
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (page > 3) pages.push('...')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
+    if (page < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+  }
+
+  return (
+    <div className="pagination-bar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="pagination-info">Showing {start}-{end} of {total} records</span>
+        <select className="page-size-select" value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}>
+          {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
+        </select>
+      </div>
+      <div className="pagination-controls">
+        <button className="page-btn" onClick={() => onPage(1)} disabled={page === 1} title="First"><ChevronsLeft size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} title="Prev"><ChevronLeft size={14} /></button>
+        {pages.map((p, i) => p === '...' ? (
+          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>...</span>
+        ) : (
+          <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => onPage(p as number)}>{p}</button>
+        ))}
+        <button className="page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages} title="Next"><ChevronRight size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(totalPages)} disabled={page === totalPages} title="Last"><ChevronsRight size={14} /></button>
+      </div>
+    </div>
+  )
+}
+
 function StatCard({ icon, label, value, iconBg, iconColor, accent }: {
   icon: React.ReactNode; label: string; value: string
   iconBg: string; iconColor: string; accent?: string
@@ -150,12 +195,28 @@ export default function AdvancesPage() {
 
   const [search,   setSearch]   = useState('')
   const [selected, setSelected] = useState<Advance | null>(null)
+  const [viewOpen, setViewOpen] = useState(false)
 
   const [addOpen,  setAddOpen]  = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [form,     setForm]     = useState(emptyForm())
   const [errors,   setErrors]   = useState<Record<string, string>>({})
   const [formError, setFormError] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+
+  const closeView = useCallback(() => {
+    setViewOpen(false)
+    setSelected(null)
+  }, [])
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeView()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [closeView])
 
   // Stats
   const totalAmount    = rows.reduce((s, r) => s + r.amount, 0)
@@ -172,6 +233,10 @@ export default function AdvancesPage() {
       r.recovery_status.toLowerCase().includes(q)
     )
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   const loadAdvances = async () => {
     setLoading(true)
@@ -333,8 +398,8 @@ export default function AdvancesPage() {
         <StatCard icon={<AlertCircle size={20} />}  label="Outstanding"       value={fmt(totalPending)}   iconBg="#fef3c7" iconColor="#b45309" accent={totalPending > 0 ? '#b91c1c' : '#15803d'} />
       </div>
 
-      {/* Main split layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, minHeight: 0, flex: 1 }}>
+      {/* Main table */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, minHeight: 0, flex: 1 }}>
 
         {/* Table */}
         <div style={{ background: '#fff', border: '1px solid var(--gray-100)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -350,7 +415,7 @@ export default function AdvancesPage() {
                   id="advance-search"
                   placeholder="Search by party, purpose…"
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  onChange={e => { setSearch(e.target.value); setPage(1) }}
                   style={{ padding: '8px 12px 8px 32px', border: '1.5px solid var(--gray-200)', borderRadius: 8, fontSize: '.85rem', outline: 'none', fontFamily: 'inherit', width: 220 }}
                   onFocus={e => (e.target.style.borderColor = 'var(--brand-500)')}
                   onBlur={e  => (e.target.style.borderColor = 'var(--gray-200)')}
@@ -371,25 +436,24 @@ export default function AdvancesPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
               <thead style={{ position: 'sticky', top: 0 }}>
                 <tr>
-                  {['ID', 'Party', 'Date', 'Amount', 'Mode', 'Recovered', 'Status'].map(h => (
+                  {['#', 'ID', 'Party', 'Date', 'Amount', 'Mode', 'Recovered', 'Status', 'Action'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--gray-500)', background: 'var(--surface-1)', borderBottom: '1px solid var(--gray-100)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading advances...</td></tr>
+                  <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading advances...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No advances match your search.</td></tr>
-                ) : filtered.map(row => {
-                  const isSelected = selected?.id === row.id
+                  <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No advances match your search.</td></tr>
+                ) : pageRows.map((row, i) => {
                   const sm = statusMeta[row.recovery_status]
                   return (
                     <tr key={row.id} id={`advance-row-${row.id}`}
-                      onClick={() => setSelected(isSelected ? null : row)}
-                      style={{ cursor: 'pointer', background: isSelected ? 'var(--brand-50)' : 'transparent', borderLeft: isSelected ? '3px solid var(--brand-500)' : '3px solid transparent', transition: 'background .15s' }}
-                      onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-1)' }}
-                      onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}>
+                      style={{ cursor: 'default', background: 'transparent', borderLeft: '3px solid transparent', transition: 'background .15s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-1)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}>
+                      <td style={{ padding: '12px 14px', color: 'var(--gray-400)', fontSize: '.8rem' }}>{(safePage - 1) * pageSize + i + 1}</td>
                       <td style={{ padding: '12px 14px', color: 'var(--brand-700)', fontWeight: 600, fontSize: '.8rem' }}>{row.id}</td>
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ fontWeight: 600, color: 'var(--gray-900)', fontSize: '.85rem' }}>{row.party_name}</div>
@@ -404,34 +468,41 @@ export default function AdvancesPage() {
                       <td style={{ padding: '12px 14px' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-full)', fontSize: '.72rem', fontWeight: 700, background: sm.bg, color: sm.color }}>{sm.icon}{sm.label}</span>
                       </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          style={{ padding: '5px 12px', fontSize: '.78rem' }}
+                          onClick={() => { setSelected(row); setViewOpen(true) }}
+                          title="View details"
+                        >
+                          <Eye size={13} />
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
           </div>
+          <Pagination total={filtered.length} page={safePage} pageSize={pageSize} onPage={setPage} onPageSize={setPageSize} />
         </div>
 
-        {/* Detail panel */}
-        <div style={{ background: '#fff', border: '1px solid var(--gray-100)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {selected ? (
-            <>
-              {/* Panel header */}
-              <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, var(--brand-800), var(--brand-900))' }}>
+        {viewOpen && selected && (
+          <div className="modal-backdrop" onClick={closeView}>
+            <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
                 <div>
-                  <div style={{ fontSize: '.7rem', color: 'rgba(255,255,255,.6)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Advance Detail</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginTop: 2 }}>{selected.id}</div>
+                  <div style={{ fontSize: '.7rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Advance Detail</div>
+                  <h3 style={{ margin: 0 }}>Advance - {selected.id}</h3>
                 </div>
-                <button id="close-advance-detail" onClick={() => setSelected(null)}
-                  style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,.15)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 'none' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.25)')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.15)')}>
+                <button className="btn btn-ghost btn-sm" onClick={closeView}>
                   <X size={14} />
                 </button>
               </div>
+              <div className="modal-body">
 
               {/* Party avatar + amounts */}
-              <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '1px solid var(--gray-100)' }}>
+              <div style={{ padding: '18px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '1px solid var(--gray-100)', marginBottom: 16 }}>
                 <div style={{ width: 54, height: 54, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-500), var(--brand-700))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800, marginBottom: 10, boxShadow: '0 4px 12px rgba(37,99,235,.25)' }}>
                   {selected.party_name.slice(0, 2).toUpperCase()}
                 </div>
@@ -467,13 +538,13 @@ export default function AdvancesPage() {
 
                 {/* Edit + Delete */}
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                  <button id={`advance-edit-${selected.id}`} onClick={() => openEdit(selected)}
+                  <button id={`advance-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--brand-200)', background: 'var(--brand-50)', color: 'var(--brand-700)', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
                     onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-100)')}
                     onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-50)')}>
                     <Pencil size={13} /> Edit Recovery
                   </button>
-                  <button id={`advance-delete-${selected.id}`} onClick={() => handleDelete(selected.id)}
+                  <button id={`advance-delete-${selected.id}`} onClick={() => { handleDelete(selected.id); closeView() }}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid #fee2e2', background: '#fff5f5', color: '#b91c1c', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
                     onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = '#fee2e2')}
                     onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = '#fff5f5')}>
@@ -493,16 +564,11 @@ export default function AdvancesPage() {
                 <DetailRow icon={<AlignLeft size={14} />}  label="Purpose"            value={selected.purpose || '—'} />
                 <DetailRow icon={<AlignLeft size={14} />}  label="Remarks"            value={selected.remarks || '—'} />
               </div>
-            </>
-          ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', color: 'var(--gray-300)' }}>
-              <TrendingDown size={52} strokeWidth={1.2} />
-              <div style={{ marginTop: 14, fontSize: '.9rem', fontWeight: 600, color: 'var(--gray-400)' }}>Select an advance</div>
-              <div style={{ fontSize: '.8rem', color: 'var(--gray-300)', marginTop: 4 }}>Click any row to view full details here.</div>
+              </div>
             </div>
-          )}
+          </div>
+        )}
         </div>
-      </div>
 
       {/* ── Add Modal ── */}
       <Modal open={addOpen} title="Add Advance" onClose={() => { setAddOpen(false); setErrors({}); setFormError('') }} onSubmit={handleAdd} submitLabel="Add Advance" maxWidth="680px">
