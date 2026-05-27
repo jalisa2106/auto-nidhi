@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Wallet, X, Search, Plus,
   FileText, Banknote, Calendar,
   Hash, AlignLeft, User, Tag, Pencil, Trash2,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye,
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
+import { filesApi } from '../../api/services'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
@@ -95,6 +97,48 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
   )
 }
 
+function Pagination({
+  total, page, pageSize, onPage, onPageSize,
+}: {
+  total: number; page: number; pageSize: number
+  onPage: (p: number) => void; onPageSize: (s: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const start = Math.min((page - 1) * pageSize + 1, total)
+  const end   = Math.min(page * pageSize, total)
+  const pages: (number | '...')[] = []
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (page > 3) pages.push('...')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
+    if (page < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+  }
+  return (
+    <div className="pagination-bar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="pagination-info">Showing {start}–{end} of {total} records</span>
+        <select className="page-size-select" value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}>
+          {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
+        </select>
+      </div>
+      <div className="pagination-controls">
+        <button className="page-btn" onClick={() => onPage(1)} disabled={page === 1} title="First"><ChevronsLeft size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} title="Prev"><ChevronLeft size={14} /></button>
+        {pages.map((p, i) => p === '...' ? (
+          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>…</span>
+        ) : (
+          <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => onPage(p as number)}>{p}</button>
+        ))}
+        <button className="page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages} title="Next"><ChevronRight size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(totalPages)} disabled={page === totalPages} title="Last"><ChevronsRight size={14} /></button>
+      </div>
+    </div>
+  )
+}
+
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="form-group">
@@ -110,11 +154,37 @@ export default function ExpensesPage() {
   const [search,         setSearch]         = useState('')
   const [selected,       setSelected]       = useState<Expense | null>(null)
   const [filterCategory, setFilterCategory] = useState('All')
+  const [error,          setError]          = useState<string | null>(null)
+  const [filesList,      setFilesList]      = useState<any[]>([])
 
   // Modal states
   const [addOpen,  setAddOpen]  = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [form,     setForm]     = useState<Omit<Expense,'id'|'created_at'>>(emptyForm())
+
+  const [viewOpen, setViewOpen] = useState(false)
+  const [page, setPage]         = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+  const closeView = useCallback(() => { setViewOpen(false); setSelected(null) }, [])
+
+  useEffect(() => {
+    fetchFiles()
+  }, [])
+
+  const fetchFiles = async () => {
+    try {
+      const res = await filesApi.list(1, 200)
+      setFilesList(res.data || [])
+    } catch (err) {
+      console.error('Failed to fetch files:', err)
+    }
+  }
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeView() }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [closeView])
 
   const categories = ['All', ...CATEGORIES]
 
@@ -130,8 +200,22 @@ export default function ExpensesPage() {
     return matchSearch && matchCat
   })
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safePage   = Math.min(page, totalPages)
+  const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+
+  const validateForm = (): boolean => {
+    if (!form.expense_category_name) { setError('Category is required'); return false }
+    if (!form.amount || Number(form.amount) <= 0) { setError('Please enter a valid amount'); return false }
+    if (!form.expense_date) { setError('Expense date is required'); return false }
+    if (!form.created_by_name || !form.created_by_name.trim()) { setError('Recorded By is required'); return false }
+    setError(null)
+    return true
+  }
+
   // ── Handlers ──
   const handleAdd = () => {
+    if (!validateForm()) return
     // POST /api/expenses  →  body: form fields
     // Note: expense_category_id, file_id, created_by must be resolved by backend from names/session
     const newRow: Expense = {
@@ -151,10 +235,11 @@ export default function ExpensesPage() {
   }
 
   const handleEdit = () => {
+    if (!validateForm()) return
     // PATCH /api/expenses/:id  →  body: form fields
     setRows(prev => prev.map(e => e.id === selected!.id ? { ...e, ...form } : e))
-    setSelected(prev => prev ? { ...prev, ...form } : prev)
     setEditOpen(false)
+    setSelected(null)
   }
 
   const handleDelete = (id: string) => {
@@ -176,6 +261,13 @@ export default function ExpensesPage() {
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', gap:20 }}>
 
+      {error && (
+        <div style={{ padding:'12px 16px', background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:'var(--radius-md)', color:'#b91c1c', fontSize:'.85rem', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <span>{error}</span>
+          <button onClick={() => setError(null)} style={{ background:'none', border:'none', color:'#b91c1c', cursor:'pointer', fontSize:'1.2rem' }}>×</button>
+        </div>
+      )}
+
       {/* Category filter pills */}
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', background:'#fff', border:'1px solid var(--gray-100)', borderRadius:'var(--radius-md)', padding:'12px 16px', boxShadow:'var(--shadow-sm)' }}>
         <span style={{ fontSize:'.78rem', fontWeight:700, color:'var(--gray-500)', marginRight:4, textTransform:'uppercase', letterSpacing:'.5px' }}>Category</span>
@@ -193,9 +285,9 @@ export default function ExpensesPage() {
       </div>
 
       {/* Main area */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:16, minHeight:0, flex:1 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:16, minHeight:0, flex:1 }}>
 
-        {/* Table */}
+        {/* Table card */}
         <div style={{ background:'#fff', border:'1px solid var(--gray-100)', borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-sm)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid var(--gray-100)', gap:12, flexWrap:'wrap' }}>
             <div style={{ fontWeight:700, fontSize:'.95rem', color:'var(--gray-900)' }}>
@@ -205,7 +297,7 @@ export default function ExpensesPage() {
             <div style={{ display:'flex', gap:10, alignItems:'center' }}>
               <div style={{ position:'relative' }}>
                 <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)' }} />
-                <input id="expense-search" placeholder="Search by ID, category, staff…" value={search} onChange={e => setSearch(e.target.value)}
+                <input id="expense-search" placeholder="Search by ID, category, staff…" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
                   style={{ padding:'8px 12px 8px 32px', border:'1.5px solid var(--gray-200)', borderRadius:8, fontSize:'.85rem', outline:'none', fontFamily:'inherit', width:220 }}
                   onFocus={e => (e.target.style.borderColor='var(--brand-500)')}
                   onBlur={e  => (e.target.style.borderColor='var(--gray-200)')} />
@@ -219,26 +311,25 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          <div style={{ overflowY:'auto', flex:1 }}>
+          <div style={{ overflowX:'auto' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'.84rem' }}>
               <thead style={{ position:'sticky', top:0 }}>
                 <tr>
-                  {['Expense ID','Category','Amount','Date','File Linked','Recorded By'].map(h => (
+                  {['Expense ID','Category','Amount','Date','File Linked','Recorded By','Action'].map(h => (
                     <th key={h} style={{ textAlign:'left', padding:'11px 14px', fontSize:'.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'.5px', color:'var(--gray-500)', background:'var(--surface-1)', borderBottom:'1px solid var(--gray-100)', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign:'center', padding:40, color:'var(--gray-400)' }}>No expenses match your search.</td></tr>
-                ) : filtered.map(row => {
-                  const isSelected = selected?.id === row.id
+                {pageRows.length === 0 ? (
+                  <tr><td colSpan={7} style={{ textAlign:'center', padding:40, color:'var(--gray-400)' }}>No expenses match your search.</td></tr>
+                ) : pageRows.map(row => {
                   const cc = categoryColor(row.expense_category_name)
                   return (
-                    <tr key={row.id} id={`expense-row-${row.id}`} onClick={() => setSelected(isSelected ? null : row)}
-                      style={{ cursor:'pointer', background: isSelected ? 'var(--brand-50)' : 'transparent', borderLeft: isSelected ? '3px solid var(--brand-500)' : '3px solid transparent', transition:'background .15s' }}
-                      onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background='var(--surface-1)' }}
-                      onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background='transparent' }}>
+                    <tr key={row.id} id={`expense-row-${row.id}`}
+                      style={{ cursor:'default', background:'transparent', borderLeft:'3px solid transparent', transition:'background .15s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background='var(--surface-1)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background='transparent' }}>
                       <td style={{ padding:'12px 14px', color:'var(--brand-700)', fontWeight:600, fontSize:'.82rem' }}>{row.id}</td>
                       <td style={{ padding:'12px 14px' }}>
                         <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:'var(--radius-full)', fontSize:'.75rem', fontWeight:600, background:cc.bg, color:cc.color }}>
@@ -253,32 +344,30 @@ export default function ExpensesPage() {
                           : <span style={{ color:'var(--gray-300)', fontSize:'.8rem' }}>—</span>}
                       </td>
                       <td style={{ padding:'12px 14px', color:'var(--gray-700)' }}>{row.created_by_name}</td>
+                      <td style={{ padding:'12px 14px' }}>
+                        <button className="btn btn-outline btn-sm" style={{ padding:'5px 12px', fontSize:'.78rem' }} onClick={() => { setSelected(row); setViewOpen(true) }} title="View details"><Eye size={13} /></button>
+                      </td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
           </div>
+
+          <Pagination total={filtered.length} page={safePage} pageSize={pageSize} onPage={setPage} onPageSize={setPageSize} />
         </div>
+      </div>
 
-        {/* Detail panel */}
-        <div style={{ background:'#fff', border:'1px solid var(--gray-100)', borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-sm)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-          {selected ? (
-            <>
-              <div style={{ padding:'16px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', background:'linear-gradient(135deg, var(--brand-800), var(--brand-900))' }}>
-                <div>
-                  <div style={{ fontSize:'.7rem', color:'rgba(255,255,255,.6)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px' }}>Expense Detail</div>
-                  <div style={{ fontSize:'1rem', fontWeight:700, color:'#fff', marginTop:2 }}>{selected.id}</div>
-                </div>
-                <button id="close-expense-detail" onClick={() => setSelected(null)}
-                  style={{ width:28, height:28, borderRadius:'50%', background:'rgba(255,255,255,.15)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,.25)')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,.15)')}>
-                  <X size={14} />
-                </button>
-              </div>
-
-              <div style={{ padding:'18px', display:'flex', flexDirection:'column', alignItems:'center', borderBottom:'1px solid var(--gray-100)' }}>
+      {/* Detail popup modal */}
+      {viewOpen && selected && (
+        <div className="modal-backdrop" onClick={closeView}>
+          <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Expense — {selected.id}</h3>
+              <button className="btn btn-ghost btn-sm" onClick={closeView}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'16px 0 20px', borderBottom:'1px solid var(--gray-100)', marginBottom:16 }}>
                 <div style={{ width:54, height:54, borderRadius:'50%', background:categoryColor(selected.expense_category_name).bg, color:categoryColor(selected.expense_category_name).color, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 }}>
                   <Wallet size={22} />
                 </div>
@@ -288,16 +377,14 @@ export default function ExpensesPage() {
                   <div style={{ fontSize:'.7rem', color:'var(--brand-600)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px' }}>Amount Spent</div>
                   <div style={{ fontSize:'1.5rem', fontWeight:800, color:'var(--brand-700)' }}>{fmt(selected.amount)}</div>
                 </div>
-
-                {/* Edit & Delete */}
                 <div style={{ display:'flex', gap:8, marginTop:14 }}>
-                  <button id={`expense-edit-${selected.id}`} onClick={() => openEdit(selected)}
+                  <button id={`expense-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--brand-200)', background:'var(--brand-50)', color:'var(--brand-700)', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
                     onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-100)')}
                     onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-50)')}>
                     <Pencil size={13} /> Edit
                   </button>
-                  <button id={`expense-delete-${selected.id}`} onClick={() => handleDelete(selected.id)}
+                  <button id={`expense-delete-${selected.id}`} onClick={() => { handleDelete(selected.id); closeView() }}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid #fee2e2', background:'#fff5f5', color:'#b91c1c', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
                     onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='#fee2e2')}
                     onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='#fff5f5')}>
@@ -305,8 +392,7 @@ export default function ExpensesPage() {
                   </button>
                 </div>
               </div>
-
-              <div style={{ padding:'4px 18px 16px', overflowY:'auto', flex:1 }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
                 <DetailRow icon={<Hash      size={14}/>} label="Expense ID"    value={selected.id} />
                 <DetailRow icon={<Tag       size={14}/>} label="Category"      value={selected.expense_category_name} />
                 <DetailRow icon={<Banknote  size={14}/>} label="Amount"        value={`₹${selected.amount.toLocaleString('en-IN')}`} />
@@ -316,19 +402,13 @@ export default function ExpensesPage() {
                 <DetailRow icon={<Calendar  size={14}/>} label="Recorded At"   value={new Date(selected.created_at).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' })} />
                 <DetailRow icon={<AlignLeft size={14}/>} label="Remarks"       value={selected.remarks} />
               </div>
-            </>
-          ) : (
-            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, textAlign:'center', color:'var(--gray-300)' }}>
-              <Wallet size={52} strokeWidth={1.2} />
-              <div style={{ marginTop:14, fontSize:'.9rem', fontWeight:600, color:'var(--gray-400)' }}>Select an expense</div>
-              <div style={{ fontSize:'.8rem', color:'var(--gray-300)', marginTop:4 }}>Click any row to view full details here.</div>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Add Modal ── */}
-      <Modal open={addOpen} title="Add Expense" onClose={() => setAddOpen(false)} onSubmit={handleAdd} submitLabel="Add Expense">
+      <Modal open={addOpen} title="Add Expense" onClose={() => { setAddOpen(false); setError(null) }} onSubmit={handleAdd} submitLabel="Add Expense">
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <FormField label="Category *">
@@ -338,7 +418,15 @@ export default function ExpensesPage() {
             </FormField>
             <FormField label="Amount (₹) *"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required /></FormField>
             <FormField label="Expense Date *"><input className="form-input" type="date" value={form.expense_date} onChange={f('expense_date')} required /></FormField>
-            <FormField label="Linked File (optional)"><input className="form-input" value={form.file_number} onChange={f('file_number')} placeholder="FILE-001 or leave blank" /></FormField>
+            <FormField label="Linked File (optional)">
+              <select className="form-input" style={{ width:'100%' }} value={form.file_number}
+                onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))}>
+                <option value="">None / Select file…</option>
+                {filesList.map((f) => (
+                  <option key={f.id} value={f.file_number}>{f.file_number} – {f.customer || f.full_name || '—'}</option>
+                ))}
+              </select>
+            </FormField>
             <FormField label="Recorded By *"><input className="form-input" value={form.created_by_name} onChange={f('created_by_name')} placeholder="Staff name" required /></FormField>
           </div>
           <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize:'vertical' }} /></FormField>
@@ -346,18 +434,26 @@ export default function ExpensesPage() {
       </Modal>
 
       {/* ── Edit Modal ── */}
-      <Modal open={editOpen} title={`Edit Expense — ${selected?.id}`} onClose={() => setEditOpen(false)} onSubmit={handleEdit} submitLabel="Save Changes">
+      <Modal open={editOpen} title={`Edit Expense — ${selected?.id}`} onClose={() => { setEditOpen(false); setSelected(null); setError(null) }} onSubmit={handleEdit} submitLabel="Save Changes">
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            <FormField label="Category">
+            <FormField label="Category *">
               <select className="form-select" style={{ width:'100%' }} value={form.expense_category_name} onChange={f('expense_category_name')}>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </FormField>
-            <FormField label="Amount (₹)"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} /></FormField>
-            <FormField label="Expense Date"><input className="form-input" type="date" value={form.expense_date} onChange={f('expense_date')} /></FormField>
-            <FormField label="Linked File"><input className="form-input" value={form.file_number} onChange={f('file_number')} /></FormField>
-            <FormField label="Recorded By"><input className="form-input" value={form.created_by_name} onChange={f('created_by_name')} /></FormField>
+            <FormField label="Amount (₹) *"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required /></FormField>
+            <FormField label="Expense Date *"><input className="form-input" type="date" value={form.expense_date} onChange={f('expense_date')} required /></FormField>
+            <FormField label="Linked File (optional)">
+              <select className="form-input" style={{ width:'100%' }} value={form.file_number}
+                onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))}>
+                <option value="">None / Select file…</option>
+                {filesList.map((f) => (
+                  <option key={f.id} value={f.file_number}>{f.file_number} – {f.customer || f.full_name || '—'}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Recorded By *"><input className="form-input" value={form.created_by_name} onChange={f('created_by_name')} placeholder="Staff name" required /></FormField>
           </div>
           <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize:'vertical' }} /></FormField>
         </div>

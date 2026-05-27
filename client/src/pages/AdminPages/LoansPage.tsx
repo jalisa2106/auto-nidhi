@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   PiggyBank, CheckCircle2, AlertTriangle,
   LayoutList, Search, X, TrendingUp,
   Calendar, Building2, CreditCard, User,
   Phone, MapPin, Banknote, Clock, Hash,
-  Pencil, Trash2,
+  Pencil, Trash2, AlignLeft,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye,
 } from 'lucide-react'
 import { loansApi } from '../../api/services'
 import Modal from '../../components/app/Modal'
@@ -113,6 +114,48 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
   )
 }
 
+function Pagination({
+  total, page, pageSize, onPage, onPageSize,
+}: {
+  total: number; page: number; pageSize: number
+  onPage: (p: number) => void; onPageSize: (s: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const start = Math.min((page - 1) * pageSize + 1, total)
+  const end   = Math.min(page * pageSize, total)
+  const pages: (number | '...')[] = []
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (page > 3) pages.push('...')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
+    if (page < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+  }
+  return (
+    <div className="pagination-bar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="pagination-info">Showing {start}–{end} of {total} records</span>
+        <select className="page-size-select" value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}>
+          {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
+        </select>
+      </div>
+      <div className="pagination-controls">
+        <button className="page-btn" onClick={() => onPage(1)} disabled={page === 1} title="First"><ChevronsLeft size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} title="Prev"><ChevronLeft size={14} /></button>
+        {pages.map((p, i) => p === '...' ? (
+          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>…</span>
+        ) : (
+          <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => onPage(p as number)}>{p}</button>
+        ))}
+        <button className="page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages} title="Next"><ChevronRight size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(totalPages)} disabled={page === totalPages} title="Last"><ChevronsRight size={14} /></button>
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function LoansPage() {
   const [rows,         setRows]         = useState<LoanRecord[]>([])
@@ -123,6 +166,16 @@ export default function LoansPage() {
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState<{ remarks: string; status: LoanRecord['status'] }>({ remarks: '', status: 'disbursed' })
+
+  const [viewOpen, setViewOpen] = useState(false)
+  const [page, setPage]         = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+  const closeView = useCallback(() => { setViewOpen(false); setSelected(null) }, [])
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeView() }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [closeView])
 
   useEffect(() => {
     const loadLoans = async () => {
@@ -146,6 +199,10 @@ export default function LoansPage() {
     return match && matchStatus
   })
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safePage   = Math.min(page, totalPages)
+  const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+
   // ── Handlers ──
   const openEdit = (loan: LoanRecord) => {
     setEditForm({ remarks: loan.remarks, status: loan.status })
@@ -153,6 +210,10 @@ export default function LoansPage() {
   }
 
   const handleEdit = async () => {
+    if (!editForm.remarks || !editForm.remarks.trim()) {
+      alert('Remarks are required')
+      return
+    }
     try {
       // PATCH /api/loans/:file_number  →  body: { remarks, status }
       await loansApi.update(selected!.file_number, editForm)
@@ -160,8 +221,8 @@ export default function LoansPage() {
       setRows(prev => prev.map(l =>
         l.file_number === selected!.file_number ? { ...l, ...editForm } : l
       ))
-      setSelected(prev => prev ? { ...prev, ...editForm } : prev)
       setEditOpen(false)
+      setSelected(null)
     } catch (err) {
       console.error(err)
       alert('Failed to update loan')
@@ -213,7 +274,7 @@ export default function LoansPage() {
       </div>
 
       {/* Main area */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:16, minHeight:0, flex:1 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:16, minHeight:0, flex:1 }}>
 
         {/* Table */}
         <div style={{ background:'#fff', border:'1px solid var(--gray-100)', borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-sm)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
@@ -234,7 +295,7 @@ export default function LoansPage() {
               </div>
               <div style={{ position:'relative' }}>
                 <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)' }} />
-                <input id="loans-search" placeholder="Search loans…" value={search} onChange={e => setSearch(e.target.value)}
+                <input id="loans-search" placeholder="Search loans…" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
                   style={{ padding:'8px 12px 8px 32px', border:'1.5px solid var(--gray-200)', borderRadius:8, fontSize:'.85rem', outline:'none', fontFamily:'inherit', width:180, transition:'border-color .15s' }}
                   onFocus={e => (e.target.style.borderColor='var(--brand-500)')}
                   onBlur={e  => (e.target.style.borderColor='var(--gray-200)')} />
@@ -243,29 +304,29 @@ export default function LoansPage() {
           </div>
 
           {/* Table body */}
-          <div style={{ overflowY:'auto', flex:1 }}>
+          <div style={{ overflowX:'auto' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'.84rem' }}>
               <thead style={{ position:'sticky', top:0 }}>
                 <tr>
-                  {['File No.','LAN No.','Customer','Bank','Loan Amount','Progress','EMI/mo','Status'].map(h => (
+                  {['#','File No.','LAN No.','Customer','Bank','Loan Amount','Progress','EMI/mo','Status','Action'].map(h => (
                     <th key={h} style={{ textAlign:'left', padding:'11px 14px', fontSize:'.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'.5px', color:'var(--gray-500)', background:'var(--surface-1)', borderBottom:'1px solid var(--gray-100)', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign:'center', padding:40, color:'var(--gray-400)' }}>No loans match your search.</td></tr>
-                ) : filtered.map(loan => {
-                  const isSelected  = selected?.file_number === loan.file_number
+                {pageRows.length === 0 ? (
+                  <tr><td colSpan={9} style={{ textAlign:'center', padding:40, color:'var(--gray-400)' }}>No loans match your search.</td></tr>
+                ) : pageRows.map((loan, i) => {
                   const uiStatus    = dbStatusToUI[loan.status]
                   const sm          = statusMeta[uiStatus]
                   const completedMo = Math.min(calcCompletedMonths(loan.docket_date), loan.no_of_months)
                   const progress    = Math.round((completedMo / loan.no_of_months) * 100)
                   return (
-                    <tr key={loan.file_number} id={`loan-row-${loan.file_number}`} onClick={() => setSelected(isSelected ? null : loan)}
-                      style={{ cursor:'pointer', background: isSelected ? 'var(--brand-50)' : 'transparent', borderLeft: isSelected ? '3px solid var(--brand-500)' : '3px solid transparent', transition:'background .15s' }}
-                      onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background='var(--surface-1)' }}
-                      onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background='transparent' }}>
+                    <tr key={loan.file_number} id={`loan-row-${loan.file_number}`}
+                      style={{ cursor:'default', background:'transparent', borderLeft:'3px solid transparent', transition:'background .15s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background='var(--surface-1)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background='transparent' }}>
+                      <td style={{ padding:'12px 14px', color:'var(--gray-500)', fontSize:'.8rem' }}>{(safePage-1)*pageSize+i+1}</td>
                       <td style={{ padding:'12px 14px', color:'var(--brand-700)', fontWeight:600 }}>{loan.file_number}</td>
                       <td style={{ padding:'12px 14px', color:'var(--gray-500)', fontSize:'.8rem' }}>{loan.lan_number}</td>
                       <td style={{ padding:'12px 14px', fontWeight:600, color:'var(--gray-900)' }}>
@@ -289,39 +350,32 @@ export default function LoansPage() {
                           {sm.icon} {uiStatus}
                         </span>
                       </td>
+                      <td style={{ padding:'12px 14px' }}><button className="btn btn-outline btn-sm" style={{ padding:'5px 12px', fontSize:'.78rem' }} onClick={() => { setSelected(loan); setViewOpen(true) }} title="View details"><Eye size={13} /></button></td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
           </div>
+          <Pagination total={filtered.length} page={safePage} pageSize={pageSize} onPage={setPage} onPageSize={setPageSize} />
         </div>
 
-        {/* Detail panel */}
-        <div style={{ background:'#fff', border:'1px solid var(--gray-100)', borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-sm)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-          {selected ? (() => {
-            const uiStatus    = dbStatusToUI[selected.status]
-            const sm          = statusMeta[uiStatus]
-            const completedMo = Math.min(calcCompletedMonths(selected.docket_date), selected.no_of_months)
-            const progress    = Math.round((completedMo / selected.no_of_months) * 100)
-            return (
-              <>
-                {/* Panel header */}
-                <div style={{ padding:'16px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', background:'linear-gradient(135deg, var(--brand-800), var(--brand-900))' }}>
-                  <div>
-                    <div style={{ fontSize:'.7rem', color:'rgba(255,255,255,.6)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px' }}>Loan Details</div>
-                    <div style={{ fontSize:'1rem', fontWeight:700, color:'#fff', marginTop:2 }}>{selected.file_number}</div>
-                  </div>
-                  <button id="close-loan-detail" onClick={() => setSelected(null)}
-                    style={{ width:28, height:28, borderRadius:'50%', background:'rgba(255,255,255,.15)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,.25)')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,.15)')}>
-                    <X size={14} />
-                  </button>
-                </div>
+      </div>
 
-                {/* Avatar + name */}
-                <div style={{ padding:'18px', display:'flex', flexDirection:'column', alignItems:'center', borderBottom:'1px solid var(--gray-100)' }}>
+      {viewOpen && selected && (() => {
+        const uiStatus    = dbStatusToUI[selected.status]
+        const sm          = statusMeta[uiStatus]
+        const completedMo = Math.min(calcCompletedMonths(selected.docket_date), selected.no_of_months)
+        const progress    = Math.round((completedMo / selected.no_of_months) * 100)
+        return (
+          <div className="modal-backdrop" onClick={closeView}>
+            <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Loan — {selected.file_number}</h3>
+                <button className="btn btn-ghost btn-sm" onClick={closeView}><X size={16} /></button>
+              </div>
+              <div className="modal-body">
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'16px 0 20px', borderBottom:'1px solid var(--gray-100)', marginBottom:16 }}>
                   <div style={{ width:58, height:58, borderRadius:'50%', background:'linear-gradient(135deg, var(--brand-500), var(--brand-700))', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.3rem', fontWeight:800, marginBottom:10, boxShadow:'0 4px 12px rgba(37,99,235,.30)' }}>
                     {selected.full_name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
                   </div>
@@ -330,16 +384,14 @@ export default function LoansPage() {
                   <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 12px', borderRadius:'var(--radius-full)', fontSize:'.75rem', fontWeight:700, color:sm.color, background:sm.bg, marginTop:8 }}>
                     {sm.icon} {uiStatus}
                   </span>
-
-                  {/* Edit & Delete action buttons */}
                   <div style={{ display:'flex', gap:8, marginTop:14 }}>
-                    <button id={`loan-edit-${selected.file_number}`} onClick={() => openEdit(selected)}
+                    <button id={`loan-edit-${selected.file_number}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
                       style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--brand-200)', background:'var(--brand-50)', color:'var(--brand-700)', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='var(--brand-100)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='var(--brand-50)' }}>
                       <Pencil size={13} /> Edit
                     </button>
-                    <button id={`loan-delete-${selected.file_number}`} onClick={() => handleDelete(selected.file_number)}
+                    <button id={`loan-delete-${selected.file_number}`} onClick={() => { handleDelete(selected.file_number); closeView() }}
                       style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid #fee2e2', background:'#fff5f5', color:'#b91c1c', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='#fee2e2' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='#fff5f5' }}>
@@ -347,9 +399,7 @@ export default function LoansPage() {
                     </button>
                   </div>
                 </div>
-
-                {/* Progress bar */}
-                <div style={{ padding:'14px 18px', borderBottom:'1px solid var(--gray-100)' }}>
+                <div style={{ padding:'14px 0', borderBottom:'1px solid var(--gray-100)', marginBottom:12 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
                     <span style={{ fontSize:'.78rem', fontWeight:600, color:'var(--gray-600)' }}>Repayment Progress</span>
                     <span style={{ fontSize:'.78rem', fontWeight:700, color:'var(--brand-600)' }}>{progress}%</span>
@@ -362,9 +412,7 @@ export default function LoansPage() {
                     <span>{selected.no_of_months - completedMo} months left</span>
                   </div>
                 </div>
-
-                {/* Detail rows */}
-                <div style={{ padding:'4px 18px 16px', overflowY:'auto', flex:1 }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
                   <DetailRow icon={<User       size={14}/>} label="Customer"       value={selected.full_name} />
                   <DetailRow icon={<Phone      size={14}/>} label="Mobile"         value={selected.mobile_1} />
                   <DetailRow icon={<MapPin     size={14}/>} label="City"           value={selected.city} />
@@ -378,20 +426,14 @@ export default function LoansPage() {
                   <DetailRow icon={<User       size={14}/>} label="Created By"     value={selected.created_by_name} />
                   <DetailRow icon={<AlignLeft  size={14}/>} label="Remarks"        value={selected.remarks || '—'} />
                 </div>
-              </>
-            )
-          })() : (
-            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, textAlign:'center', color:'var(--gray-300)' }}>
-              <PiggyBank size={52} strokeWidth={1.2} />
-              <div style={{ marginTop:14, fontSize:'.9rem', fontWeight:600, color:'var(--gray-400)' }}>Select a loan</div>
-              <div style={{ fontSize:'.8rem', color:'var(--gray-300)', marginTop:4 }}>Click any row to view full details here.</div>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        )
+      })()}
 
       {/* ── Edit Modal (remarks + status only) ── */}
-      <Modal open={editOpen} title={`Edit Loan — ${selected?.file_number}`} onClose={() => setEditOpen(false)} onSubmit={handleEdit} submitLabel="Save Changes">
+      <Modal open={editOpen} title={`Edit Loan — ${selected?.file_number}`} onClose={() => { setEditOpen(false); setSelected(null); }} onSubmit={handleEdit} submitLabel="Save Changes">
         <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
           <div className="form-group">
             <label className="form-label">
@@ -407,7 +449,7 @@ export default function LoansPage() {
           </div>
           <div className="form-group">
             <label className="form-label">
-              Remarks
+              Remarks *
               {/* finance_info.remarks or file_record.remarks */}
             </label>
             <textarea className="form-input" rows={3} value={editForm.remarks}
@@ -419,6 +461,3 @@ export default function LoansPage() {
     </div>
   )
 }
-
-// needed for DetailRow AlignLeft import
-import { AlignLeft } from 'lucide-react'
