@@ -546,9 +546,15 @@ export const mockInsuranceTypes = [
 ]
 
 export const mockExpenseCategories = [
-  { id: 'EC001', name: 'Office Rent' },
-  { id: 'EC002', name: 'Stationery'  },
-  { id: 'EC003', name: 'Travel'      },
+  { id: 'EC001', name: 'Office Supplies' },
+  { id: 'EC002', name: 'Travel & Conveyance' },
+  { id: 'EC003', name: 'Printing & Stationery' },
+  { id: 'EC004', name: 'Staff Meal' },
+  { id: 'EC005', name: 'Internet & Phone' },
+  { id: 'EC006', name: 'Repair & Maintenance' },
+  { id: 'EC007', name: 'Advertisement' },
+  { id: 'EC008', name: 'Postage & Courier' },
+  { id: 'EC009', name: 'Miscellaneous' },
 ]
 
 export const mockUsers = [
