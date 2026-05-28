@@ -6,6 +6,7 @@ from backend.routes.signup import router as signup_router
 from backend.routes.login import router as login_router
 from backend.routes.forgot_password import router as forgot_password_router
 from backend.routes.profile import router as profile_router
+from backend.routes.auth.profile import router as auth_profile_router
 # Admin Routes
 from backend.routes.admin.dashboard import router as dashboard_router
 from backend.routes.admin.customers import router as customers_router
@@ -24,8 +25,10 @@ from backend.routes.admin.notifications import router as notifications_router
 
 # Customer Routes
 from backend.routes.customer.dashboard import router as customer_dashboard_router
+from backend.routes.customer.profile import router as customer_profile_router
 from backend.routes.customer.insurance import router as customer_insurance_router
 from backend.routes.customer.settings import router as customer_settings_router
+from backend.routes.customer.payments import router as customer_payments_router
 
 #Masters Routes
 from backend.routes.admin.brokers import router as brokers_router
@@ -67,6 +70,7 @@ app.include_router(signup_router, prefix="/api/v1/auth")
 app.include_router(login_router, prefix="/api/v1/auth")
 app.include_router(forgot_password_router, prefix="/api/v1/auth")
 app.include_router(profile_router)
+app.include_router(auth_profile_router)
 
 # Admin Dashboard & Data
 app.include_router(dashboard_router)
@@ -86,8 +90,10 @@ app.include_router(notifications_router)
 
 # Customer Dashboard
 app.include_router(customer_dashboard_router)
+app.include_router(customer_profile_router)
 app.include_router(customer_insurance_router)
 app.include_router(customer_settings_router)
+app.include_router(customer_payments_router)
 
 # Masters   
 app.include_router(brokers_router)

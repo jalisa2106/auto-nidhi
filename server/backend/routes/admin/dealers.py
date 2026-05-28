@@ -8,7 +8,7 @@ from pydantic import BaseModel, validator
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import MasterDealer, SystemUser
+from backend.models import MasterDealer, SystemUser, FileRecord
 from backend.utils import get_current_admin, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/dealers", tags=["Admin Dealers"])
@@ -18,15 +18,24 @@ PHONE_REGEX = re.compile(r"^\d{10}$")
 
 class DealerCreate(BaseModel):
     name: str
+    showroom_name: str
     city: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    status: str = "Active"
 
     @validator("name")
     def validate_name(cls, value: str) -> str:
         value = value.strip()
         if not value:
-            raise ValueError("Dealer name is required")
+            raise ValueError("Dealer name (Contact Person) is required")
+        return value
+
+    @validator("showroom_name")
+    def validate_showroom(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Showroom name is required")
         return value
 
     @validator("phone")
@@ -50,9 +59,11 @@ class DealerCreate(BaseModel):
 
 class DealerUpdate(BaseModel):
     name: Optional[str] = None
+    showroom_name: Optional[str] = None
     city: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    status: Optional[str] = None
 
     @validator("name")
     def validate_name(cls, value: Optional[str]) -> Optional[str]:
@@ -77,11 +88,13 @@ def _serialize(dealer: MasterDealer) -> dict:
     return {
         "id": str(dealer.id),
         "name": dealer.dealer_name,
-        "city": dealer.city or "",
+        "showroom_name": dealer.showroom_name or "",
+        "area_branch": dealer.city or "",
         "phone": dealer.phone or "",
         "email": dealer.email or "",
+        "status": dealer.status,
+        "is_deleted": dealer.is_deleted
     }
-
 
 @router.get("/")
 def list_dealers(search: Optional[str] = None, db: Session = Depends(get_db)):
@@ -91,6 +104,7 @@ def list_dealers(search: Optional[str] = None, db: Session = Depends(get_db)):
         search_term = f"%{search.strip()}%"
         query = query.filter(
             MasterDealer.dealer_name.ilike(search_term)
+            | MasterDealer.showroom_name.ilike(search_term)
             | MasterDealer.city.ilike(search_term)
             | MasterDealer.phone.ilike(search_term)
             | MasterDealer.email.ilike(search_term)
@@ -116,9 +130,11 @@ def create_dealer(
 
     dealer = MasterDealer(
         dealer_name=payload.name,
+        showroom_name=payload.showroom_name,
         city=payload.city,
         phone=payload.phone,
         email=payload.email,
+        status=payload.status,
     )
 
     db.add(dealer)
@@ -172,12 +188,16 @@ def update_dealer(
 
     if "name" in update_data:
         dealer.dealer_name = update_data["name"]
+    if "showroom_name" in update_data:
+        dealer.showroom_name = update_data["showroom_name"]
     if "city" in update_data:
         dealer.city = update_data["city"]
     if "phone" in update_data:
         dealer.phone = update_data["phone"]
     if "email" in update_data:
         dealer.email = update_data["email"]
+    if "status" in update_data:
+        dealer.status = update_data["status"]
 
     try:
         record_dashboard_event(

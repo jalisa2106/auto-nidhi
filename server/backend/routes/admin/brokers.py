@@ -21,6 +21,7 @@ class BrokerCreate(BaseModel):
     area: Optional[str] = None
     district: Optional[str] = None
     phone: Optional[str] = None
+    status: str = "Active"
 
     @validator("broker_name")
     def validate_name(cls, value: str) -> str:
@@ -62,6 +63,7 @@ class BrokerUpdate(BaseModel):
     area: Optional[str] = None
     district: Optional[str] = None
     phone: Optional[str] = None
+    status: Optional[str] = None
 
     @validator("broker_name")
     def validate_name(cls, value: Optional[str]) -> Optional[str]:
@@ -89,6 +91,8 @@ def _serialize(broker: MasterBroker) -> dict:
         "area": broker.area,
         "district": broker.district,
         "phone": broker.phone,
+        "status": broker.status,
+        "is_deleted": broker.is_deleted,
     }
 
 
@@ -123,6 +127,7 @@ def create_broker(
         area=payload.area,
         district=payload.district,
         phone=payload.phone,
+        status=payload.status,
     )
     db.add(broker)
     try:
