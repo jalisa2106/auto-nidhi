@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
-  getNotifications, markAllRead, clearAll, subscribe, markRead,
+  getNotifications, markAllRead, subscribe, markRead,
   type Notification, type NotifType,
 } from '../../store/notificationStore'
 // Import reliable SVG icons (requires: npm install lucide-react)

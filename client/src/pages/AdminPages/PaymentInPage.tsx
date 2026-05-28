@@ -236,13 +236,13 @@ export default function PaymentInPage() {
     try {
       await paymentsInApi.create(payload)
       message.success("Payment recorded successfully")
-      addNotification('added', `Payment of ₹${Number(form.payment_amount).toLocaleString('en-IN')} added (${form.payment_mode})`, 'Payment IN')
+      addNotification('payment_recorded', `Payment of ₹${Number(form.payment_amount).toLocaleString('en-IN')} added (${form.payment_mode})`, 'Payment IN')
       setShowAdd(false)
       setForm({ ...EMPTY_FORM })
       loadPayments()
     } catch (err: any) {
       message.error(err.response?.data?.detail || "Failed to save payment")
-      addNotification('error', 'Failed to record payment. Please try again.', 'Payment IN')
+      addNotification('general', 'Failed to record payment. Please try again.', 'Payment IN')
     }
   }
 
