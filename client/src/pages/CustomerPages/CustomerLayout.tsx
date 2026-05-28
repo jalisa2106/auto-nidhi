@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
 import {
   LayoutDashboard, FileText, FolderOpen, CreditCard, ShieldCheck,
-  Car, LogOut, BellRing, UserCircle2, ChevronDown,
+  Car, LogOut, BellRing, UserCircle2, ChevronDown, Settings,
 } from 'lucide-react'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
@@ -153,14 +153,14 @@ export default function CustomerLayout() {
                     <UserCircle2 size={15} /> My Profile
                   </button>
                   <button
-                    onClick={() => { setProfileOpen(false); navigate('/portal/notifications') }}
+                    onClick={() => { setProfileOpen(false); navigate('/portal/settings') }}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                       padding: '10px 16px', background: 'none', border: 'none',
                       cursor: 'pointer', fontSize: 13, color: '#334155',
                     }}
                   >
-                    <BellRing size={15} /> Notifications
+                    <Settings size={15} /> Account Settings
                   </button>
                   <div style={{ borderTop: '1px solid #f1f5f9' }}>
                     <button

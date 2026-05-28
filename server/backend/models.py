@@ -145,6 +145,7 @@ class FileRecord(Base):
     creator = relationship("SystemUser", foreign_keys=[created_by_user_id])
     assignee = relationship("SystemUser", foreign_keys=[assigned_to])
     finance_info = relationship("FinanceInfo", uselist=False)
+    insurance_info = relationship("InsuranceInfo", uselist=False)
 
 class MasterBank(Base):
     __tablename__ = "master_bank"
@@ -367,6 +368,24 @@ class InsurancePayment(Base):
     payee_broker = relationship("MasterBroker", foreign_keys=[payee_broker_id])
     company_bank = relationship("MasterCompanyBank", foreign_keys=[company_bank_id])
     insurance_company = relationship("MasterInsuranceCompany")
+
+class InsuranceInfo(Base):
+    __tablename__ = "insurance_info"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=False)
+    insurance_company_id = Column(UUID(as_uuid=True), ForeignKey("master_insurance_company.id"))
+    insurance_type_id = Column(UUID(as_uuid=True), ForeignKey("master_insurance_type.id"))
+
+    policy_number = Column(String(100))
+    valid_from = Column(Date)
+    valid_to = Column(Date)
+    premium_amount = Column(DECIMAL(15, 2))
+    idv_amount = Column(DECIMAL(15, 2))
+
+    file = relationship("FileRecord")
+    insurance_company = relationship("MasterInsuranceCompany")
+    insurance_type = relationship("MasterInsuranceType")
 
 class UserNotificationPreference(Base):
     __tablename__ = "user_notification_preferences"
