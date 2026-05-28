@@ -11,11 +11,15 @@ import ResetPassword  from './pages/ResetPassword'
 import RoleBasedRouter  from './pages/RoleBasedRouter'
 
 // ── Customer portal ─────────────────────────────────────────────────
-import CustomerLayout           from './pages/CustomerPages/CustomerLayout'
-import CustomerPortalPage       from './pages/CustomerPages/CustomerPortalPage'
-import CustomerFilesPage        from './pages/CustomerPages/CustomerFilesPage'
-import CustomerNotificationsPage from './pages/CustomerPages/CustomerNotificationsPage'
-import CustomerProfilePage      from './pages/CustomerPages/CustomerProfilePage'
+import CustomerLayout             from './pages/CustomerPages/CustomerLayout'
+import CustomerPortalPage         from './pages/CustomerPages/CustomerPortalPage'
+import CustomerFilesPage          from './pages/CustomerPages/CustomerFilesPage'
+import CustomerFileDetailPage     from './pages/CustomerPages/CustomerFileDetailPage'
+import CustomerDocumentsPage      from './pages/CustomerPages/CustomerDocumentsPage'
+import CustomerPaymentsPage       from './pages/CustomerPages/CustomerPaymentsPage'
+import CustomerInsurancePage      from './pages/CustomerPages/CustomerInsurancePage'
+import CustomerNotificationsPage  from './pages/CustomerPages/CustomerNotificationsPage'
+import CustomerProfilePage        from './pages/CustomerPages/CustomerProfilePage'
 
 // ── Data Entry pages ─────────────────────────────────────────────────
 import DataEntryLayout          from './pages/DataEntryPages/DataEntryLayout'
@@ -77,6 +81,10 @@ function App() {
         <Route element={<CustomerLayout />}>
           <Route path="/portal"               element={<CustomerPortalPage />}        />
           <Route path="/portal/files"          element={<CustomerFilesPage />}         />
+          <Route path="/portal/files/:id"      element={<CustomerFileDetailPage />}    />
+          <Route path="/portal/documents"      element={<CustomerDocumentsPage />}     />
+          <Route path="/portal/payments"       element={<CustomerPaymentsPage />}      />
+          <Route path="/portal/insurance"      element={<CustomerInsurancePage />}     />
           <Route path="/portal/notifications"  element={<CustomerNotificationsPage />} />
           <Route path="/portal/profile"        element={<CustomerProfilePage />}       />
         </Route>
