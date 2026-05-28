@@ -1,0 +1,156 @@
+.status-timeline {
+  padding: 0;
+}
+
+.timeline-container {
+  position: relative;
+  padding: 1rem 0;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.timeline-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 50px;
+  position: relative;
+}
+
+.marker-dot {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 0 0 2px #f3f4f6;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.marker-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-line {
+  width: 2px;
+  flex-grow: 1;
+  background: linear-gradient(to bottom, #e5e7eb, #f3f4f6);
+  margin-top: 8px;
+  min-height: 40px;
+}
+
+.timeline-item:last-child .timeline-line {
+  display: none;
+}
+
+.timeline-content {
+  flex: 1;
+  padding-top: 6px;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.timeline-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.4;
+}
+
+.timeline-time {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  white-space: nowrap;
+  cursor: help;
+  transition: color 0.2s ease;
+}
+
+.timeline-time:hover {
+  color: #6b7280;
+}
+
+.timeline-description {
+  margin: 0.5rem 0 0.5rem 0;
+  font-size: 0.9375rem;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.timeline-status-change {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.old {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-badge.new {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.status-arrow {
+  color: #d1d5db;
+  font-weight: bold;
+}
+
+.timeline-actor {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.actor-label {
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.timeline-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #9ca3af;
+  background-color: #f9fafb;
+  border-radius: 8px;
+}
+
+.timeline-empty p {
+  margin: 0;
+}

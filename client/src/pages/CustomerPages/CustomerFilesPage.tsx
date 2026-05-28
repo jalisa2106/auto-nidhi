@@ -1,103 +1,149 @@
-import { useEffect, useState } from 'react'
-import { filesApi } from '../../api/services'
+import { useEffect, useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom' // 👈 Added navigation hook handler
 import PageHeader from '../../components/app/PageHeader'
+import FileStatusBadge from '../../components/CustomerPages/FileStatusBadge'
+import { mockCustomerFiles, type MockFile } from '../../lib/mockCustomerFiles'
+import '../CSS_pages/CustomerFilesPage.css'
 
-interface FileRecord {
-  id: string
-  file_number: string
-  file_type?: string
-  status?: string
-  finance_bank?: string
-  created_at?: string
-}
-
-const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  active:      { bg: 'var(--brand-50)',  color: 'var(--brand-700)' },
-  completed:   { bg: '#dcfce7',          color: '#15803d' },
-  cancelled:   { bg: '#fee2e2',          color: '#b91c1c' },
-  'under process': { bg: '#fef3c7',      color: '#d97706' },
-  pending:     { bg: '#fef3c7',          color: '#d97706' },
-}
-
-function statusStyle(status?: string) {
-  const key = (status || '').toLowerCase()
-  return STATUS_COLOR[key] || { bg: 'var(--gray-100)', color: 'var(--gray-600)' }
-}
+type FileStatus = 'draft' | 'login' | 'under_process' | 'sanctioned' | 'disbursed' | 'completed' | 'cancelled' | 'all'
+type FileType = 'new_vehicle' | 'used_vehicle' | 'renewal' | 'all'
+type SortField = 'file_number' | 'created_at' | 'status' | 'assigned_to'
 
 export default function CustomerFilesPage() {
-  const [files, setFiles]   = useState<FileRecord[]>([])
+  const navigate = useNavigate() // 👈 Initialize routing agent tool bounds
+  const [files, setFiles] = useState<MockFile[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState('')
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<FileStatus>('all')
+  const [typeFilter, setTypeFilter] = useState<FileType>('all')
+  const [sortBy] = useState<SortField>('created_at')
+  const [sortOrder] = useState<'asc' | 'desc'>('desc')
+
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await filesApi.list(1, 50)
-        setFiles(Array.isArray(res) ? res : res.data || [])
-      } catch (e: any) {
-        setError('Failed to load files. Please try again.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
+    setTimeout(() => {
+      setFiles(mockCustomerFiles)
+      setLoading(false)
+    }, 400)
   }, [])
+
+  const filteredAndSortedFiles = useMemo(() => {
+    let result = [...files]
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(f => f.file_number.toLowerCase().includes(query))
+    }
+    if (statusFilter !== 'all') result = result.filter(f => f.status === statusFilter)
+    if (typeFilter !== 'all') result = result.filter(f => f.file_type === typeFilter)
+
+    result.sort((a, b) => {
+      let aVal: any = a[sortBy]
+      let bVal: any = b[sortBy]
+      if (sortBy === 'created_at') {
+        aVal = new Date(aVal).getTime()
+        bVal = new Date(bVal).getTime()
+      } else if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase()
+        bVal = bVal.toLowerCase()
+      }
+      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+    return result
+  }, [files, searchQuery, statusFilter, typeFilter, sortBy, sortOrder])
+
+  const totalPages = Math.ceil(filteredAndSortedFiles.length / itemsPerPage)
+  const startIdx = (currentPage - 1) * itemsPerPage
+  const paginatedFiles = filteredAndSortedFiles.slice(startIdx, startIdx + itemsPerPage)
+
+  useEffect(() => { setCurrentPage(1) }, [searchQuery, statusFilter, typeFilter])
 
   return (
     <>
-      <PageHeader title="My Files" subtitle="All your loan & insurance files" />
+      <PageHeader title="My Files" subtitle="Track and audit your vehicular assets financing portfolio pipeline" />
 
-      {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', padding: '12px 16px', borderRadius: 8, marginBottom: 20, fontSize: '0.875rem' }}>
-          {error}
+      {/* Filters Toolbar */}
+      <div className="files-toolbar">
+        <div className="search-box">
+          <input type="text" placeholder="Search by file number..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="search-input" />
         </div>
-      )}
+        <div className="filters-group">
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as FileType)} className="filter-select">
+            <option value="all">All Types</option>
+            <option value="new_vehicle">New Vehicle</option>
+            <option value="used_vehicle">Used Vehicle</option>
+            <option value="renewal">Renewal</option>
+          </select>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as FileStatus)} className="filter-select">
+            <option value="all">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="login">Login</option>
+            <option value="under_process">Under Process</option>
+            <option value="sanctioned">Sanctioned</option>
+            <option value="disbursed">Disbursed</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          {(searchQuery || statusFilter !== 'all' || typeFilter !== 'all') && (
+            <button className="clear-filters-btn" onClick={() => { setSearchQuery(''); setStatusFilter('all'); setTypeFilter('all'); }}>Clear Filters</button>
+          )}
+        </div>
+      </div>
 
-      <div className="data-card">
-        {loading ? (
-          <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--gray-400)', fontWeight: 500 }}>
-            Loading your files…
-          </div>
-        ) : files.length === 0 ? (
-          <div className="data-empty">No files found.</div>
-        ) : (
-          <table className="data-table">
+      {loading ? (
+        <div className="data-card"><div className="skeleton-table">{[...Array(4)].map((_, i) => <div key={i} className="skeleton-row" />)}</div></div>
+      ) : filteredAndSortedFiles.length === 0 ? (
+        <div className="data-card"><div className="empty-state"><p className="empty-title">No workspace files mapped matches parameters.</p></div></div>
+      ) : (
+        <div className="data-card">
+          <table className="files-table">
             <thead>
               <tr>
                 <th>File No.</th>
                 <th>Type</th>
                 <th>Status</th>
-                <th>Finance Bank</th>
+                <th>Assigned To</th>
+                <th>Finance Details</th>
                 <th>Created</th>
+                <th style={{ textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {files.map(f => {
-                const { bg, color } = statusStyle(f.status)
-                return (
-                  <tr key={f.id}>
-                    <td>
-                      <span style={{ fontFamily: 'monospace', color: 'var(--brand-600)', fontWeight: 600 }}>
-                        {f.file_number}
-                      </span>
-                    </td>
-                    <td>{f.file_type || '—'}</td>
-                    <td>
-                      <span style={{ fontSize: '.78rem', fontWeight: 600, padding: '4px 10px', borderRadius: 99, background: bg, color }}>
-                        {f.status || 'Active'}
-                      </span>
-                    </td>
-                    <td>{f.finance_bank || '—'}</td>
-                    <td style={{ color: 'var(--gray-500)', fontSize: '.85rem' }}>
-                      {f.created_at ? f.created_at.slice(0, 10) : '—'}
-                    </td>
-                  </tr>
-                )
-              })}
+              {paginatedFiles.map((file) => (
+                <tr key={file.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/portal/files/${file.id}`)}>
+                  <td className="file-number" style={{ fontWeight: 600, color: 'var(--brand-700)' }}>{file.file_number}</td>
+                  <td className="file-type">{file.file_type.replace(/_/g, ' ').toUpperCase()}</td>
+                  <td><FileStatusBadge status={file.status} size="small" /></td>
+                  <td>{file.assigned_to || '—'}</td>
+                  <td>
+                    {file.finance_amount ? (
+                      <>
+                        <span className="finance-amount" style={{ fontWeight: 600 }}>₹{file.finance_amount.toLocaleString('en-IN')}</span>
+                        {file.finance_bank && <span className="finance-bank" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--gray-400)' }}>{file.finance_bank}</span>}
+                      </>
+                    ) : '—'}
+                  </td>
+                  <td>{new Date(file.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/portal/files/${file.id}`); }}>
+                      View Details →
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
-        )}
-      </div>
+          {totalPages > 1 && (
+              <div className="pagination-bar" style={{ padding: '16px 24px', borderTop: '1px solid var(--gray-200)' }}>
+                <span className="pagination-info">Total pages: {totalPages} ({filteredAndSortedFiles.length} files found)</span>
+              </div>
+          )}
+        </div>
+      )}
     </>
   )
 }
