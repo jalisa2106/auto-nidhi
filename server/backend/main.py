@@ -27,6 +27,8 @@ from backend.routes.admin.notifications import router as notifications_router
 from backend.routes.customer.dashboard import router as customer_dashboard_router
 from backend.routes.customer.profile import router as customer_profile_router
 from backend.routes.customer.insurance import router as customer_insurance_router
+from backend.routes.customer.settings import router as customer_settings_router
+from backend.routes.customer.payments import router as customer_payments_router
 
 #Masters Routes
 from backend.routes.admin.brokers import router as brokers_router
@@ -90,6 +92,8 @@ app.include_router(notifications_router)
 app.include_router(customer_dashboard_router)
 app.include_router(customer_profile_router)
 app.include_router(customer_insurance_router)
+app.include_router(customer_settings_router)
+app.include_router(customer_payments_router)
 
 # Masters   
 app.include_router(brokers_router)

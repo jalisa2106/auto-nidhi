@@ -62,6 +62,7 @@ async def update_profile(
     for field, value in update_data.items():
         setattr(current_user, field, value)
 
+    db.add(current_user)
     db.commit()
     db.refresh(current_user)
 

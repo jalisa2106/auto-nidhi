@@ -5,7 +5,7 @@ import {
   ArrowRight, Bell, FileText, Car, ShieldCheck,
   ChevronRight, BellRing,
 } from 'lucide-react'
-import { filesApi } from '../../api/services'
+import { customerDashboardApi } from '../../api/services'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -57,17 +57,16 @@ export default function CustomerPortalPage() {
   const navigate = useNavigate()
   const [files, setFiles] = useState<FileRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [firstName, setFirstName] = useState('Customer')
 
-  // Read user from localStorage (DB fields: first_name, last_name, email, phone_number)
-  const stored = (() => {
-    try { return JSON.parse(localStorage.getItem('an_current_user') || '{}') } catch { return {} }
-  })()
-  const firstName = stored.first_name || stored.name?.split(' ')[0] || 'Customer'
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'
 
   useEffect(() => {
-    filesApi.list(1, 10)
-      .then(res => setFiles(Array.isArray(res) ? res : res.data || []))
+    customerDashboardApi.get()
+      .then(res => {
+        setFiles(res.dashboard?.recent_files || [])
+        setFirstName(res.user?.first_name || 'Customer')
+      })
       .catch(() => setFiles([]))
       .finally(() => setLoading(false))
   }, [])

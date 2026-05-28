@@ -153,7 +153,7 @@ export const dealersApi = {
     return data
   },
 
-  create: async (payload: { name: string; showroom_name: string; city?: string; phone?: string; email?: string; status: string }) => {
+  create: async (payload: { name: string; showroom_name: string; city?: string; phone?: string; email?: string; status?: string }) => {
     const { data } = await api.post('/dealers/', payload, skipAuthRedirectConfig)
     return data
   },
@@ -523,6 +523,37 @@ export const adminSettingsApi = {
 
   getSecurity: async () => {
     const { data } = await api.get('/admin/settings/security')
+    return data
+  },
+}
+
+export const customerSettingsApi = {
+  getNotificationPreferences: async () => {
+    const { data } = await api.get('/portal/settings/notification-preferences')
+    return data
+  },
+
+  updateNotificationPreferences: async (preferences: Record<string, boolean>) => {
+    const { data } = await api.put('/portal/settings/notification-preferences', {
+      preferences,
+    }, skipAuthRedirectConfig)
+    return data
+  },
+
+  getSession: async () => {
+    const { data } = await api.get('/portal/settings/session')
+    return data
+  },
+
+  getSecurity: async () => {
+    const { data } = await api.get('/portal/settings/security')
+    return data
+  },
+}
+
+export const customerDashboardApi = {
+  get: async () => {
+    const { data } = await api.get('/customer/dashboard')
     return data
   },
 }

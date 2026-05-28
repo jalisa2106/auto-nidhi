@@ -121,6 +121,8 @@ export default function CustomerProfilePage() {
         writeCurrentUser(editForm)
         setProfile({ ...editForm })
         setEditing(false)
+        // Dispatch event to notify header to refresh
+        window.dispatchEvent(new CustomEvent('user-profile-updated', { detail: editForm }))
         showBanner('ok', 'Profile updated successfully!')
       }
     } catch {

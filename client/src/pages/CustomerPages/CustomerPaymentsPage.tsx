@@ -16,50 +16,6 @@ interface CustomerPayment {
   remarks: string | null // maps to payment_in.remarks
 }
 
-// Fallback high-fidelity mock data matching database records precisely
-const FALLBACK_PAYMENTS: CustomerPayment[] = [
-  {
-    file_number: 'FILE/2026/001',
-    file_type: 'new_vehicle',
-    payment_amount: 50000.00,
-    paid_amount: 45000.00,
-    remaining_amount: 5000.00,
-    payment_mode: 'bank_transfer',
-    payment_date: '2026-03-24',
-    remarks: 'Down-payment first installment - NEFT Ref# 9988223',
-  },
-  {
-    file_number: 'FILE/2026/001',
-    file_type: 'new_vehicle',
-    payment_amount: 5000.00,
-    paid_amount: 5000.00,
-    remaining_amount: 0.00,
-    payment_mode: 'cash',
-    payment_date: '2026-04-02',
-    remarks: 'Clearance of remaining balance',
-  },
-  {
-    file_number: 'FILE/2026/005',
-    file_type: 'used_vehicle',
-    payment_amount: 32000.00,
-    paid_amount: 32000.00,
-    remaining_amount: 0.00,
-    payment_mode: 'cheque',
-    payment_date: '2026-05-18',
-    remarks: 'HDFC Cheque No. 000123',
-  },
-  {
-    file_number: 'FILE/2025/082',
-    file_type: 'renewal',
-    payment_amount: 15200.00,
-    paid_amount: 10000.00,
-    remaining_amount: 5200.00,
-    payment_mode: 'bank_transfer',
-    payment_date: '2025-05-20',
-    remarks: 'UPI Payment Tata AIG Premium',
-  }
-]
-
 // ── Pagination Sub-component matching Admin spec ─────────────────────────────
 function Pagination({
   total, page, pageSize, onPage, onPageSize,
@@ -116,14 +72,12 @@ export default function CustomerPaymentsPage() {
   const [pageSize, setPageSize] = useState(5)
 
   useEffect(() => {
-    // Attempt to load from portal API, fallback to database-structured mock data if not implemented
     api.get('/portal/payments')
       .then(res => {
         setPayments(res.data || [])
       })
       .catch(() => {
-        // Fallback to high-fidelity mock data mimicking DB query output
-        setPayments(FALLBACK_PAYMENTS)
+        setPayments([])
       })
       .finally(() => {
         setLoading(false)
