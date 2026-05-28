@@ -18,7 +18,6 @@ import CustomerFileDetailPage     from './pages/CustomerPages/CustomerFileDetail
 import CustomerDocumentsPage      from './pages/CustomerPages/CustomerDocumentsPage'
 import CustomerPaymentsPage       from './pages/CustomerPages/CustomerPaymentsPage'
 import CustomerInsurancePage      from './pages/CustomerPages/CustomerInsurancePage'
-import CustomerNotificationsPage  from './pages/CustomerPages/CustomerNotificationsPage'
 import CustomerProfilePage        from './pages/CustomerPages/CustomerProfilePage'
 import CustomerSettingsPage       from './pages/CustomerPages/CustomerSettingsPage'
 
@@ -86,7 +85,6 @@ function App() {
           <Route path="/portal/documents"      element={<CustomerDocumentsPage />}     />
           <Route path="/portal/payments"       element={<CustomerPaymentsPage />}      />
           <Route path="/portal/insurance"      element={<CustomerInsurancePage />}     />
-          <Route path="/portal/notifications"  element={<CustomerNotificationsPage />} />
           <Route path="/portal/profile"        element={<CustomerProfilePage />}       />
           <Route path="/portal/settings"       element={<CustomerSettingsPage />}      />
         </Route>

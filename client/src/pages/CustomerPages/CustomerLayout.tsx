@@ -4,6 +4,7 @@ import {
   LayoutDashboard, FileText, FolderOpen, CreditCard, ShieldCheck,
   Car, LogOut, BellRing, UserCircle2, ChevronDown, Settings,
 } from 'lucide-react'
+import NotificationPanel from '../../components/app/NotificationPanel'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
 interface NavGroup { title: string; items: NavItem[] }
@@ -32,6 +33,9 @@ export default function CustomerLayout() {
   const [userInitial, setUserInitial] = useState('C')
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
+  
+  // State for Notification Popup
+  const [notifOpen, setNotifOpen] = useState(false)
 
   useEffect(() => {
     const role = localStorage.getItem('user_role')
@@ -108,14 +112,19 @@ export default function CustomerLayout() {
           <div className="app-user">
 
             {/* Notification bell */}
-            <button
-              className="btn btn-ghost btn-sm"
-              title="Notifications"
-              onClick={() => navigate('/portal/notifications')}
-              style={{ position: 'relative', padding: '6px 8px' }}
-            >
-              <BellRing size={18} color="#64748b" />
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                title="Notifications"
+                onClick={() => setNotifOpen(prev => !prev)}
+                style={{ position: 'relative', padding: '6px 8px' }}
+              >
+                <BellRing size={18} color="#64748b" />
+              </button>
+            </div>
+
+            {/* Notification Panel Popup */}
+            {notifOpen && <NotificationPanel onClose={() => setNotifOpen(false)} />}
 
             {/* Profile dropdown */}
             <div ref={profileRef} style={{ position: 'relative' }}>
