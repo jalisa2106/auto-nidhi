@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  FolderOpen, Clock, AlertCircle,
+  FolderOpen, Clock, AlertCircle, CheckCircle2,
   ArrowRight, Bell, FileText, Car, ShieldCheck,
   ChevronRight, BellRing,
 } from 'lucide-react'
