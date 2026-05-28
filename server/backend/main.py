@@ -25,6 +25,7 @@ from backend.routes.admin.notifications import router as notifications_router
 # Customer Routes
 from backend.routes.customer.dashboard import router as customer_dashboard_router
 from backend.routes.customer.insurance import router as customer_insurance_router
+from backend.routes.customer.settings import router as customer_settings_router
 
 #Masters Routes
 from backend.routes.admin.brokers import router as brokers_router
@@ -86,6 +87,7 @@ app.include_router(notifications_router)
 # Customer Dashboard
 app.include_router(customer_dashboard_router)
 app.include_router(customer_insurance_router)
+app.include_router(customer_settings_router)
 
 # Masters   
 app.include_router(brokers_router)

@@ -527,6 +527,30 @@ export const adminSettingsApi = {
   },
 }
 
+export const customerSettingsApi = {
+  getNotificationPreferences: async () => {
+    const { data } = await api.get('/portal/settings/notification-preferences')
+    return data
+  },
+
+  updateNotificationPreferences: async (preferences: Record<string, boolean>) => {
+    const { data } = await api.put('/portal/settings/notification-preferences', {
+      preferences,
+    }, skipAuthRedirectConfig)
+    return data
+  },
+
+  getSession: async () => {
+    const { data } = await api.get('/portal/settings/session')
+    return data
+  },
+
+  getSecurity: async () => {
+    const { data } = await api.get('/portal/settings/security')
+    return data
+  },
+}
+
 export const notificationsApi = {
   list: async () => {
     const { data } = await api.get('/notifications/')
