@@ -3,10 +3,12 @@ import {
   Bell, Monitor, Clock, Info, Shield, CheckCircle,
   ChevronDown, ChevronUp,
 } from 'lucide-react'
+import { customerSettingsApi } from '../../api/services'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface NotifPref { key: string; label: string; desc: string; enabled: boolean; color: string; icon: string }
+interface SecurityStatus { status: 'enabled' | 'disabled' | 'not_enabled'; note: string }
 
 const DEFAULT_PREFS: NotifPref[] = [
   { key: 'file_update',  label: 'File Updates',       desc: 'When your file status changes (Under Process, Sanctioned, etc.)', color: '#2563eb', icon: '📁', enabled: true  },
@@ -16,35 +18,19 @@ const DEFAULT_PREFS: NotifPref[] = [
   { key: 'general',      label: 'General Alerts',     desc: 'System messages and informational notifications',                  color: '#d97706', icon: 'ℹ',  enabled: true  },
 ]
 
-const STORAGE_KEY = 'customer_notif_prefs'
-
 // ── Helper: read/write prefs to localStorage ──────────────────────────────
 
-function loadPrefs(): NotifPref[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEFAULT_PREFS
-    const saved: Record<string, boolean> = JSON.parse(raw)
-    return DEFAULT_PREFS.map(p => ({ ...p, enabled: saved[p.key] ?? p.enabled }))
-  } catch {
-    return DEFAULT_PREFS
-  }
+function applyPrefs(saved: Record<string, boolean>): NotifPref[] {
+  return DEFAULT_PREFS.map(p => ({ ...p, enabled: saved[p.key] ?? p.enabled }))
 }
 
-function savePrefs(prefs: NotifPref[]) {
+function prefsToMap(prefs: NotifPref[]) {
   const map: Record<string, boolean> = {}
   prefs.forEach(p => { map[p.key] = p.enabled })
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+  return map
 }
 
 // ── JWT decode for session info ────────────────────────────────────────────
-
-function decodeJwt(token: string): Record<string, any> | null {
-  try {
-    const payload = token.split('.')[1]
-    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
-  } catch { return null }
-}
 
 function fmtTs(ts?: number) {
   if (!ts) return '—'
@@ -54,7 +40,7 @@ function fmtTs(ts?: number) {
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function CustomerSettingsPage() {
-  const [prefs,       setPrefs]       = useState<NotifPref[]>(loadPrefs)
+  const [prefs,       setPrefs]       = useState<NotifPref[]>(DEFAULT_PREFS)
   const [prefSaved,   setPrefSaved]   = useState(false)
 
   const [notifOpen,   setNotifOpen]   = useState(true)
@@ -64,21 +50,28 @@ export default function CustomerSettingsPage() {
 
   // Session data from JWT
   const [session, setSession] = useState<{
-    issued_at?: number; expires_at?: number; user_id?: string
+    issued_at?: number; expires_at?: number; user_id?: string; role?: string; token_storage?: string; authentication?: string
   }>({})
+  const [security, setSecurity] = useState<Record<string, SecurityStatus>>({})
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
-    if (token) {
-      const decoded = decodeJwt(token)
-      if (decoded) {
-        setSession({
-          issued_at:  decoded.iat,
-          expires_at: decoded.exp,
-          user_id:    decoded.sub || decoded.user_id,
-        })
+    const loadSettings = async () => {
+      try {
+        const [savedPrefs, sessionData, securityData] = await Promise.all([
+          customerSettingsApi.getNotificationPreferences(),
+          customerSettingsApi.getSession(),
+          customerSettingsApi.getSecurity(),
+        ])
+
+        setPrefs(applyPrefs(savedPrefs))
+        setSession(sessionData)
+        setSecurity(securityData)
+      } catch (err) {
+        console.error('Failed to load customer settings', err)
       }
     }
+
+    loadSettings()
   }, [])
 
   const togglePref = (key: string) => {
@@ -86,18 +79,17 @@ export default function CustomerSettingsPage() {
     setPrefSaved(false)
   }
 
-  const handleSave = () => {
-    savePrefs(prefs)
-    setPrefSaved(true)
-    setTimeout(() => setPrefSaved(false), 2500)
+  const handleSave = async () => {
+    try {
+      await customerSettingsApi.updateNotificationPreferences(prefsToMap(prefs))
+      setPrefSaved(true)
+      setTimeout(() => setPrefSaved(false), 2500)
+    } catch (err) {
+      console.error('Failed to save customer notification preferences', err)
+    }
   }
 
   const enabledCount = prefs.filter(p => p.enabled).length
-
-  // Read user from localStorage
-  const stored = (() => {
-    try { return JSON.parse(localStorage.getItem('an_current_user') || '{}') } catch { return {} }
-  })()
 
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto', paddingBottom: '32px' }}>
@@ -184,9 +176,9 @@ export default function CustomerSettingsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
           <SessionBox label="Session Started" value={fmtTs(session.issued_at)} />
           <SessionBox label="Session Expires" value={fmtTs(session.expires_at)} />
-          <SessionBox label="Role"             value="Customer" />
-          <SessionBox label="Token Storage"   value="Local Storage" />
-          <SessionBox label="Authentication"  value="JWT Bearer" />
+          <SessionBox label="Role"             value={session.role || 'Customer'} />
+          <SessionBox label="Token Storage"   value={session.token_storage || 'Local Storage'} />
+          <SessionBox label="Authentication"  value={session.authentication || 'JWT Bearer'} />
           <SessionBox label="Account ID"      value={session.user_id ? `…${session.user_id.slice(-8)}` : '—'} />
         </div>
         <div style={{
@@ -210,11 +202,11 @@ export default function CustomerSettingsPage() {
         open={securityOpen}
         onToggle={() => setSecurityOpen(p => !p)}
       >
-        <SecurityRow label="Password Protection"  status="enabled"     note="Your account is protected with a password" />
-        <SecurityRow label="JWT Token Auth"        status="enabled"     note="Secure token-based authentication is active" />
-        <SecurityRow label="Two-Factor Auth"       status="not_enabled" note="Coming soon — extra login verification" />
-        <SecurityRow label="Account Status"        status={stored.is_active !== false ? 'enabled' : 'disabled'}
-          note={stored.is_active !== false ? 'Your account is currently active' : 'Your account is inactive'} />
+        <SecurityRow label="Password Protection"  status={security.password_protection?.status || 'enabled'}     note={security.password_protection?.note || 'Your account is protected with a password'} />
+        <SecurityRow label="JWT Token Auth"        status={security.jwt_token_auth?.status || 'enabled'}     note={security.jwt_token_auth?.note || 'Secure token-based authentication is active'} />
+        <SecurityRow label="Two-Factor Auth"       status={security.two_factor_authentication?.status || 'not_enabled'} note={security.two_factor_authentication?.note || 'Coming soon — extra login verification'} />
+        <SecurityRow label="Account Status"        status={security.account_status?.status || 'enabled'}
+          note={security.account_status?.note || 'Your account is currently active'} />
         <div style={{ marginTop: 14, background: '#fefce8', border: '1px solid #fef08a', borderRadius: 10, padding: '10px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
             <Info size={13} color="#a16207" />
