@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   FolderOpen, TrendingUp, TrendingDown,
   BadgePercent, ShieldAlert, ArrowRight, Activity,
-  Bell, Clock, CheckCircle2,
+  Clock, CheckCircle2,
   Car, Banknote, ChevronRight, Users,
 } from 'lucide-react'
 import api from '../../api/axios'
@@ -416,36 +416,23 @@ export default function DashboardPage() {
               </table>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div className="db-card">
-                <div className="db-card-header">
-                  <div className="db-card-title"><Clock size={16} /> Recent Activity</div>
-                </div>
-                <div className="db-activity-list">
-                  {recentActivity.map((a) => (
-                    <div key={a.id} className="db-activity-row">
-                      <div className="db-activity-dot" />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ fontWeight: 600, color: 'var(--gray-800)', fontSize: '.84rem' }}>{a.user}</span>
-                        <span style={{ color: 'var(--gray-500)', fontSize: '.84rem' }}> {a.action}</span>
-                        {a.record_id && <span className="db-file-id" style={{ marginLeft: 6 }}>{a.record_id.slice(0, 8)}</span>}
-                      </div>
-                      <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{timeLabel(a.created_at)}</div>
-                    </div>
-                  ))}
-                  {recentActivity.length === 0 && <div className="db-empty"><span>No recent activity</span></div>}
-                </div>
+            <div className="db-card">
+              <div className="db-card-header">
+                <div className="db-card-title"><Clock size={16} /> Recent Activity</div>
               </div>
-
-              <div className="db-card">
-                <div className="db-card-header">
-                  <div className="db-card-title">
-                    <Bell size={16} /> Notifications
+              <div className="db-activity-list">
+                {recentActivity.map((a) => (
+                  <div key={a.id} className="db-activity-row">
+                    <div className="db-activity-dot" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontWeight: 600, color: 'var(--gray-800)', fontSize: '.84rem' }}>{a.user}</span>
+                      <span style={{ color: 'var(--gray-500)', fontSize: '.84rem' }}> {a.action}</span>
+                      {a.record_id && <span className="db-file-id" style={{ marginLeft: 6 }}>{a.record_id.slice(0, 8)}</span>}
+                    </div>
+                    <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{timeLabel(a.created_at)}</div>
                   </div>
-                </div>
-                <div>
-                  <div className="db-empty"><span>No notifications</span></div>
-                </div>
+                ))}
+                {recentActivity.length === 0 && <div className="db-empty"><span>No recent activity</span></div>}
               </div>
             </div>
           </div>
