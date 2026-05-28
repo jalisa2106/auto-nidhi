@@ -20,6 +20,9 @@ from backend.routes.admin.expenses import router as expenses_router
 from backend.routes.admin.advances import router as advances_router
 from backend.routes.admin.insurance_payments import router as insurance_payments_router
 
+# Customer Routes
+from backend.routes.customer.dashboard import router as customer_dashboard_router
+
 #Masters Routes
 from backend.routes.admin.brokers import router as brokers_router
 from backend.routes.admin.insurance_companies import router as insurance_companies_router
@@ -74,6 +77,9 @@ app.include_router(commissions_out_router)
 app.include_router(expenses_router)
 app.include_router(advances_router)
 app.include_router(insurance_payments_router)
+
+# Customer Dashboard
+app.include_router(customer_dashboard_router)
 
 # Masters   
 app.include_router(brokers_router)
