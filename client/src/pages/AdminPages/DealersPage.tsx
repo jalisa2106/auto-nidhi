@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
 import {
-  Users, Building2, UserCheck, Plus, X, Pencil, Trash2, RotateCcw,
+  Building2, UserCheck, Plus, X, Pencil, Trash2, RotateCcw,
   ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
