@@ -33,10 +33,10 @@ export default function CustomerLayout() {
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const role = localStorage.getItem('user_role')
+  // Load user name from localStorage
+  const loadUserName = () => {
     try {
-      const stored = localStorage.getItem('an_current_user')
+      const stored = localStorage.getItem('an_current_user') || sessionStorage.getItem('an_current_user')
       if (stored) {
         const u = JSON.parse(stored)
         const name = u.first_name || u.name || 'Customer'
@@ -44,11 +44,27 @@ export default function CustomerLayout() {
         setUserInitial(name.slice(0, 1).toUpperCase())
       }
     } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    loadUserName()
+    const role = localStorage.getItem('user_role')
 
     if (!localStorage.getItem('access_token') || (role && role.toLowerCase() !== 'customer')) {
       navigate('/login', { replace: true })
     }
   }, [navigate])
+
+  // Listen to storage changes (e.g., when profile is updated on another tab or after save)
+  useEffect(() => {
+    window.addEventListener('storage', loadUserName)
+    // Listen for custom profile update event
+    window.addEventListener('user-profile-updated', loadUserName)
+    return () => {
+      window.removeEventListener('storage', loadUserName)
+      window.removeEventListener('user-profile-updated', loadUserName)
+    }
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
