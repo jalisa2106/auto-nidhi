@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { Clock, CheckCircle2, AlertCircle, Car, Shield, FileText, ArrowRight } from 'lucide-react'
-import PageHeader from '../../components/app/PageHeader'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  FolderOpen, CheckCircle2, Clock, AlertCircle,
+  ArrowRight, Bell, FileText, Car, ShieldCheck,
+  ChevronRight, BellRing, Circle,
+} from 'lucide-react'
 import { filesApi } from '../../api/services'
+
+// ── Types ──────────────────────────────────────────────────────────────────
 
 interface FileRecord {
   id: string
@@ -18,149 +23,348 @@ interface Notification {
   message: string
   time: string
   read: boolean
+  type: 'info' | 'warning' | 'success'
 }
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string; label: string; next: string }> = {
+  draft:         { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8', label: 'Draft',         next: 'Collecting documents' },
+  login:         { bg: '#eff6ff', text: '#1d4ed8', dot: '#3b82f6', label: 'Login',         next: 'File submitted to bank' },
+  under_process: { bg: '#fef3c7', text: '#b45309', dot: '#f59e0b', label: 'Under Process', next: 'Bank is reviewing your application' },
+  sanctioned:    { bg: '#f0fdfa', text: '#0f766e', dot: '#14b8a6', label: 'Sanctioned',    next: 'Awaiting disbursement' },
+  disbursed:     { bg: '#f0fdf4', text: '#15803d', dot: '#22c55e', label: 'Disbursed',     next: 'Loan disbursed — RTO/Insurance in progress' },
+  completed:     { bg: '#dcfce7', text: '#166534', dot: '#16a34a', label: 'Completed',     next: 'All done!' },
+  cancelled:     { bg: '#fef2f2', text: '#b91c1c', dot: '#ef4444', label: 'Cancelled',     next: 'File was cancelled' },
+}
+
+function normalizeStatus(s?: string) {
+  return (s || 'draft').toLowerCase().replace(/ /g, '_')
+}
+
+function StatusBadge({ status }: { status?: string }) {
+  const key = normalizeStatus(status)
+  const cfg = STATUS_CONFIG[key] || STATUS_CONFIG.draft
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      background: cfg.bg, color: cfg.text,
+      padding: '3px 10px', borderRadius: 99, fontSize: '.72rem', fontWeight: 700,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot }} />
+      {cfg.label}
+    </span>
+  )
+}
+
+const PIPELINE_STATUSES = ['draft', 'login', 'under_process', 'sanctioned', 'disbursed']
 
 // Mock notifications (replace with real API when available)
 const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: '1', message: 'Your file is under review by the bank.', time: '2 hours ago', read: false },
-  { id: '2', message: 'Documents approved — disbursement pending.', time: '1 day ago', read: true },
-  { id: '3', message: 'Insurance renewal reminder: expires in 15 days.', time: '3 days ago', read: true },
+  { id: '1', message: 'Your loan file is under review by the finance bank.', time: '2 hours ago', read: false, type: 'info' },
+  { id: '2', message: 'Documents approved — disbursement is now pending.', time: '1 day ago', read: false, type: 'success' },
+  { id: '3', message: 'Insurance renewal reminder: your policy expires in 15 days.', time: '3 days ago', read: true, type: 'warning' },
 ]
+
+// ── Main ───────────────────────────────────────────────────────────────────
 
 export default function CustomerPortalPage() {
   const navigate = useNavigate()
   const [files, setFiles] = useState<FileRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const userName = localStorage.getItem('user_name') || 'Customer'
+  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS)
+
+  // Read user from localStorage (DB fields: first_name, last_name, email, phone_number)
+  const stored = (() => {
+    try { return JSON.parse(localStorage.getItem('an_current_user') || '{}') } catch { return {} }
+  })()
+  const firstName = stored.first_name || stored.name?.split(' ')[0] || 'Customer'
+  const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await filesApi.list(1, 5)
-        setFiles(Array.isArray(res) ? res : res.data || [])
-      } catch {
-        setFiles([])
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
+    filesApi.list(1, 10)
+      .then(res => setFiles(Array.isArray(res) ? res : res.data || []))
+      .catch(() => setFiles([]))
+      .finally(() => setLoading(false))
   }, [])
 
-  const active    = files.filter(f => f.status && !['completed', 'cancelled'].includes(f.status.toLowerCase())).length
-  const completed = files.filter(f => f.status?.toLowerCase() === 'completed').length
-  const unread    = MOCK_NOTIFICATIONS.filter(n => !n.read).length
+  // Derived stats
+  const active    = files.filter(f => !['completed', 'cancelled'].includes(normalizeStatus(f.status))).length
+  const completed = files.filter(f => normalizeStatus(f.status) === 'completed').length
+  const unread    = notifications.filter(n => !n.read).length
+
+  // Pipeline counts
+  const pipeline = PIPELINE_STATUSES.map(key => ({
+    key,
+    cfg: STATUS_CONFIG[key],
+    count: files.filter(f => normalizeStatus(f.status) === key).length,
+  }))
+
+  const markRead = (id: string) =>
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+
+  const NOTIF_STYLE: Record<string, { bg: string; color: string }> = {
+    info:    { bg: '#eff6ff', color: '#1d4ed8' },
+    success: { bg: '#f0fdf4', color: '#15803d' },
+    warning: { bg: '#fef3c7', color: '#d97706' },
+  }
 
   return (
-    <>
-      <PageHeader
-        title={`Welcome back, ${userName.split(' ')[0]}! 👋`}
-        subtitle="Track your ongoing services or apply for a new one"
-      />
-
-      {/* ── Stat cards ── */}
-      <div className="stats-grid" style={{ marginBottom: 28 }}>
-        <div className="data-card" style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--brand-50)', color: 'var(--brand-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Clock size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--gray-900)', lineHeight: 1 }}>{loading ? '…' : active}</div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--gray-400)', fontWeight: 500 }}>Active Files</div>
-          </div>
+    <div className="db-root">
+      {/* ── Welcome Banner ── */}
+      <div className="db-welcome">
+        <div>
+          <div className="db-greeting">{greeting}, {firstName}! 👋</div>
+          <div className="db-sub">Track your ongoing services and file updates — AutoNidhi</div>
         </div>
-        <div className="data-card" style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{ width: 52, height: 52, borderRadius: 14, background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircle2 size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--gray-900)', lineHeight: 1 }}>{loading ? '…' : completed}</div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--gray-400)', fontWeight: 500 }}>Completed Services</div>
-          </div>
-        </div>
-        <div className="data-card" style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <AlertCircle size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--gray-900)', lineHeight: 1 }}>{unread}</div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--gray-400)', fontWeight: 500 }}>Unread Notifications</div>
-          </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link to="/portal/files" className="btn btn-primary btn-sm">
+            <FileText size={14} style={{ marginRight: 5 }} /> My Files
+          </Link>
+          <Link to="/portal/notifications" className="btn btn-outline btn-sm">
+            <BellRing size={14} style={{ marginRight: 5 }} /> Notifications {unread > 0 && `(${unread})`}
+          </Link>
         </div>
       </div>
 
-      {/* ── Main 2-column grid ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, alignItems: 'start' }}>
+      {/* ── KPI Cards ── */}
+      <div className="db-kpi-grid">
+        <div className="db-kpi-card db-kpi-blue" onClick={() => navigate('/portal/files')}>
+          <div className="db-kpi-icon"><FolderOpen size={22} /></div>
+          <div className="db-kpi-body">
+            <div className="db-kpi-label">Active Files</div>
+            <div className="db-kpi-value">{loading ? '…' : active}</div>
+            <div className="db-kpi-sub">
+              <span className="db-chip db-chip-blue">In Progress</span>
+            </div>
+          </div>
+          <ChevronRight size={16} className="db-kpi-arrow" />
+        </div>
+
+        <div className="db-kpi-card db-kpi-green" onClick={() => navigate('/portal/files')}>
+          <div className="db-kpi-icon"><CheckCircle2 size={22} /></div>
+          <div className="db-kpi-body">
+            <div className="db-kpi-label">Completed Services</div>
+            <div className="db-kpi-value">{loading ? '…' : completed}</div>
+            <div className="db-kpi-sub">
+              <span className="db-kpi-tag green">All done</span>
+            </div>
+          </div>
+          <ChevronRight size={16} className="db-kpi-arrow" />
+        </div>
+
+        <div className="db-kpi-card db-kpi-gold" onClick={() => navigate('/portal/notifications')}>
+          <div className="db-kpi-icon"><Bell size={22} /></div>
+          <div className="db-kpi-body">
+            <div className="db-kpi-label">Unread Notifications</div>
+            <div className="db-kpi-value">{unread}</div>
+            <div className="db-kpi-sub">
+              <span className="db-kpi-tag gold">{unread > 0 ? 'Action needed' : 'All caught up'}</span>
+            </div>
+          </div>
+          <ChevronRight size={16} className="db-kpi-arrow" />
+        </div>
+
+        <div className="db-kpi-card db-kpi-red" onClick={() => navigate('/portal/insurance')}>
+          <div className="db-kpi-icon"><ShieldCheck size={22} /></div>
+          <div className="db-kpi-body">
+            <div className="db-kpi-label">Insurance</div>
+            <div className="db-kpi-value">—</div>
+            <div className="db-kpi-sub">
+              <span className="db-kpi-tag red">View policies</span>
+            </div>
+          </div>
+          <ChevronRight size={16} className="db-kpi-arrow" />
+        </div>
+      </div>
+
+      {/* ── Row 2: Pipeline + Services ── */}
+      <div className="db-row2">
+        {/* File Status Pipeline */}
+        <div className="db-card db-pipeline">
+          <div className="db-card-header">
+            <div className="db-card-title"><Car size={16} /> File Status Pipeline</div>
+            <Link to="/portal/files" className="db-see-all">View all <ArrowRight size={12} /></Link>
+          </div>
+          <div className="db-pipeline-grid">
+            {pipeline.map(p => (
+              <div
+                key={p.key}
+                className="db-pipeline-item"
+                style={{ background: p.cfg.bg, cursor: 'pointer' }}
+                onClick={() => navigate('/portal/files')}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.cfg.dot, flexShrink: 0 }} />
+                  <span style={{ fontSize: '.72rem', fontWeight: 700, color: p.cfg.text, textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                    {p.cfg.label}
+                  </span>
+                </div>
+                <div style={{ fontSize: '2rem', fontWeight: 900, color: p.cfg.text, lineHeight: 1 }}>{p.count}</div>
+                <div style={{ fontSize: '.72rem', color: p.cfg.text, opacity: 0.7, marginTop: 4 }}>
+                  {p.count === 1 ? 'file' : 'files'}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="db-pipeline-bar">
+            {pipeline.map(p => p.count > 0 && (
+              <div
+                key={p.key}
+                title={`${p.cfg.label}: ${p.count}`}
+                style={{ flex: p.count, height: 6, background: p.cfg.dot, borderRadius: 4, transition: 'flex .4s ease' }}
+              />
+            ))}
+          </div>
+        </div>
 
         {/* Apply for new service */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--gray-700)', margin: 0 }}>Apply for a New Service</h2>
+        <div className="db-card">
+          <div className="db-card-header">
+            <div className="db-card-title"><FileText size={16} /> Quick Services</div>
+          </div>
           {[
-            { icon: Car, bg: 'var(--brand-600)', title: 'Vehicle Financing / Car Loan', desc: 'Competitive rates from premium banks for new or used vehicles.' },
-            { icon: Shield, bg: '#8b5cf6', title: 'Vehicle Insurance', desc: 'Fresh coverage or renewal — third-party and comprehensive plans.' },
-            { icon: FileText, bg: '#f59e0b', title: 'RTO Management Services', desc: 'Ownership transfers, NOC, and fitness certificates.' },
+            { icon: Car,        bg: '#2563eb', title: 'Vehicle Loan',      desc: 'New or used vehicle financing from banks/NBFCs' },
+            { icon: ShieldCheck, bg: '#7c3aed', title: 'Vehicle Insurance', desc: 'Fresh coverage or renewal — third-party & comprehensive' },
+            { icon: FileText,   bg: '#d97706', title: 'RTO Services',      desc: 'Transfer, NOC, and fitness certificate applications' },
           ].map(({ icon: Icon, bg, title, desc }) => (
-            <div key={title} style={{ display: 'flex', alignItems: 'center', gap: 20, padding: 20, background: 'var(--surface-0)', border: '1px solid var(--gray-100)', borderRadius: 14, cursor: 'pointer', transition: 'box-shadow .15s' }}
+            <div
+              key={title}
               onClick={() => navigate('/portal/files')}
-              onMouseEnter={e => (e.currentTarget.style.boxShadow = 'var(--shadow-md)')}
-              onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '12px 0', borderBottom: '1px solid #f1f5f9',
+                cursor: 'pointer',
+              }}
             >
-              <div style={{ width: 46, height: 46, borderRadius: 12, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icon color="#fff" size={20} />
+              <div style={{
+                width: 38, height: 38, borderRadius: 10,
+                background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <Icon color="#fff" size={17} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, color: 'var(--gray-900)', marginBottom: 4 }}>{title}</div>
-                <div style={{ fontSize: '0.83rem', color: 'var(--gray-500)' }}>{desc}</div>
+                <div style={{ fontWeight: 600, fontSize: '.88rem', color: '#0f172a' }}>{title}</div>
+                <div style={{ fontSize: '.76rem', color: '#94a3b8' }}>{desc}</div>
               </div>
-              <ArrowRight size={16} color="var(--gray-400)" />
+              <ArrowRight size={14} color="#94a3b8" />
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Recent files + notifications */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Recent files */}
-          <div className="data-card" style={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 style={{ margin: 0, fontSize: '.95rem', fontWeight: 700, color: 'var(--gray-800)' }}>My Files</h3>
-              <Link to="/portal/files" style={{ fontSize: '.8rem', color: 'var(--brand-600)', fontWeight: 600 }}>View all</Link>
+      {/* ── Row 3: Recent Files + Notifications ── */}
+      <div className="db-row3">
+        {/* Recent Files Table */}
+        <div className="db-card">
+          <div className="db-card-header">
+            <div className="db-card-title"><FolderOpen size={16} /> My Recent Files</div>
+            <Link to="/portal/files" className="db-see-all">All files <ArrowRight size={12} /></Link>
+          </div>
+          <table className="db-mini-table">
+            <thead>
+              <tr>
+                <th>File #</th>
+                <th>Type</th>
+                <th>Bank</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr><td colSpan={4} style={{ color: 'var(--gray-400)' }}>Loading…</td></tr>
+              )}
+              {!loading && files.length === 0 && (
+                <tr><td colSpan={4} style={{ color: 'var(--gray-400)' }}>No files yet. Contact AutoNidhi to start.</td></tr>
+              )}
+              {!loading && files.slice(0, 5).map(f => (
+                <tr key={f.id} onClick={() => navigate(`/portal/files/${f.id}`)} style={{ cursor: 'pointer' }}>
+                  <td><span className="db-file-id">{f.file_number || '—'}</span></td>
+                  <td style={{ fontSize: '.78rem', color: '#64748b', fontWeight: 500 }}>
+                    {f.file_type?.replace(/_/g, ' ') || '—'}
+                  </td>
+                  <td style={{ fontSize: '.78rem', color: '#64748b' }}>{f.finance_bank || '—'}</td>
+                  <td><StatusBadge status={f.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Notifications panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="db-card">
+            <div className="db-card-header">
+              <div className="db-card-title"><Bell size={16} /> Notifications</div>
+              <Link to="/portal/notifications" className="db-see-all">See all <ArrowRight size={12} /></Link>
             </div>
-            {loading ? (
-              <div style={{ color: 'var(--gray-400)', fontSize: '.85rem' }}>Loading…</div>
-            ) : files.length === 0 ? (
-              <div style={{ color: 'var(--gray-400)', fontSize: '.85rem' }}>No files yet.</div>
-            ) : files.slice(0, 3).map(f => (
-              <Link key={f.id} to="/portal/files"
-                style={{ display: 'block', padding: '10px 0', borderBottom: '1px solid var(--gray-50)', textDecoration: 'none' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '.87rem', color: 'var(--gray-800)' }}>{f.file_number}</div>
-                    <div style={{ fontSize: '.75rem', color: 'var(--gray-400)' }}>{f.file_type || '—'}</div>
+            <div>
+              {notifications.length === 0 ? (
+                <div className="db-empty"><CheckCircle2 size={26} color="#16a34a" /><span>All caught up!</span></div>
+              ) : notifications.map(n => {
+                const ns = NOTIF_STYLE[n.type] || NOTIF_STYLE.info
+                return (
+                  <div
+                    key={n.id}
+                    className="db-activity-row"
+                    style={{ background: n.read ? 'transparent' : '#f8faff', borderRadius: 8, padding: '10px 8px', marginBottom: 2 }}
+                  >
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                      background: ns.bg, color: ns.color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <BellRing size={14} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: '.83rem', fontWeight: n.read ? 400 : 600,
+                        color: n.read ? '#64748b' : '#0f172a', lineHeight: 1.4,
+                      }}>
+                        {n.message}
+                      </div>
+                      <div style={{ fontSize: '.72rem', color: '#94a3b8', marginTop: 3 }}>{n.time}</div>
+                    </div>
+                    {!n.read && (
+                      <button onClick={() => markRead(n.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', padding: 4, flexShrink: 0 }}>
+                        <Circle size={14} />
+                      </button>
+                    )}
                   </div>
-                  <span style={{ fontSize: '.72rem', fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: 'var(--brand-50)', color: 'var(--brand-700)' }}>
-                    {f.status || 'Active'}
-                  </span>
-                </div>
-              </Link>
-            ))}
+                )
+              })}
+            </div>
           </div>
 
-          {/* Notifications */}
-          <div className="data-card" style={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 style={{ margin: 0, fontSize: '.95rem', fontWeight: 700, color: 'var(--gray-800)' }}>Notifications</h3>
-              <Link to="/portal/notifications" style={{ fontSize: '.8rem', color: 'var(--brand-600)', fontWeight: 600 }}>See all</Link>
+          {/* Quick links */}
+          <div className="db-card">
+            <div className="db-card-header">
+              <div className="db-card-title"><AlertCircle size={16} /> Quick Actions</div>
             </div>
-            {MOCK_NOTIFICATIONS.map(n => (
-              <div key={n.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--gray-50)' }}>
-                <div style={{ fontSize: '.84rem', fontWeight: n.read ? 400 : 600, color: n.read ? 'var(--gray-600)' : 'var(--gray-900)' }}>{n.message}</div>
-                <div style={{ fontSize: '.72rem', color: 'var(--gray-400)', marginTop: 2 }}>{n.time}</div>
-              </div>
-            ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: 'View My Files',       to: '/portal/files',      icon: FolderOpen },
+                { label: 'Check Documents',     to: '/portal/documents',  icon: FileText   },
+                { label: 'Payment Status',      to: '/portal/payments',   icon: Clock      },
+                { label: 'Insurance Details',   to: '/portal/insurance',  icon: ShieldCheck},
+              ].map(({ label, to, icon: Icon }) => (
+                <Link key={to} to={to} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 12px', borderRadius: 10,
+                  background: '#f8fafc', border: '1px solid #f1f5f9',
+                  textDecoration: 'none', color: '#334155', fontSize: '.84rem', fontWeight: 500,
+                  transition: 'background .12s',
+                }}>
+                  <Icon size={14} color="#2563eb" />
+                  {label}
+                  <ArrowRight size={13} color="#94a3b8" style={{ marginLeft: 'auto' }} />
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
