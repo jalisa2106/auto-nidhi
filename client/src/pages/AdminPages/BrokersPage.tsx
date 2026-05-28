@@ -5,12 +5,14 @@ import { Phone, MapPin, Search, Plus, Pencil, Trash2, Handshake, TrendingDown, C
 import Modal from '../../components/app/Modal'
 import { brokersApi } from '../../api/services'
 
+// ─── TYPES & CONTRACT BOUNDARIES ──────────────────────────────────────────
 interface Broker {
   id: string
   broker_name: string
   area: string
   district: string
   phone: string
+  status: 'Active' | 'Inactive'
 }
 
 const emptyForm = (): Omit<Broker, 'id'> => ({
@@ -18,6 +20,7 @@ const emptyForm = (): Omit<Broker, 'id'> => ({
   area: '',
   district: '',
   phone: '',
+  status: 'Active',
 })
 
 const normalizeBroker = (broker: Partial<Broker>): Broker => ({
@@ -26,6 +29,7 @@ const normalizeBroker = (broker: Partial<Broker>): Broker => ({
   area: String(broker.area ?? '').trim(),
   district: String(broker.district ?? '').trim(),
   phone: String(broker.phone ?? '').trim(),
+  status: (broker.status as 'Active' | 'Inactive') || 'Active',
 })
 
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -215,7 +219,7 @@ export default function BrokersPage() {
     }
   }
 
-  const f = (key: keyof typeof form) => (e: ChangeEvent<HTMLInputElement>) => {
+  const f = (key: keyof typeof form) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [key]: e.target.value }))
     if (errors[key]) {
       setErrors(prev => {
@@ -269,14 +273,14 @@ export default function BrokersPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
             <thead style={{ position: 'sticky', top: 0 }}>
               <tr>
-                {['#', 'ID', 'Broker Name', 'Area', 'District', 'Phone', 'Actions'].map(h => (
+                {['#', 'ID', 'Broker Name', 'Area', 'District', 'Phone', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--gray-500)', background: 'var(--surface-1)', borderBottom: '1px solid var(--gray-100)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No brokers found.</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No brokers found.</td></tr>
               ) : pageRows.map((row, i) => (
                 <tr key={row.id}
                   style={{ borderBottom: '1px solid var(--gray-50)', transition: 'background .12s' }}
@@ -298,6 +302,11 @@ export default function BrokersPage() {
                   <td style={{ padding: '12px 14px', color: 'var(--gray-700)' }}>{row.district || '—'}</td>
                   <td style={{ padding: '12px 14px', color: 'var(--gray-600)', fontFamily: 'monospace', fontSize: '.82rem' }}>
                     {row.phone ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Phone size={12} style={{ color: 'var(--gray-400)' }} />{row.phone}</span> : '—'}
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <span className={`from-badge ${row.status === 'Active' ? 'from-dealer' : 'from-other'}`}>
+                      {row.status?.toUpperCase() || 'ACTIVE'}
+                    </span>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -342,32 +351,40 @@ export default function BrokersPage() {
           <FormField label="District" required={true} error={errors.district}>
             <input id="broker-add-district" className={`form-input ${errors.district ? 'error' : ''}`} value={form.district} onChange={f('district')} placeholder="e.g. Pune" required />
           </FormField>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <FormField label="Phone" required={true} error={errors.phone}>
-              <input id="broker-add-phone" className={`form-input ${errors.phone ? 'error' : ''}`} value={form.phone} onChange={f('phone')} placeholder="10-digit mobile number" maxLength={10} required />
-            </FormField>
-          </div>
+          <FormField label="Phone" required={true} error={errors.phone}>
+            <input id="broker-add-phone" className={`form-input ${errors.phone ? 'error' : ''}`} value={form.phone} onChange={f('phone')} placeholder="10-digit mobile number" maxLength={10} required />
+          </FormField>
+          <FormField label="Network Status" required={true}>
+            <select id="broker-add-status" className="form-input" value={form.status} onChange={f('status')}>
+              <option value="Active">Active (Permit immediate sourcing)</option>
+              <option value="Inactive">Inactive / On Hold</option>
+            </select>
+          </FormField>
         </div>
       </Modal>
  
-      <Modal open={editOpen} title="Edit Broker" onClose={() => { setEditOpen(false); setErrors({}) }} onSubmit={handleEdit} submitLabel="Save Changes" maxWidth="560px">
+      <Modal open={editOpen} title="Edit Broker" onClose={() => { setEditOpen(false); setErrors({}) }} onSubmit={handleEdit} submitLabel="Save Changes" maxWidth="650px">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div style={{ gridColumn: '1 / -1' }}>
-            <FormField label="Broker Name *" error={errors.broker_name}>
+            <FormField label="Broker Name" required={true} error={errors.broker_name}>
               <input id="broker-edit-name" className={`form-input ${errors.broker_name ? 'error' : ''}`} value={form.broker_name} onChange={f('broker_name')} placeholder="e.g. S. Joshi Associates" required />
             </FormField>
           </div>
-          <FormField label="Area *" error={errors.area}>
+          <FormField label="Area" required={true} error={errors.area}>
             <input id="broker-edit-area" className={`form-input ${errors.area ? 'error' : ''}`} value={form.area} onChange={f('area')} placeholder="e.g. Kothrud" required />
           </FormField>
-          <FormField label="District *" error={errors.district}>
+          <FormField label="District" required={true} error={errors.district}>
             <input id="broker-edit-district" className={`form-input ${errors.district ? 'error' : ''}`} value={form.district} onChange={f('district')} placeholder="e.g. Pune" required />
           </FormField>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <FormField label="Phone *" error={errors.phone}>
-              <input id="broker-edit-phone" className={`form-input ${errors.phone ? 'error' : ''}`} value={form.phone} onChange={f('phone')} placeholder="10-digit mobile number" maxLength={10} required />
-            </FormField>
-          </div>
+          <FormField label="Phone" required={true} error={errors.phone}>
+            <input id="broker-edit-phone" className={`form-input ${errors.phone ? 'error' : ''}`} value={form.phone} onChange={f('phone')} placeholder="10-digit mobile number" maxLength={10} required />
+          </FormField>
+          <FormField label="Network Status" required={true}>
+            <select id="broker-edit-status" className="form-input" value={form.status} onChange={f('status')}>
+              <option value="Active">Active (Permit immediate sourcing)</option>
+              <option value="Inactive">Inactive / On Hold</option>
+            </select>
+          </FormField>
         </div>
       </Modal>
     </div>
