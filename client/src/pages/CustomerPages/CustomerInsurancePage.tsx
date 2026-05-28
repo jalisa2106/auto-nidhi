@@ -10,8 +10,8 @@ interface InsurancePolicy {
   file_type: string
   company_name: string // maps to master_insurance_company.company_name
   policy_number: string // maps to insurance_info.policy_number
-  valid_from: string // maps to insurance_info.valid_from (YYYY-MM-DD)
-  valid_to: string // maps to insurance_info.valid_to (YYYY-MM-DD)
+  valid_from: string | null // maps to insurance_info.valid_from (YYYY-MM-DD)
+  valid_to: string | null // maps to insurance_info.valid_to (YYYY-MM-DD)
   premium_amount: number // maps to insurance_info.premium_amount
   idv_amount: number // maps to insurance_info.idv_amount
 }
@@ -111,8 +111,8 @@ export default function CustomerInsurancePage() {
       .then(res => {
         setPolicies(res.data || [])
       })
-      .catch(() => {
-        // Fallback to high-fidelity mock data mimicking DB query output
+      .catch((err) => {
+        console.error('Failed to load insurance policies', err)
         setPolicies(FALLBACK_POLICIES)
       })
       .finally(() => {
@@ -121,7 +121,11 @@ export default function CustomerInsurancePage() {
   }, [])
 
   // Dynamic policy status calculator helper
-  const getPolicyStatus = (validToDateStr: string) => {
+  const getPolicyStatus = (validToDateStr: string | null) => {
+    if (!validToDateStr) {
+      return { label: 'No expiry date', color: '#64748b', bg: '#f1f5f9', type: 'expired' }
+    }
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const validTo = new Date(validToDateStr)
@@ -318,9 +322,9 @@ export default function CustomerInsurancePage() {
                             </td>
                             <td>
                               <div style={{ fontSize: 13, color: '#334155', fontWeight: 500 }}>
-                                {new Date(p.valid_from).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                {p.valid_from ? new Date(p.valid_from).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                                 <span style={{ margin: '0 6px', color: '#94a3b8' }}>➔</span>
-                                {new Date(p.valid_to).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                {p.valid_to ? new Date(p.valid_to).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                               </div>
                             </td>
                             <td>

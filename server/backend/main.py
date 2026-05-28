@@ -22,6 +22,7 @@ from backend.routes.admin.insurance_payments import router as insurance_payments
 
 # Customer Routes
 from backend.routes.customer.dashboard import router as customer_dashboard_router
+from backend.routes.customer.insurance import router as customer_insurance_router
 
 #Masters Routes
 from backend.routes.admin.brokers import router as brokers_router
@@ -80,6 +81,7 @@ app.include_router(insurance_payments_router)
 
 # Customer Dashboard
 app.include_router(customer_dashboard_router)
+app.include_router(customer_insurance_router)
 
 # Masters   
 app.include_router(brokers_router)

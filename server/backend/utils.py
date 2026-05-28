@@ -115,6 +115,26 @@ def get_current_customer(
 
     return current_user
 
+def get_current_customer_profile(
+    current_user: SystemUser = Depends(get_current_customer),
+    db: Session = Depends(get_db)
+):
+    from backend.models import Customer
+
+    customer = (
+        db.query(Customer)
+        .filter(Customer.email == current_user.email)
+        .first()
+    )
+
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer profile not found for this user",
+        )
+
+    return customer
+
 def get_password_hash(password: str) -> str:
     # Bcrypt requires bytes, so we encode the password string
     pwd_bytes = password.encode('utf-8')
