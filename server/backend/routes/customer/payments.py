@@ -14,10 +14,19 @@ def customer_payments_status(
     db: Session = Depends(get_db),
 ):
     """Return the payment history for the current customer user."""
+    from backend.models import Customer
+    
+    # Find the customer record linked to this system user (by email)
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    
+    if not customer:
+        return []
+    
+    # Get payments for files owned by this customer
     payments = (
         db.query(PaymentIn)
         .join(FileRecord, FileRecord.id == PaymentIn.file_id)
-        .filter(FileRecord.created_by_user_id == current_user.id)
+        .filter(FileRecord.customer_id == customer.id)
         .order_by(PaymentIn.payment_date.desc())
         .all()
     )
