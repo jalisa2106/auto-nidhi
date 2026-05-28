@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
 from backend.database import get_db
-from backend.models import SystemUser, MasterRole
+from backend.models import SystemUser, MasterRole, Customer
 from backend.utils import get_password_hash, create_access_token
 
 router = APIRouter()
@@ -34,8 +34,10 @@ def signup(data: SignupData, db: Session = Depends(get_db)):
     if data.password != data.confirmPassword:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match")
 
+    email = data.email.strip().lower()
+    
     # 2. Existing user check in the Database
-    existing_user = db.query(SystemUser).filter(SystemUser.email == data.email).first()
+    existing_user = db.query(SystemUser).filter(SystemUser.email == email).first()
     if existing_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
 
@@ -45,6 +47,20 @@ def signup(data: SignupData, db: Session = Depends(get_db)):
     if role_key in VALID_PASSKEYS:
         if data.passkey != VALID_PASSKEYS[role_key]:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid passkey for this role")
+
+    if role_key == "customer" and not data.phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number is required for customer signup",
+        )
+
+    if role_key == "customer":
+        existing_customer_mobile = db.query(Customer).filter(Customer.mobile_1 == data.phone_number).first()
+        if existing_customer_mobile:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Customer with this mobile already exists",
+            )
 
     # 4. Find the matching Role ID from the master_role table
     db_role = db.query(MasterRole).filter(MasterRole.role_name.ilike(role_key)).first()
@@ -57,15 +73,34 @@ def signup(data: SignupData, db: Session = Depends(get_db)):
     new_user = SystemUser(
         first_name=data.first_name,
         last_name=data.last_name,
-        email=data.email,
+        email=email,
         password_hash=hashed_pwd,
         phone_number=data.phone_number,
         role_id=db_role.id
     )
     
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+
+    if role_key == "customer":
+        existing_customer = db.query(Customer).filter(Customer.email == email).first()
+
+        if not existing_customer:
+            full_name = f"{data.first_name} {data.last_name or ''}".strip()
+
+            new_customer = Customer(
+                full_name=full_name,
+                email=email,
+                mobile_1=data.phone_number,
+                customer_type="individual",
+            )
+            db.add(new_customer)
+
+    try:
+        db.commit()
+        db.refresh(new_user)
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     role_name = db_role.role_name.lower()
     # 1. Generate the tokens so the user is instantly logged in

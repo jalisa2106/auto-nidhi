@@ -8,8 +8,9 @@ from datetime import date
 import re
 
 from backend.database import get_db
-from backend.models import Customer, FileRecord, SystemUser
-from backend.utils import get_current_admin, record_dashboard_event
+from backend.models import Customer, FileRecord, SystemUser, MasterRole
+from backend.utils import get_current_admin, record_dashboard_event, get_password_hash
+
 
 router = APIRouter(prefix="/api/v1/customers", tags=["Admin Customers"])
 
@@ -42,6 +43,15 @@ class CustomerCreate(BaseModel):
     def validate_empty_string(cls, v):
         return None if v == "" else v
 
+def get_customer_role(db: Session) -> MasterRole:
+    role = db.query(MasterRole).filter(MasterRole.role_name.ilike("customer")).first()
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Customer role not found in master_role table",
+        )
+    return role
+
 @router.get("/")
 def list_customers(page: int = 1, limit: int = 50, search: Optional[str] = None, db: Session = Depends(get_db)):
     query = db.query(
@@ -68,11 +78,43 @@ def list_customers(page: int = 1, limit: int = 50, search: Optional[str] = None,
 def create_customer(payload: CustomerCreate, db: Session = Depends(get_db), current_user: SystemUser = Depends(get_current_admin)):
     existing = db.query(Customer).filter(Customer.mobile_1 == payload.mobile_1).first()
     if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Customer with this mobile already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Customer with this mobile already exists",
+        )
+
+    email = payload.email.strip().lower()
+
+    existing_user = db.query(SystemUser).filter(SystemUser.email == email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A login user with this customer email already exists",
+        )
+
+    customer_role = get_customer_role(db)
+
+    name_parts = payload.full_name.strip().split(" ", 1)
+    first_name = name_parts[0]
+    last_name = name_parts[1] if len(name_parts) > 1 else None
+
+    new_user = SystemUser(
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
+        phone_number=payload.mobile_1,
+        password_hash=get_password_hash(payload.mobile_1),
+        role_id=customer_role.id,
+        is_active=True,
+    )
 
     new_customer = Customer(**payload.dict(exclude_unset=True))
-    new_customer.created_by = current_user.id 
+    new_customer.email = email
+    new_customer.created_by = current_user.id
+    
+    db.add(new_user)
     db.add(new_customer)
+
     try:
         db.flush()
         record_dashboard_event(

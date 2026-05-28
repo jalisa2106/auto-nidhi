@@ -4,6 +4,7 @@ import {
   LayoutDashboard, FileText, FolderOpen, CreditCard, ShieldCheck,
   Car, LogOut, BellRing, UserCircle2, ChevronDown, Settings,
 } from 'lucide-react'
+import { customerDashboardApi } from '../../api/services'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
 interface NavGroup { title: string; items: NavItem[] }
