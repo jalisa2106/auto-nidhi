@@ -4,6 +4,7 @@ import {
   LayoutDashboard, FileText, FolderOpen, CreditCard, ShieldCheck,
   Car, LogOut, BellRing, UserCircle2, ChevronDown, Settings,
 } from 'lucide-react'
+import { customerDashboardApi } from '../../api/services'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
 interface NavGroup { title: string; items: NavItem[] }
@@ -35,15 +36,24 @@ export default function CustomerLayout() {
 
   useEffect(() => {
     const role = localStorage.getItem('user_role')
-    try {
-      const stored = localStorage.getItem('an_current_user')
-      if (stored) {
-        const u = JSON.parse(stored)
-        const name = u.first_name || u.name || 'Customer'
+
+    customerDashboardApi.get()
+      .then((res) => {
+        const name = res.user?.first_name || 'Customer'
         setUserName(name)
         setUserInitial(name.slice(0, 1).toUpperCase())
-      }
-    } catch { /* ignore */ }
+      })
+      .catch(() => {
+        try {
+          const stored = localStorage.getItem('an_current_user')
+          if (stored) {
+            const u = JSON.parse(stored)
+            const name = u.first_name || u.name || 'Customer'
+            setUserName(name)
+            setUserInitial(name.slice(0, 1).toUpperCase())
+          }
+        } catch { /* ignore */ }
+      })
 
     if (!localStorage.getItem('access_token') || (role && role.toLowerCase() !== 'customer')) {
       navigate('/login', { replace: true })

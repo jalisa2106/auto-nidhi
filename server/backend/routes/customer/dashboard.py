@@ -3,8 +3,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import SystemUser
-from backend.utils import get_current_customer
+from backend.models import Customer, SystemUser
+from backend.utils import get_current_customer, get_current_customer_profile
 
 router = APIRouter(prefix="/api/v1/customer", tags=["Customer Dashboard"])
 
@@ -16,42 +16,52 @@ def _rows(db: Session, sql: str, params: dict | None = None):
 @router.get("/dashboard")
 def customer_dashboard(
     current_user: SystemUser = Depends(get_current_customer),
+    customer: Customer = Depends(get_current_customer_profile),
     db: Session = Depends(get_db),
 ):
     user_id = str(current_user.id)
+    customer_id = str(customer.id)
 
-    total_files_created = db.execute(
+    total_files = db.execute(
         text(
-            "SELECT COUNT(*) FROM file_record WHERE created_by_user_id = :user_id AND is_deleted = FALSE"
+            "SELECT COUNT(*) FROM file_record WHERE customer_id = :customer_id AND is_deleted = FALSE"
         ),
-        {"user_id": user_id},
+        {"customer_id": customer_id},
     ).scalar() or 0
 
-    total_files_assigned = db.execute(
+    completed_files = db.execute(
         text(
-            "SELECT COUNT(*) FROM file_record WHERE assigned_to = :user_id AND is_deleted = FALSE"
+            """
+            SELECT COUNT(*)
+            FROM file_record
+            WHERE customer_id = :customer_id
+              AND is_deleted = FALSE
+              AND LOWER(status::text) = 'completed'
+            """
         ),
-        {"user_id": user_id},
+        {"customer_id": customer_id},
     ).scalar() or 0
 
     recent_files = _rows(
         db,
         """
         SELECT
-            id::text AS id,
-            file_number,
-            file_type::text AS type,
-            status::text AS status,
-            COALESCE(assigned.first_name, '') AS assigned_to,
-            created_at
+            fr.id::text AS id,
+            fr.file_number,
+            fr.file_type::text AS file_type,
+            fr.status::text AS status,
+            COALESCE(bank.bank_name, '') AS finance_bank,
+            fr.created_at
         FROM file_record
-        LEFT JOIN system_user AS assigned ON assigned.id = file_record.assigned_to
-        WHERE is_deleted = FALSE
-        AND (created_by_user_id = :user_id OR assigned_to = :user_id)
-        ORDER BY created_at DESC
+        AS fr
+        LEFT JOIN finance_info AS fi ON fi.file_id = fr.id
+        LEFT JOIN master_bank AS bank ON bank.id = fi.bank_id
+        WHERE fr.is_deleted = FALSE
+          AND fr.customer_id = :customer_id
+        ORDER BY fr.created_at DESC
         LIMIT 5
         """,
-        {"user_id": user_id},
+        {"customer_id": customer_id},
     )
 
     return {
@@ -63,8 +73,8 @@ def customer_dashboard(
             "role_id": str(current_user.role_id) if current_user.role_id else None,
         },
         "dashboard": {
-            "total_files_created": total_files_created,
-            "total_files_assigned": total_files_assigned,
+            "total_files": total_files,
+            "completed_files": completed_files,
             "recent_files": recent_files,
         },
     }

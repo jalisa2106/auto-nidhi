@@ -551,6 +551,13 @@ export const customerSettingsApi = {
   },
 }
 
+export const customerDashboardApi = {
+  get: async () => {
+    const { data } = await api.get('/customer/dashboard')
+    return data
+  },
+}
+
 export const notificationsApi = {
   list: async () => {
     const { data } = await api.get('/notifications/')
