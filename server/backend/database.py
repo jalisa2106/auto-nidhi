@@ -16,7 +16,11 @@ if not DATABASE_URL:
 # Clean up accidental quotes that users often copy from .env files
 DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -25,4 +29,4 @@ def get_db():
     try:
         yield db
     finally:
-        db.close()
+        db.close()

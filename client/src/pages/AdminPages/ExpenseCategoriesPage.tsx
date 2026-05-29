@@ -174,7 +174,7 @@ export default function ExpenseCategoriesPage() {
             key: 'actions',
             label: 'Actions',
             render: (row) => (
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-start' }}>
                 <button
                   className="btn btn-outline btn-sm"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: '0.78rem' }}

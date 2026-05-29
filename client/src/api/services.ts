@@ -184,7 +184,16 @@ export const filesApi = {
   create: async (payload: any) => {
     const { data } = await api.post('/files/', payload, skipAuthRedirectConfig)
     return data
-  }
+  },
+
+  update: async (id: string, payload: any) => {
+    const { data } = await api.put(`/files/${id}/`, payload, skipAuthRedirectConfig)
+    return data
+  },
+
+  remove: async (id: string) => {
+    await api.delete(`/files/${id}/`, skipAuthRedirectConfig)
+  },
 }
 
 export const paymentsInApi = {
@@ -390,7 +399,7 @@ export const financeBanksApi = {
     return data
   },
   create: async (payload: { bank_name: string; area?: string; contact_no?: string }) => {
-    const { data } = await api.post('/finance-banks', payload, skipAuthRedirectConfig)
+    const { data } = await api.post('/finance-banks/', payload, skipAuthRedirectConfig)
     return data
   },
   update: async (id: string, payload: Record<string, any>) => {

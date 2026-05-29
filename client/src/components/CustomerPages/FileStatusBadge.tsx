@@ -1,7 +1,7 @@
 import React from 'react';
 import './FileStatusBadge.css';
 
-type FileStatus = 'draft' | 'login' | 'under_process' | 'sanctioned' | 'disbursed' | 'completed' | 'cancelled';
+export type FileStatus = 'draft' | 'login' | 'under_process' | 'sanctioned' | 'disbursed' | 'completed' | 'cancelled';
 
 interface FileStatusBadgeProps {
   status: FileStatus;
