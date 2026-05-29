@@ -567,6 +567,63 @@ export const customerDashboardApi = {
   },
 }
 
+// ── Customer Documents (Portal) ──────────────────────────────────────────────
+// Backend routes: /api/v1/portal/documents (see server/backend/routes/customer/documents.py)
+
+export type CustomerDocCategory = 'kyc' | 'transactional'
+export type CustomerDocStatus = 'verified' | 'pending_review' | 'rejected' | 'missing'
+
+export interface CustomerDocument {
+  id: string
+  document_type: string
+  label: string
+  category: CustomerDocCategory
+  status: CustomerDocStatus
+  file_name?: string | null
+  file_size?: number | null
+  uploaded_at?: string | null
+  rejection_reason?: string | null
+}
+
+export const customerDocumentsApi = {
+  list: async (): Promise<CustomerDocument[]> => {
+    const { data } = await api.get('/portal/documents')
+    return data
+  },
+
+  upload: async (
+    documentId: string,
+    file: File,
+    onUploadProgress?: (percent: number) => void
+  ): Promise<CustomerDocument> => {
+    const form = new FormData()
+    // must match backend param name: upload: UploadFile = File(...)
+    form.append('upload', file)
+
+    const { data } = await api.post(`/portal/documents/${documentId}/upload`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (evt) => {
+        if (!evt.total) return
+        const percent = Math.round((evt.loaded * 100) / evt.total)
+        onUploadProgress?.(percent)
+      },
+    })
+    return data
+  },
+
+  remove: async (documentId: string): Promise<{ message: string }> => {
+    const { data } = await api.delete(`/portal/documents/${documentId}`)
+    return data
+  },
+
+  download: async (documentId: string): Promise<Blob> => {
+    const res = await api.get(`/portal/documents/${documentId}/download`, {
+      responseType: 'blob',
+    })
+    return res.data as Blob
+  },
+}
+
 export const notificationsApi = {
   list: async () => {
     const { data } = await api.get('/notifications/')

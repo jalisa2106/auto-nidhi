@@ -1,46 +1,36 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Shield, UploadCloud, CheckCircle2, AlertTriangle, Clock, FileText, Download, Trash2, Eye } from 'lucide-react';
 import PageHeader from '../../components/app/PageHeader';
+import { customerDocumentsApi, type CustomerDocCategory, type CustomerDocument } from '../../api/services';
 
 // ─── TYPES & INTERFACES ───
-type DocCategory = 'kyc' | 'transactional';
-type DocStatus = 'verified' | 'pending_review' | 'rejected' | 'missing';
-
-interface VaultDocument {
-  id: string;
-  document_type: string;
-  label: string;
-  category: DocCategory;
-  status: DocStatus;
-  file_name?: string;
-  file_size?: number;
-  uploaded_at?: string;
-  rejection_reason?: string;
-}
 
 export default function CustomerDocumentsPage() {
   // 1. Core State Management
-  const [activeTab, setActiveTab] = useState<DocCategory>('kyc');
+  const [activeTab, setActiveTab] = useState<CustomerDocCategory>('kyc');
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
-  const [selectedDocSlot, setSelectedDocSlot] = useState<VaultDocument | null>(null);
+  const [selectedDocSlot, setSelectedDocSlot] = useState<CustomerDocument | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // 2. Local State Vault (Mocking database data structure)
-  const [documents, setDocuments] = useState<VaultDocument[]>([
-    // Core KYC Set (Always present)
-    { id: 'kyc_1', document_type: 'aadhar_front', label: 'Aadhaar Card (Front)', category: 'kyc', status: 'verified', file_name: 'aadhar_front_signed.pdf', file_size: 1245890, uploaded_at: '2026-05-10T10:30:00Z' },
-    { id: 'kyc_2', document_type: 'aadhar_back', label: 'Aadhaar Card (Back)', category: 'kyc', status: 'verified', file_name: 'aadhar_back_signed.pdf', file_size: 1102450, uploaded_at: '2026-05-10T10:32:00Z' },
-    { id: 'kyc_3', document_type: 'pan_card', label: 'PAN Card Official Copy', category: 'kyc', status: 'rejected', file_name: 'pan_blurry_scan.jpeg', file_size: 450200, uploaded_at: '2026-05-12T14:15:00Z', rejection_reason: 'The uploaded image is blurry and text characters are not readable. Please upload a high-resolution scan or clear photo.' },
-    { id: 'kyc_4', document_type: 'passport_photo', label: 'Passport Size Photograph', category: 'kyc', status: 'pending_review', file_name: 'photo_johndoe.png', file_size: 890000, uploaded_at: '2026-05-25T09:00:00Z' },
-    { id: 'kyc_5', document_type: 'address_proof', label: 'Permanent Address Proof', category: 'kyc', status: 'missing' },
-    
-    // Asset/Transaction Set (Generated dynamically by linked active files)
-    { id: 'tx_1', document_type: 'vehicle_rc', label: 'Vehicle RC Book (File: TN-05-AX-1234)', category: 'transactional', status: 'verified', file_name: 'rc_book_final.pdf', file_size: 2415000, uploaded_at: '2026-05-15T11:20:00Z' },
-    { id: 'tx_2', document_type: 'insurance_copy', label: 'Motor Insurance Policy Copy', category: 'transactional', status: 'pending_review', file_name: 'insurance_draft_v2.pdf', file_size: 3150000, uploaded_at: '2026-05-27T16:45:00Z' },
-    { id: 'tx_3', document_type: 'dealer_invoice', label: 'Commercial Proforma Invoice', category: 'transactional', status: 'missing' }
-  ]);
+  // 2. Remote State Vault (Real backend data)
+  const [documents, setDocuments] = useState<CustomerDocument[]>([]);
+
+  const refreshDocuments = async () => {
+    try {
+      const docs = await customerDocumentsApi.list();
+      setDocuments(docs);
+    } catch (err: any) {
+      // Keep UI unchanged: fail silently (log only) if API is unreachable
+      console.error('Failed to load customer documents', err);
+    }
+  };
+
+  useEffect(() => {
+    refreshDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 3. Compute High-Level Global Statistics
   const stats = useMemo(() => {
@@ -53,7 +43,7 @@ export default function CustomerDocumentsPage() {
   }, [documents]);
 
   // 4. File Size & Date Formatter Utilities
-  const formatBytes = (bytes?: number) => {
+  const formatBytes = (bytes?: number | null) => {
     if (!bytes) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB'];
@@ -61,7 +51,7 @@ export default function CustomerDocumentsPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const formatDate = (dateStr?: string) => {
+  const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('en-IN', {
       day: 'numeric', month: 'short', year: 'numeric'
@@ -76,7 +66,7 @@ export default function CustomerDocumentsPage() {
     else if (e.type === "dragleave") setDragActive(false);
   };
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     if (!selectedDocSlot) return;
 
     // Strict Client-Side File Type Validation Guard
@@ -93,44 +83,29 @@ export default function CustomerDocumentsPage() {
       return;
     }
 
-    // Simulated Backend Pipeline processing
     setUploading(true);
-    setUploadProgress(10);
+    setUploadProgress(0);
+    try {
+      const updated = await customerDocumentsApi.upload(
+        selectedDocSlot.id,
+        file,
+        (percent) => setUploadProgress(percent)
+      );
 
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
-        return prev + 25;
-      });
-    }, 150);
-
-    // Finalizing database update simulation block
-    setTimeout(() => {
-      clearInterval(interval);
+      setDocuments((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
       setUploadProgress(100);
-      
-      setTimeout(() => {
-        setDocuments(prevDocs => prevDocs.map(doc => {
-          if (doc.id === selectedDocSlot.id) {
-            return {
-              ...doc,
-              status: 'pending_review', // Moves into the admin's audit pipeline instantly
-              file_name: file.name,
-              file_size: file.size,
-              uploaded_at: new Date().toISOString(),
-              rejection_reason: undefined // Clears past rejections on fresh submission
-            };
-          }
-          return doc;
-        }));
-        setUploading(false);
-        setUploadModalOpen(false);
-        setSelectedDocSlot(null);
-      }, 200);
-    }, 800);
+      setUploadModalOpen(false);
+      setSelectedDocSlot(null);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Upload failed';
+      alert(String(msg));
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -148,25 +123,69 @@ export default function CustomerDocumentsPage() {
     }
   };
 
-  const triggerUploadClick = (doc: VaultDocument) => {
+  const triggerUploadClick = (doc: CustomerDocument) => {
     setSelectedDocSlot(doc);
     setUploadProgress(0);
     setUploadModalOpen(true);
   };
 
-  const handleRemoveDoc = (id: string) => {
+  const handleRemoveDoc = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this document from the vault? This action resets the slot configuration status.")) {
-      setDocuments(prevDocs => prevDocs.map(doc => {
-        if (doc.id === id) {
-          return { ...doc, status: 'missing', file_name: undefined, file_size: undefined, uploaded_at: undefined, rejection_reason: undefined };
-        }
-        return doc;
-      }));
+      try {
+        await customerDocumentsApi.remove(id);
+        // Refresh to stay consistent with backend canonical state
+        await refreshDocuments();
+      } catch (err: any) {
+        const msg =
+          err?.response?.data?.detail ||
+          err?.response?.data?.message ||
+          err?.message ||
+          'Delete failed';
+        alert(String(msg));
+      }
     }
   };
 
   // Filter documents to display based on current tab selection
   const visibleDocuments = documents.filter(d => d.category === activeTab);
+
+  const handleDownload = async (doc: CustomerDocument) => {
+    try {
+      const blob = await customerDocumentsApi.download(doc.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.file_name || `${doc.document_type}.bin`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Download failed';
+      alert(String(msg));
+    }
+  };
+
+  const handlePreview = async (doc: CustomerDocument) => {
+    try {
+      const blob = await customerDocumentsApi.download(doc.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      // Let the new tab load it first; then revoke after a short delay.
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Preview failed';
+      alert(String(msg));
+    }
+  };
 
   return (
     <>
@@ -281,10 +300,10 @@ export default function CustomerDocumentsPage() {
                   </>
                 ) : (
                   <>
-                    <button className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff' }} onClick={() => alert("Launching inline safe CDN sandbox document view preview window browser frame...")}>
+                    <button className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff' }} onClick={() => handlePreview(doc)}>
                       <Eye size={14}/> Preview
                     </button>
-                    <button className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff' }}>
+                    <button className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff' }} onClick={() => handleDownload(doc)}>
                       <Download size={14}/> Download
                     </button>
                     {doc.status === 'pending_review' && (
