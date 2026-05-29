@@ -112,7 +112,7 @@ export default function DataEntrySettingsPage() {
   const savePrefs = async () => {
     const payload = Object.fromEntries(prefs.map(p => [p.key, p.enabled]))
     try {
-      await adminSettingsApi.saveNotificationPreferences(payload)
+      await adminSettingsApi.updateNotificationPreferences(payload)
     } catch { /* ignore */ }
     setPrefSaved(true)
     setTimeout(() => setPrefSaved(false), 2500)
