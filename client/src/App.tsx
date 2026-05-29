@@ -22,10 +22,13 @@ import CustomerProfilePage        from './pages/CustomerPages/CustomerProfilePag
 import CustomerSettingsPage       from './pages/CustomerPages/CustomerSettingsPage'
 
 // ── Data Entry pages ─────────────────────────────────────────────────
-import DataEntryLayout          from './pages/DataEntryPages/DataEntryLayout'
-import DataEntryDashboard       from './pages/DataEntryPages/DashboardPage'
-import DataEntryCustomers       from './pages/DataEntryPages/CustomersPage'
-import DataEntryFiles           from './pages/DataEntryPages/FilesPage'
+import DataEntryLayout             from './pages/DataEntryPages/DataEntryLayout'
+import DataEntryDashboard          from './pages/DataEntryPages/DashboardPage'
+import DataEntryCustomers          from './pages/DataEntryPages/CustomersPage'
+import DataEntryFiles              from './pages/DataEntryPages/FilesPage'
+import DataEntryRTOPayments        from './pages/DataEntryPages/RTOPaymentsPage'
+import DataEntryInsurancePayments  from './pages/DataEntryPages/InsurancePaymentsPage'
+import DataEntryExpenses           from './pages/DataEntryPages/ExpensesPage'
 
 // ── Accountant pages ─────────────────────────────────────────────────
 import AccountantLayout         from './pages/AccountantPages/AccountantLayout'
@@ -91,9 +94,12 @@ function App() {
 
         {/* ── Data Entry portal ── */}
         <Route element={<DataEntryLayout />}>
-          <Route path="/data-entry/dashboard"  element={<DataEntryDashboard />} />
-          <Route path="/data-entry/customers"  element={<DataEntryCustomers />} />
-          <Route path="/data-entry/files"      element={<DataEntryFiles />} />
+          <Route path="/data-entry/dashboard"            element={<DataEntryDashboard />} />
+          <Route path="/data-entry/customers"            element={<DataEntryCustomers />} />
+          <Route path="/data-entry/files"                element={<DataEntryFiles />} />
+          <Route path="/data-entry/rto-payments"         element={<DataEntryRTOPayments />} />
+          <Route path="/data-entry/insurance-payments"   element={<DataEntryInsurancePayments />} />
+          <Route path="/data-entry/expenses"             element={<DataEntryExpenses />} />
         </Route>
 
         {/* ── Accountant portal ── */}
