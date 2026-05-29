@@ -78,7 +78,7 @@ const FileDetailDrawer: React.FC<FileDetailDrawerProps> = ({ file, isOpen, onClo
         {/* Main interactive center element panel body container cards */}
         <div 
           className="modal" 
-          style={{ maxWidth: 680, width: '100%' }} 
+          style={{ maxWidth: 1000, width: '100%' }} 
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header Layout Component Area */}
@@ -97,7 +97,7 @@ const FileDetailDrawer: React.FC<FileDetailDrawerProps> = ({ file, isOpen, onClo
           </div>
 
           {/* Sub-tab segment navigation rules strip */}
-          <div className="drawer-tabs" style={{ borderBottom: '1px solid var(--gray-200)', padding: '0 24px' }}>
+          <div className="drawer-tabs" style={{ borderBottom: '3px solid var(--gray-200)', padding: '0 32px' }}>
             <button className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
             <button className={`tab-button ${activeTab === 'finance' ? 'active' : ''}`} onClick={() => setActiveTab('finance')}>Finance</button>
             <button className={`tab-button ${activeTab === 'documents' ? 'active' : ''}`} onClick={() => setActiveTab('documents')}>

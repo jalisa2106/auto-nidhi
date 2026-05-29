@@ -4,6 +4,7 @@ import { ArrowLeft, FileText, IndianRupee, Folder, Activity } from 'lucide-react
 import { mockCustomerFiles, getDocumentLabel } from '../../lib/mockCustomerFiles'
 import FileStatusBadge from '../../components/CustomerPages/FileStatusBadge'
 import StatusTimeline from '../../components/CustomerPages/StatusTimeline'
+import "../../components/CustomerPages/FileDetailDrawer.css"
 
 const documentTypeIcons: Record<string, string> = {
   aadhar_front: '🪪', aadhar_back: '🪪', pan_card: '💳', passport_photo: '📷',
@@ -62,8 +63,8 @@ export default function CustomerFileDetailPage() {
       </div>
 
       {/* Main Container Control Block */}
-      <div className="data-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="drawer-tabs" style={{ borderBottom: '1px solid var(--gray-200)', background: 'var(--gray-50)', padding: '0 24px', display: 'flex', gap: 16 }}>
+      <div className="data-card" style={{ padding: 0, overflow: 'hidden', maxWidth: '1200px', margin: '0 auto' }}>
+        <div className="drawer-tabs" style={{ borderBottom: '1px solid var(--gray-200)', background: 'var(--gray-50)', padding: '0 32px', display: 'flex', gap: 32 }}>
           <button className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={15}/> Overview</button>
           <button className={`tab-button ${activeTab === 'finance' ? 'active' : ''}`} onClick={() => setActiveTab('finance')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IndianRupee size={15}/> Finance</button>
           <button className={`tab-button ${activeTab === 'documents' ? 'active' : ''}`} onClick={() => setActiveTab('documents')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Folder size={15}/> Documents ({documentsArray.length})</button>
