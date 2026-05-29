@@ -158,6 +158,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const role = localStorage.getItem('user_role') || 'admin'
+  const isAdmin = role === 'admin'
 
   useEffect(() => {
     try {
@@ -192,7 +193,20 @@ export default function DashboardPage() {
           activity: data.activity || [],
         })
 
-        if (data.admin?.name) setUserName(data.admin.name)
+        if (data.admin?.name) {
+          setUserName(data.admin.name)
+          // Broadcast the fresh name so the Top Navigation Bar updates instantly
+          window.dispatchEvent(new CustomEvent('user_name_sync', { detail: data.admin.name }))
+          // Keep local storage up to date
+          try {
+            const stored = localStorage.getItem('an_current_user')
+            if (stored) {
+              const u = JSON.parse(stored)
+              u.first_name = data.admin.name
+              localStorage.setItem('an_current_user', JSON.stringify(u))
+            }
+          } catch {}
+        }
       } catch (err: any) {
         if (!ignore) setError(err?.response?.data?.detail || err?.message || 'Unable to load dashboard')
       } finally {
@@ -498,9 +512,12 @@ export default function DashboardPage() {
                 <Link to="/customers" className="btn btn-outline btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
                   Customers
                 </Link>
-                <Link to="/settings/users" className="btn btn-outline btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
-                  Manage Users
-                </Link>
+                {/* Only Admins can see the Manage Users link */}
+                {isAdmin && (
+                  <Link to="/settings/users" className="btn btn-outline btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
+                    Manage Users
+                  </Link>
+                )}
               </div>
             </div>
           </div>

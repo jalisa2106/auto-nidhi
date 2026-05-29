@@ -145,6 +145,9 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 }
 
 export default function RTOPaymentsPage() {
+  const role = localStorage.getItem('user_role') || 'admin'
+  const isAdmin = role === 'admin'
+
   const [rows,     setRows]     = useState<RTOPayment[]>([])
   const [search,   setSearch]   = useState('')
   const [selected, setSelected] = useState<RTOPayment | null>(null)
@@ -506,12 +509,15 @@ export default function RTOPaymentsPage() {
                     onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-50)')}>
                     <Pencil size={13} /> Edit
                   </button>
-                  <button id={`rto-delete-${selected.id}`} onClick={() => { handleDelete(selected.id); closeView() }}
-                    style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid #fee2e2', background:'#fff5f5', color:'#b91c1c', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='#fee2e2')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='#fff5f5')}>
-                    <Trash2 size={13} /> Delete
-                  </button>
+                  {/* Hide Delete for Non-Admins */}
+                  {isAdmin && (
+                    <button id={`rto-delete-${selected.id}`} onClick={() => { handleDelete(selected.id); closeView() }}
+                      style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid #fee2e2', background:'#fff5f5', color:'#b91c1c', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='#fee2e2')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='#fff5f5')}>
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  )}
                 </div>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:0 }}>

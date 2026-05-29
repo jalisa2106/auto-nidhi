@@ -23,16 +23,9 @@ import CustomerSettingsPage       from './pages/CustomerPages/CustomerSettingsPa
 
 // ── Data Entry pages ─────────────────────────────────────────────────
 import DataEntryLayout             from './pages/DataEntryPages/DataEntryLayout'
-import DataEntryDashboard          from './pages/DataEntryPages/DataEntryDashboardPage'
-import DataEntryCustomers          from './pages/DataEntryPages/CustomersPage'
-import DataEntryFiles              from './pages/DataEntryPages/FilesPage'
+// (Removed the limited Data Entry page imports since we are using Admin ones now)
 import DataEntryProfilePage        from './pages/DataEntryPages/DataEntryProfilePage'
 import DataEntrySettingsPage       from './pages/DataEntryPages/DataEntrySettingsPage'
-import DataEntryRTOPayments        from './pages/DataEntryPages/RTOPaymentsPage'
-import DataEntryInsurancePayments  from './pages/DataEntryPages/InsurancePaymentsPage'
-import DataEntryExpenses           from './pages/DataEntryPages/ExpensesPage'
-import DataEntryPaymentInPage      from './pages/DataEntryPages/PaymentInPage'
-import DataEntryPaymentOutPage     from './pages/DataEntryPages/PaymentOutPage'
 
 // ── Accountant pages ─────────────────────────────────────────────────
 import AccountantLayout            from './pages/AccountantPages/AccountantLayout'
@@ -98,16 +91,19 @@ function App() {
 
         {/* ── Data Entry portal ── */}
         <Route element={<DataEntryLayout />}>
-          <Route path="/data-entry/dashboard"          element={<DataEntryDashboard />}         />
-          <Route path="/data-entry/customers"          element={<DataEntryCustomers />}         />
-          <Route path="/data-entry/files"              element={<DataEntryFiles />}             />
-          <Route path="/data-entry/profile"            element={<DataEntryProfilePage />}       />
-          <Route path="/data-entry/settings"           element={<DataEntrySettingsPage />}      />
-          <Route path="/data-entry/payments/in"        element={<DataEntryPaymentInPage />}     />
-          <Route path="/data-entry/payments/out"       element={<DataEntryPaymentOutPage />}    />
-          <Route path="/data-entry/rto-payments"       element={<DataEntryRTOPayments />}       />
-          <Route path="/data-entry/insurance-payments" element={<DataEntryInsurancePayments />} />
-          <Route path="/data-entry/expenses"           element={<DataEntryExpenses />}          />
+          {/* Swapped these to point to the full Admin components */}
+          <Route path="/data-entry/dashboard"          element={<DashboardPage />}         />
+          <Route path="/data-entry/customers"          element={<CustomersPage />}         />
+          <Route path="/data-entry/files"              element={<FilesPage />}             />
+          <Route path="/data-entry/payments/in"        element={<PaymentInPage />}         />
+          <Route path="/data-entry/payments/out"       element={<PaymentOutPage />}        />
+          <Route path="/data-entry/rto-payments"       element={<RTOPaymentsPage />}       />
+          <Route path="/data-entry/insurance-payments" element={<InsurancePaymentsPage />} />
+          <Route path="/data-entry/expenses"           element={<ExpensesPage />}          />
+          
+          {/* Kept Data Entry specific profile and settings pages */}
+          <Route path="/data-entry/profile"            element={<AdminProfilePage />}  />
+          <Route path="/data-entry/settings"           element={<AdminSettingsPage />} />
         </Route>
 
         {/* ── Accountant portal ── */}
@@ -127,7 +123,7 @@ function App() {
 
         {/* ── Admin / Staff ── */}
         <Route element={<AdminLayout />}>
-          <Route path="/dashboard"                   element={<DashboardPage />}         />
+          <Route path="/dashboard"                   element={<DashboardPage />}          />
           <Route path="/customers"                   element={<CustomersPage />}          />
           <Route path="/files"                       element={<FilesPage />}              />
           {/* Finance */}
