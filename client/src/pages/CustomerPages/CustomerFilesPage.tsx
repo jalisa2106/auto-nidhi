@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '../../components/app/PageHeader'
-import FileStatusBadge from '../../components/CustomerPages/FileStatusBadge'
+import FileStatusBadge, { type FileStatus as BadgeFileStatus } from '../../components/CustomerPages/FileStatusBadge'
 import api from '../../api/axios'
 import '../CSS_pages/CustomerFilesPage.css'
 
@@ -9,7 +9,7 @@ interface CustomerFile {
   id: string
   file_number: string
   file_type: string
-  status: string
+  status: BadgeFileStatus
   assigned_to?: string | null
   finance_amount?: number | null
   finance_bank?: string | null
@@ -17,7 +17,7 @@ interface CustomerFile {
   updated_at: string
 }
 
-type FileStatus = 'draft' | 'login' | 'under_process' | 'sanctioned' | 'disbursed' | 'completed' | 'cancelled' | 'all'
+type FileStatusFilter = BadgeFileStatus | 'all'
 type FileType = 'new_vehicle' | 'used_vehicle' | 'renewal' | 'all'
 type SortField = 'file_number' | 'created_at' | 'status' | 'assigned_to'
 
@@ -27,7 +27,7 @@ export default function CustomerFilesPage() {
   const [loading, setLoading] = useState(true)
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<FileStatus>('all')
+  const [statusFilter, setStatusFilter] = useState<FileStatusFilter>('all')
   const [typeFilter, setTypeFilter] = useState<FileType>('all')
   const [sortBy] = useState<SortField>('created_at')
   const [sortOrder] = useState<'asc' | 'desc'>('desc')
@@ -90,7 +90,7 @@ export default function CustomerFilesPage() {
             <option value="used_vehicle">Used Vehicle</option>
             <option value="renewal">Renewal</option>
           </select>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as FileStatus)} className="filter-select">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as FileStatusFilter)} className="filter-select">
             <option value="all">All Statuses</option>
             <option value="draft">Draft</option>
             <option value="login">Login</option>
