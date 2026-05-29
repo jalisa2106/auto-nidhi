@@ -580,4 +580,20 @@ export const notificationsApi = {
     const { data } = await api.patch('/notifications/mark-all-read')
     return data
   },
+  /**
+   * Accountant → Admin notification.
+   * Backend: POST /api/v1/notifications/notify-admin
+   * Inserts a Notification row for every admin user (no new DB table needed).
+   */
+  notifyAdmin: async (payload: {
+    subject: string
+    message: string
+    page_context: string
+    include_summary?: boolean
+  }) => {
+    const { data } = await api.post('/notifications/notify-admin', payload, {
+      headers: { 'X-Skip-Auth-Redirect': 'true' },
+    })
+    return data
+  },
 }
