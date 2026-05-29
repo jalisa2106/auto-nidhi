@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileText, IndianRupee, Folder, Activity } from 'lucide-react'
 import api from '../../api/axios'
-import { getDocumentLabel } from '../../lib/mockCustomerFiles'
-import FileStatusBadge from '../../components/CustomerPages/FileStatusBadge'
+import { getDocumentLabel, type HistoryEvent } from '../../lib/mockCustomerFiles'
+import FileStatusBadge, { type FileStatus } from '../../components/CustomerPages/FileStatusBadge'
 import StatusTimeline from '../../components/CustomerPages/StatusTimeline'
 import "../../components/CustomerPages/FileDetailDrawer.css"
 
@@ -11,7 +11,7 @@ interface CustomerFileDetail {
   id: string
   file_number: string
   file_type: string
-  status: string
+  status: FileStatus
   assigned_to?: string | null
   customer_name?: string | null
   customer_email?: string | null
@@ -29,16 +29,7 @@ interface CustomerFileDetail {
     rejection_reason?: string
     file_size?: number
   }>
-  history?: Array<{
-    id: string
-    type: string
-    timestamp: string
-    title: string
-    description?: string
-    actor?: string
-    old_status?: string
-    new_status?: string
-  }>
+  history?: HistoryEvent[]
 }
 
 const documentTypeIcons: Record<string, string> = {
@@ -52,6 +43,10 @@ const documentStatusColors: Record<string, { bg: string; color: string }> = {
   pending_review: { bg: '#fef3c7', color: '#92400e' },
   verified: { bg: '#dcfce7', color: '#15803d' },
   rejected: { bg: '#fee2e2', color: '#b91c1c' }
+}
+
+function formatDateTime(value?: string | null) {
+  return value ? new Date(value).toLocaleString('en-IN') : '—'
 }
 
 export default function CustomerFileDetailPage() {
@@ -136,8 +131,8 @@ export default function CustomerFileDetailPage() {
             <div className="info-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', padding: '0 24px' }}>
               <div className="info-item"><span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase' }}>File Sequence Number</span><span className="info-value" style={{ fontSize: '0.95rem', fontWeight: 500, display: 'block', marginTop: 4 }}>{file.file_number}</span></div>
               <div className="info-item"><span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase' }}>Asset Finance Specification</span><span className="info-value" style={{ fontSize: '0.95rem', fontWeight: 500, display: 'block', marginTop: 4 }}>{file.file_type.replace(/_/g, ' ').toUpperCase()}</span></div>
-              <div className="info-item"><span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase' }}>Created Date Registration</span><span className="info-value" style={{ fontSize: '0.95rem', fontWeight: 500, display: 'block', marginTop: 4 }}>{new Date(file.created_at).toLocaleString('en-IN')}</span></div>
-              <div className="info-item"><span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase' }}>Last Processing Audit State</span><span className="info-value" style={{ fontSize: '0.95rem', fontWeight: 500, display: 'block', marginTop: 4 }}>{new Date(file.updated_at).toLocaleString('en-IN')}</span></div>
+              <div className="info-item"><span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase' }}>Created Date Registration</span><span className="info-value" style={{ fontSize: '0.95rem', fontWeight: 500, display: 'block', marginTop: 4 }}>{formatDateTime(file.created_at)}</span></div>
+              <div className="info-item"><span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase' }}>Last Processing Audit State</span><span className="info-value" style={{ fontSize: '0.95rem', fontWeight: 500, display: 'block', marginTop: 4 }}>{formatDateTime(file.updated_at)}</span></div>
               {file.assigned_to && <div className="info-item"><span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase' }}>Assigned Clearing Officer</span><span className="info-value" style={{ fontSize: '0.95rem', fontWeight: 500, display: 'block', marginTop: 4 }}>{file.assigned_to}</span></div>}
             </div>
           )}
