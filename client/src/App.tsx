@@ -23,9 +23,6 @@ import CustomerSettingsPage       from './pages/CustomerPages/CustomerSettingsPa
 
 // ── Data Entry pages ─────────────────────────────────────────────────
 import DataEntryLayout             from './pages/DataEntryPages/DataEntryLayout'
-// (Removed the limited Data Entry page imports since we are using Admin ones now)
-import DataEntryProfilePage        from './pages/DataEntryPages/DataEntryProfilePage'
-import DataEntrySettingsPage       from './pages/DataEntryPages/DataEntrySettingsPage'
 
 // ── Accountant pages ─────────────────────────────────────────────────
 import AccountantLayout            from './pages/AccountantPages/AccountantLayout'
