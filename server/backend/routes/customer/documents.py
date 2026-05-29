@@ -8,12 +8,18 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import Customer, CustomerDocument
-from backend.utils import get_current_customer_profile
+from backend.models import Customer, CustomerDocument, SystemUser
+from backend.utils import get_current_customer, get_current_customer_profile, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/portal/documents", tags=["Customer Documents"])
 
-UPLOAD_DIR = "uploads/customer_documents"
+BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+UPLOAD_DIR = os.getenv("CUSTOMER_DOCUMENT_UPLOAD_DIR") or os.path.join(
+    BACKEND_DIR, "uploads", "customer_documents"
+)
+
+# Keep in sync with frontend guardrails (CustomerDocumentsPage.tsx)
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5MB
 
 DEFAULT_SLOTS = [
     ("aadhar_front", "Aadhaar Card (Front)", "kyc"),
@@ -83,6 +89,7 @@ def list_documents(
 def upload_document(
     document_id: UUID,
     upload: UploadFile = File(...),
+    current_user: SystemUser = Depends(get_current_customer),
     customer: Customer = Depends(get_current_customer_profile),
     db: Session = Depends(get_db),
 ):
@@ -104,6 +111,13 @@ def upload_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document slot not found")
 
+    old_values = {
+        "status": doc.status,
+        "file_name": doc.file_name,
+        "file_size": doc.file_size,
+        "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+    }
+
     safe_name = upload.filename.replace("/", "_").replace("\\", "_")
     stored_name = f"{document_id}_{safe_name}"
     path = os.path.join(UPLOAD_DIR, stored_name)
@@ -111,13 +125,36 @@ def upload_document(
     with open(path, "wb") as buffer:
         shutil.copyfileobj(contents, buffer)
 
+    size = os.path.getsize(path)
+    if size > MAX_UPLOAD_BYTES:
+        # cleanup and fail fast
+        os.remove(path)
+        raise HTTPException(status_code=400, detail="File size must be 5MB or less")
+
     doc.file_name = upload.filename
     doc.file_path = path
-    doc.file_size = os.path.getsize(path)
+    doc.file_size = size
     doc.content_type = upload.content_type
     doc.status = "pending_review"
     doc.rejection_reason = None
     doc.uploaded_at = datetime.now(timezone.utc)
+
+    record_dashboard_event(
+        db,
+        current_user,
+        action="uploaded",
+        table_name="customer_document",
+        record_id=doc.id,
+        message=f"Customer uploaded document: {doc.label}",
+        preference_key="document",
+        old_values=old_values,
+        new_values={
+            "status": doc.status,
+            "file_name": doc.file_name,
+            "file_size": doc.file_size,
+            "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+        },
+    )
 
     db.commit()
     db.refresh(doc)
@@ -128,6 +165,7 @@ def upload_document(
 @router.delete("/{document_id}")
 def remove_document(
     document_id: UUID,
+    current_user: SystemUser = Depends(get_current_customer),
     customer: Customer = Depends(get_current_customer_profile),
     db: Session = Depends(get_db),
 ):
@@ -146,6 +184,13 @@ def remove_document(
     if doc.file_path and os.path.exists(doc.file_path):
         os.remove(doc.file_path)
 
+    old_values = {
+        "status": doc.status,
+        "file_name": doc.file_name,
+        "file_size": doc.file_size,
+        "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+    }
+
     doc.file_name = None
     doc.file_path = None
     doc.file_size = None
@@ -153,6 +198,18 @@ def remove_document(
     doc.status = "missing"
     doc.rejection_reason = None
     doc.uploaded_at = None
+
+    record_dashboard_event(
+        db,
+        current_user,
+        action="deleted",
+        table_name="customer_document",
+        record_id=doc.id,
+        message=f"Customer removed document: {doc.label}",
+        preference_key="document",
+        old_values=old_values,
+        new_values={"status": doc.status, "file_name": None, "file_size": None, "uploaded_at": None},
+    )
 
     db.commit()
 

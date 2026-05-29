@@ -22,20 +22,27 @@ import CustomerProfilePage        from './pages/CustomerPages/CustomerProfilePag
 import CustomerSettingsPage       from './pages/CustomerPages/CustomerSettingsPage'
 
 // ── Data Entry pages ─────────────────────────────────────────────────
-import DataEntryLayout          from './pages/DataEntryPages/DataEntryLayout'
-import DataEntryDashboard       from './pages/DataEntryPages/DashboardPage'
-import DataEntryCustomers       from './pages/DataEntryPages/CustomersPage'
-import DataEntryFiles           from './pages/DataEntryPages/FilesPage'
+import DataEntryLayout             from './pages/DataEntryPages/DataEntryLayout'
+import DataEntryDashboard          from './pages/DataEntryPages/DataEntryDashboardPage'
+import DataEntryCustomers          from './pages/DataEntryPages/CustomersPage'
+import DataEntryFiles              from './pages/DataEntryPages/FilesPage'
+import DataEntryProfilePage        from './pages/DataEntryPages/DataEntryProfilePage'
+import DataEntrySettingsPage       from './pages/DataEntryPages/DataEntrySettingsPage'
+import DataEntryRTOPayments        from './pages/DataEntryPages/RTOPaymentsPage'
+import DataEntryInsurancePayments  from './pages/DataEntryPages/InsurancePaymentsPage'
+import DataEntryExpenses           from './pages/DataEntryPages/ExpensesPage'
+import DataEntryPaymentInPage      from './pages/DataEntryPages/PaymentInPage'
+import DataEntryPaymentOutPage     from './pages/DataEntryPages/PaymentOutPage'
 
 // ── Accountant pages ─────────────────────────────────────────────────
-import AccountantLayout         from './pages/AccountantPages/AccountantLayout'
-import AccountantDashboard      from './pages/AccountantPages/DashboardPage'
-import AccountantFiles          from './pages/AccountantPages/FilesPage'
-import AccountantPaymentIn      from './pages/AccountantPages/PaymentInPage'
-import AccountantPaymentOut     from './pages/AccountantPages/PaymentOutPage'
-import AccountantExpenses       from './pages/AccountantPages/ExpensesPage'
-import AccountantAdvances       from './pages/AccountantPages/AdvancesPage'
-import AccountantRTOPayments    from './pages/AccountantPages/RTOPaymentsPage'
+import AccountantLayout            from './pages/AccountantPages/AccountantLayout'
+import AccountantDashboard         from './pages/AccountantPages/DashboardPage'
+import AccountantFiles             from './pages/AccountantPages/FilesPage'
+import AccountantPaymentIn         from './pages/AccountantPages/PaymentInPage'
+import AccountantPaymentOut        from './pages/AccountantPages/PaymentOutPage'
+import AccountantExpenses          from './pages/AccountantPages/ExpensesPage'
+import AccountantAdvances          from './pages/AccountantPages/AdvancesPage'
+import AccountantRTOPayments       from './pages/AccountantPages/RTOPaymentsPage'
 import AccountantInsurancePayments from './pages/AccountantPages/InsurancePaymentsPage'
 
 // Admin layout (sidebar + topbar + Outlet)
@@ -71,75 +78,82 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* ── Public routes ── */}
-        <Route path="/"                 element={<Home />}           />
-        <Route path="/login"            element={<Login />}          />
-        <Route path="/signup"           element={<Signup />}         />
+        <Route path="/"                element={<Home />}           />
+        <Route path="/login"           element={<Login />}          />
+        <Route path="/signup"          element={<Signup />}         />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password"  element={<ResetPassword />}  />
 
-        {/* ── Customer portal (sidebar layout) ── */}
+        {/* ── Customer portal ── */}
         <Route element={<CustomerLayout />}>
-          <Route path="/portal"               element={<CustomerPortalPage />}        />
-          <Route path="/portal/files"          element={<CustomerFilesPage />}         />
-          <Route path="/portal/files/:id"      element={<CustomerFileDetailPage />}    />
-          <Route path="/portal/documents"      element={<CustomerDocumentsPage />}     />
-          <Route path="/portal/payments"       element={<CustomerPaymentsPage />}      />
-          <Route path="/portal/insurance"      element={<CustomerInsurancePage />}     />
-          <Route path="/portal/profile"        element={<CustomerProfilePage />}       />
-          <Route path="/portal/settings"       element={<CustomerSettingsPage />}      />
+          <Route path="/portal"            element={<CustomerPortalPage />}     />
+          <Route path="/portal/files"      element={<CustomerFilesPage />}      />
+          <Route path="/portal/files/:id"  element={<CustomerFileDetailPage />} />
+          <Route path="/portal/documents"  element={<CustomerDocumentsPage />}  />
+          <Route path="/portal/payments"   element={<CustomerPaymentsPage />}   />
+          <Route path="/portal/insurance"  element={<CustomerInsurancePage />}  />
+          <Route path="/portal/profile"    element={<CustomerProfilePage />}    />
+          <Route path="/portal/settings"   element={<CustomerSettingsPage />}   />
         </Route>
 
         {/* ── Data Entry portal ── */}
         <Route element={<DataEntryLayout />}>
-          <Route path="/data-entry/dashboard"  element={<DataEntryDashboard />} />
-          <Route path="/data-entry/customers"  element={<DataEntryCustomers />} />
-          <Route path="/data-entry/files"      element={<DataEntryFiles />} />
+          <Route path="/data-entry/dashboard"          element={<DataEntryDashboard />}         />
+          <Route path="/data-entry/customers"          element={<DataEntryCustomers />}         />
+          <Route path="/data-entry/files"              element={<DataEntryFiles />}             />
+          <Route path="/data-entry/profile"            element={<DataEntryProfilePage />}       />
+          <Route path="/data-entry/settings"           element={<DataEntrySettingsPage />}      />
+          <Route path="/data-entry/payments/in"        element={<DataEntryPaymentInPage />}     />
+          <Route path="/data-entry/payments/out"       element={<DataEntryPaymentOutPage />}    />
+          <Route path="/data-entry/rto-payments"       element={<DataEntryRTOPayments />}       />
+          <Route path="/data-entry/insurance-payments" element={<DataEntryInsurancePayments />} />
+          <Route path="/data-entry/expenses"           element={<DataEntryExpenses />}          />
         </Route>
 
         {/* ── Accountant portal ── */}
         <Route element={<AccountantLayout />}>
-          <Route path="/accountant/dashboard"          element={<AccountantDashboard />} />
-          <Route path="/accountant/files"              element={<AccountantFiles />} />
-          <Route path="/accountant/payments/in"        element={<AccountantPaymentIn />} />
-          <Route path="/accountant/payments/out"       element={<AccountantPaymentOut />} />
-          <Route path="/accountant/rto-payments"       element={<AccountantRTOPayments />} />
-          <Route path="/accountant/insurance-payments" element={<AccountantInsurancePayments />} />
-          <Route path="/accountant/expenses"           element={<AccountantExpenses />} />
-          <Route path="/accountant/advances"           element={<AccountantAdvances />} />
+          <Route path="/accountant/dashboard"          element={<AccountantDashboard />}        />
+          <Route path="/accountant/files"              element={<AccountantFiles />}            />
+          <Route path="/accountant/payments/in"        element={<AccountantPaymentIn />}        />
+          <Route path="/accountant/payments/out"       element={<AccountantPaymentOut />}       />
+          <Route path="/accountant/rto-payments"       element={<AccountantRTOPayments />}      />
+          <Route path="/accountant/insurance-payments" element={<AccountantInsurancePayments />}/>
+          <Route path="/accountant/expenses"           element={<AccountantExpenses />}         />
+          <Route path="/accountant/advances"           element={<AccountantAdvances />}         />
         </Route>
 
-        {/* ── Role-based redirect on /dashboard ── */}
+        {/* ── Role-based redirect ── */}
         <Route path="/dashboard-redirect" element={<RoleBasedRouter />} />
 
-        {/* ── Admin / Staff app (all share the AdminLayout sidebar) ── */}
+        {/* ── Admin / Staff ── */}
         <Route element={<AdminLayout />}>
-          <Route path="/dashboard"                    element={<DashboardPage />}         />
-          <Route path="/customers"                    element={<CustomersPage />}          />
-          <Route path="/files"                        element={<FilesPage />}              />
+          <Route path="/dashboard"                   element={<DashboardPage />}         />
+          <Route path="/customers"                   element={<CustomersPage />}          />
+          <Route path="/files"                       element={<FilesPage />}              />
           {/* Finance */}
-          <Route path="/payments/in"                  element={<PaymentInPage />}          />
-          <Route path="/payments/out"                 element={<PaymentOutPage />}         />
-          <Route path="/commissions/in"               element={<CommissionInPage />}       />
-          <Route path="/commissions/out"              element={<CommissionOutPage />}      />
-          <Route path="/rto-payments"                 element={<RTOPaymentsPage />}        />
-          <Route path="/insurance-payments"           element={<InsurancePaymentsPage />}  />
-          <Route path="/expenses"                     element={<ExpensesPage />}           />
-          <Route path="/advances"                     element={<AdvancesPage />}           />
-          <Route path="/loans"                        element={<LoansPage />}              />
+          <Route path="/payments/in"                 element={<PaymentInPage />}          />
+          <Route path="/payments/out"                element={<PaymentOutPage />}         />
+          <Route path="/commissions/in"              element={<CommissionInPage />}       />
+          <Route path="/commissions/out"             element={<CommissionOutPage />}      />
+          <Route path="/rto-payments"                element={<RTOPaymentsPage />}        />
+          <Route path="/insurance-payments"          element={<InsurancePaymentsPage />}  />
+          <Route path="/expenses"                    element={<ExpensesPage />}           />
+          <Route path="/advances"                    element={<AdvancesPage />}           />
+          <Route path="/loans"                       element={<LoansPage />}              />
           {/* Masters */}
-          <Route path="/masters/dealers"              element={<DealersPage />}            />
-          <Route path="/masters/brokers"              element={<BrokersPage />}            />
-          <Route path="/masters/finance-banks"        element={<FinanceBanksPage />}       />
-          <Route path="/masters/insurance-companies"  element={<InsuranceCompaniesPage />} />
-          <Route path="/masters/insurance-types"      element={<InsuranceTypesPage />}     />
-          <Route path="/masters/expense-categories"   element={<ExpenseCategoriesPage />}  />
+          <Route path="/masters/dealers"             element={<DealersPage />}            />
+          <Route path="/masters/brokers"             element={<BrokersPage />}            />
+          <Route path="/masters/finance-banks"       element={<FinanceBanksPage />}       />
+          <Route path="/masters/insurance-companies" element={<InsuranceCompaniesPage />} />
+          <Route path="/masters/insurance-types"     element={<InsuranceTypesPage />}     />
+          <Route path="/masters/expense-categories"  element={<ExpenseCategoriesPage />}  />
           {/* Settings */}
-          <Route path="/settings/company"             element={<CompanySettingsPage />}    />
-          <Route path="/settings/banks"               element={<BankAccountsPage />}       />
-          <Route path="/settings/users"               element={<UsersPage />}              />
+          <Route path="/settings/company"            element={<CompanySettingsPage />}    />
+          <Route path="/settings/banks"              element={<BankAccountsPage />}       />
+          <Route path="/settings/users"              element={<UsersPage />}              />
           {/* Profile & Account */}
-          <Route path="/admin/profile"                element={<AdminProfilePage />}       />
-          <Route path="/admin/settings"               element={<AdminSettingsPage />}      />
+          <Route path="/admin/profile"               element={<AdminProfilePage />}       />
+          <Route path="/admin/settings"              element={<AdminSettingsPage />}      />
         </Route>
 
         {/* Fallback */}

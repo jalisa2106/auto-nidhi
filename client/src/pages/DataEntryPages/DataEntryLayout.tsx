@@ -1,10 +1,12 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   LayoutDashboard, Users, FolderOpen,
   ArrowDownToLine, ArrowUpFromLine, Receipt, ShieldCheck, Wallet,
-  Car, LogOut, BellRing,
+  Car, LogOut, Bell, User, Settings, ChevronDown,
 } from 'lucide-react'
+import NotificationPanel from '../../components/app/NotificationPanel'
+import { subscribe, unreadCount, fetchNotifications } from '../../store/notificationStore'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
 interface NavGroup { title: string; items: NavItem[] }
@@ -28,26 +30,68 @@ const dataEntryNav: NavGroup[] = [
   },
 ]
 
+function DropdownItem({ icon, label, onClick, danger }: {
+  icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean
+}) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 14px', background: hover ? (danger ? '#fff1f2' : '#f8fafc') : 'transparent',
+        border: 'none', cursor: 'pointer', textAlign: 'left',
+        color: danger ? '#dc2626' : '#334155',
+        fontSize: 13, fontWeight: 500, transition: 'background .12s',
+      }}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+}
+
 export default function DataEntryLayout() {
   const navigate = useNavigate()
   const [userName, setUserName] = useState('Data Entry')
+  const [badgeCount, setBadgeCount] = useState(0)
+  const [showNotifs, setShowNotifs] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const role = localStorage.getItem('user_role') || ''
-    let name = 'Data Entry'
     try {
       const stored = localStorage.getItem('an_current_user')
       if (stored) {
         const u = JSON.parse(stored)
-        name = u.first_name || u.name || 'Data Entry'
+        setUserName(u.first_name || u.name || 'Data Entry')
       }
     } catch { /* ignore */ }
-    setUserName(name)
 
     if (!localStorage.getItem('access_token') || role.toLowerCase() !== 'data_entry') {
       navigate('/login', { replace: true })
     }
   }, [navigate])
+
+  useEffect(() => {
+    fetchNotifications()
+    setBadgeCount(unreadCount())
+    const unsub = subscribe(() => setBadgeCount(unreadCount()))
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setShowProfile(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('access_token')
@@ -57,9 +101,11 @@ export default function DataEntryLayout() {
     navigate('/login', { replace: true })
   }
 
+  const closeNotifs = useCallback(() => setShowNotifs(false), [])
+  const initials = userName.slice(0, 1).toUpperCase()
+
   return (
     <div className="app-shell">
-      {/* ── Sidebar ── */}
       <aside className="app-sidebar">
         <div className="sb-logo">
           <div className="sb-logo-mark"><Car size={18} color="#fff" /></div>
@@ -88,22 +134,124 @@ export default function DataEntryLayout() {
         </div>
       </aside>
 
-      {/* ── Main Area ── */}
       <div className="app-main">
         <header className="app-topbar">
           <h1>Data Entry Portal</h1>
-          <div className="app-user">
-            <BellRing size={18} color="#64748b" />
-            <div className="app-avatar">{userName.slice(0, 1).toUpperCase()}</div>
-            <button className="btn btn-ghost btn-sm" onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <LogOut size={14} /> Logout
-            </button>
+
+          <div className="app-user" style={{ position: 'relative' }}>
+            <div style={{ position: 'relative' }}>
+              <button
+                id="de-notif-bell-btn"
+                onClick={() => { setShowNotifs(p => !p); setShowProfile(false) }}
+                style={{
+                  background: showNotifs ? '#eff6ff' : 'transparent',
+                  border: '1.5px solid',
+                  borderColor: showNotifs ? '#bfdbfe' : 'transparent',
+                  borderRadius: 10, padding: 7, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all .15s', color: showNotifs ? '#2563eb' : '#64748b',
+                }}
+                title="Notifications"
+                aria-label="Notifications"
+              >
+                <Bell size={18} />
+              </button>
+              {badgeCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: -4, right: -4,
+                  background: '#ef4444', color: '#fff',
+                  fontSize: 10, fontWeight: 700,
+                  minWidth: 17, height: 17,
+                  borderRadius: 10, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px', lineHeight: 1,
+                  border: '2px solid #fff', pointerEvents: 'none',
+                }}>
+                  {badgeCount > 99 ? '99+' : badgeCount}
+                </span>
+              )}
+            </div>
+
+            <div ref={profileRef} style={{ position: 'relative' }}>
+              <button
+                id="de-profile-avatar-btn"
+                onClick={() => { setShowProfile(p => !p); setShowNotifs(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  background: showProfile ? '#eff6ff' : 'transparent',
+                  border: '1.5px solid',
+                  borderColor: showProfile ? '#bfdbfe' : 'transparent',
+                  borderRadius: 10, padding: '5px 10px 5px 5px',
+                  cursor: 'pointer', transition: 'all .15s',
+                }}
+                aria-label="User menu"
+              >
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0,
+                }}>
+                  {initials}
+                </div>
+                <span style={{
+                  fontSize: 13, fontWeight: 600, color: '#334155',
+                  maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {userName}
+                </span>
+                <ChevronDown size={14} color="#94a3b8"
+                  style={{ transform: showProfile ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+              </button>
+
+              {showProfile && (
+                <div style={{
+                  position: 'absolute', top: 46, right: 0,
+                  width: 200, background: '#fff', borderRadius: 14,
+                  boxShadow: '0 8px 32px rgba(15,23,42,.14), 0 2px 6px rgba(15,23,42,.06)',
+                  border: '1px solid #e2e8f0', zIndex: 1000, overflow: 'hidden',
+                  animation: 'notifPanelIn .15s ease',
+                }}>
+                  <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{userName}</div>
+                    <div style={{ fontSize: 11.5, color: '#94a3b8' }}>Data Entry</div>
+                  </div>
+                  <DropdownItem
+                    icon={<User size={14} />}
+                    label="My Profile"
+                    onClick={() => { navigate('/data-entry/profile'); setShowProfile(false) }}
+                  />
+                  <DropdownItem
+                    icon={<Settings size={14} />}
+                    label="Account Settings"
+                    onClick={() => { navigate('/data-entry/settings'); setShowProfile(false) }}
+                  />
+                  <div style={{ height: 1, background: '#f1f5f9', margin: '4px 0' }} />
+                  <DropdownItem
+                    icon={<LogOut size={14} />}
+                    label="Logout"
+                    onClick={handleLogout}
+                    danger
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </header>
+
+        {showNotifs && <NotificationPanel onClose={closeNotifs} />}
+
         <main className="app-content">
           <Outlet />
         </main>
       </div>
+
+      <style>{`
+        @keyframes notifPanelIn {
+          from { opacity: 0; transform: translateY(-6px) scale(.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
     </div>
   )
 }

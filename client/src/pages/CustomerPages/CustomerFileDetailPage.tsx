@@ -1,10 +1,45 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileText, IndianRupee, Folder, Activity } from 'lucide-react'
-import { mockCustomerFiles, getDocumentLabel } from '../../lib/mockCustomerFiles'
+import api from '../../api/axios'
+import { getDocumentLabel } from '../../lib/mockCustomerFiles'
 import FileStatusBadge from '../../components/CustomerPages/FileStatusBadge'
 import StatusTimeline from '../../components/CustomerPages/StatusTimeline'
 import "../../components/CustomerPages/FileDetailDrawer.css"
+
+interface CustomerFileDetail {
+  id: string
+  file_number: string
+  file_type: string
+  status: string
+  assigned_to?: string | null
+  customer_name?: string | null
+  customer_email?: string | null
+  remarks?: string | null
+  finance_amount?: number | null
+  finance_bank?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  documents?: Array<{
+    id: string
+    document_type: string
+    status: string
+    uploaded_at?: string
+    uploaded_by?: string
+    rejection_reason?: string
+    file_size?: number
+  }>
+  history?: Array<{
+    id: string
+    type: string
+    timestamp: string
+    title: string
+    description?: string
+    actor?: string
+    old_status?: string
+    new_status?: string
+  }>
+}
 
 const documentTypeIcons: Record<string, string> = {
   aadhar_front: '🪪', aadhar_back: '🪪', pan_card: '💳', passport_photo: '📷',
@@ -23,11 +58,36 @@ export default function CustomerFileDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'overview' | 'finance' | 'documents' | 'timeline'>('overview')
+  const [file, setFile] = useState<CustomerFileDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
 
-  // Find the exact targeted matching record object parameters in storage schema
-  const file = mockCustomerFiles.find(f => f.id === id)
+  useEffect(() => {
+    if (!id) return
+    setLoading(true)
+    api.get<CustomerFileDetail>(`/portal/files/${id}`)
+      .then((res) => {
+        setFile(res.data)
+        setNotFound(false)
+      })
+      .catch((error) => {
+        if (error.response?.status === 404) {
+          setNotFound(true)
+        }
+        setFile(null)
+      })
+      .finally(() => setLoading(false))
+  }, [id])
 
-  if (!file) {
+  if (loading) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-500)' }}>
+        Loading file information...
+      </div>
+    )
+  }
+
+  if (!file || notFound) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
         <h3>File Identifier Mismatch</h3>
