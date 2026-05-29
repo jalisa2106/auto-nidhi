@@ -29,6 +29,8 @@ import DataEntryFiles              from './pages/DataEntryPages/FilesPage'
 import DataEntryRTOPayments        from './pages/DataEntryPages/RTOPaymentsPage'
 import DataEntryInsurancePayments  from './pages/DataEntryPages/InsurancePaymentsPage'
 import DataEntryExpenses           from './pages/DataEntryPages/ExpensesPage'
+import DataEntryPaymentInPage from './pages/DataEntryPages/PaymentInPage'
+import DataEntryPaymentOutPage from './pages/DataEntryPages/PaymentOutPage'
 
 // ── Accountant pages ─────────────────────────────────────────────────
 import AccountantLayout         from './pages/AccountantPages/AccountantLayout'
@@ -100,6 +102,8 @@ function App() {
           <Route path="/data-entry/rto-payments"         element={<DataEntryRTOPayments />} />
           <Route path="/data-entry/insurance-payments"   element={<DataEntryInsurancePayments />} />
           <Route path="/data-entry/expenses"             element={<DataEntryExpenses />} />
+          <Route path="/data-entry/payments/in"      element={<DataEntryPaymentInPage />} />
+          <Route path="/data-entry/payments/out"      element={<DataEntryPaymentOutPage />} />
         </Route>
 
         {/* ── Accountant portal ── */}
