@@ -87,9 +87,6 @@ export default function AdminLayout() {
 
   const profileRef = useRef<HTMLDivElement>(null)
 
-  // Load user from either localStorage or sessionStorage.
-  // Always use user_role (written on every login) to decide which storage
-  // has the CURRENT user — prevents old "remember me" sessions bleeding through.
   useEffect(() => {
     const role = localStorage.getItem('user_role') || 'admin'
     setUserRole(role)
@@ -97,7 +94,6 @@ export default function AdminLayout() {
       const lsRaw = localStorage.getItem('an_current_user')
       const ssRaw = sessionStorage.getItem('an_current_user')
 
-      // Prefer the storage whose stored role matches user_role
       let stored: string | null = null
       if (lsRaw) {
         const ls = JSON.parse(lsRaw)
@@ -107,30 +103,29 @@ export default function AdminLayout() {
         const ss = JSON.parse(ssRaw)
         if (ss.role === role) stored = ssRaw
       }
-      if (!stored) stored = lsRaw || ssRaw   // fallback
+      if (!stored) stored = lsRaw || ssRaw
 
       if (stored) {
         const u = JSON.parse(stored)
-        // Support both 'first_name' (new) and 'name' (old) keys
         setUserName(u.first_name || u.name || u.email?.split('@')[0] || 'Admin')
       }
     } catch { /* ignore */ }
+
+    // Listen for name sync event from the Dashboard component
+    const handleNameSync = (e: any) => {
+      if (e.detail) setUserName(e.detail);
+    };
+    window.addEventListener('user_name_sync', handleNameSync);
+    return () => window.removeEventListener('user_name_sync', handleNameSync);
   }, [])
 
-  // Subscribe to notification count changes
   useEffect(() => {
-    // 1. Fetch real data from the backend immediately when the layout mounts
     fetchNotifications() 
-    
-    // 2. Set initial count (will update automatically via subscription once fetch finishes)
     setBadgeCount(unreadCount())
-    
-    // 3. Listen for changes
     const unsub = subscribe(() => setBadgeCount(unreadCount()))
     return unsub
   }, [])
 
-  // Close profile dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -152,7 +147,6 @@ export default function AdminLayout() {
 
   const closeNotifs = useCallback(() => setShowNotifs(false), [])
 
-  // Derive page title from current path
   const pathTitleMap: Record<string, string> = {
     '/dashboard': 'Dashboard', '/customers': 'Customers', '/files': 'Files',
     '/payments/in': 'Payment IN', '/payments/out': 'Payment OUT',

@@ -5,7 +5,6 @@ import {
 } from 'lucide-react'
 import { message } from 'antd' 
 import type { InsurancePayment } from '../../lib/finance'
-// 👇 Import insuranceCompaniesApi
 import { insurancePaymentsApi, filesApi, bankAccountsApi, insuranceCompaniesApi } from '../../api/services'
 import PageHeader from '../../components/app/PageHeader'
 
@@ -14,7 +13,7 @@ const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 
 type InsurancePaymentForm = {
   file_id: string
-  insurance_company_id: string // 👈 Replaced payee_name with ID
+  insurance_company_id: string
   amount: string
   mode: string
   payment_date: string
@@ -29,10 +28,13 @@ type InsurancePaymentForm = {
 }
 
 export default function InsurancePaymentsPage() {
-  const [rows, setRows] = useState<InsurancePayment[]>([])
+  const role = localStorage.getItem('user_role') || 'admin'
+  const isAdmin = role === 'admin'
+
+  const [rows, setRows] = useState<any[]>([])
   const [files, setFiles] = useState<{ id: string; file_number: string; customer: string }[]>([])
   const [companyBanks, setCompanyBanks] = useState<any[]>([]) 
-  const [insuranceCompanies, setInsuranceCompanies] = useState<any[]>([]) // 👈 New state for companies
+  const [insuranceCompanies, setInsuranceCompanies] = useState<any[]>([]) 
   
   const [showAdd, setShowAdd] = useState(false)
   const [viewRow, setViewRow] = useState<any | null>(null)
@@ -48,7 +50,7 @@ export default function InsurancePaymentsPage() {
   const [pageSize, setPageSize] = useState(10)
 
   const [form, setForm] = useState<InsurancePaymentForm>({
-    file_id: '', insurance_company_id: '', amount: '', mode: 'UPI', // 👈 Adjusted init state
+    file_id: '', insurance_company_id: '', amount: '', mode: 'UPI',
     payment_date: SYSTEM_ANCHOR_DATE, valid_to: '', company_bank_id: '', 
     cheque_bank_name: '', branch_name: '', cheque_no: '', cheque_date: '', utr_no: '', remarks: ''
   })
@@ -56,36 +58,29 @@ export default function InsurancePaymentsPage() {
   const fetchPayments = async () => {
     try {
       const paymentData = await insurancePaymentsApi.list()
-      setRows(paymentData.data || [])
+      // Fallback securely in case the array is wrapped inside a data property
+      const dataArray = Array.isArray(paymentData) ? paymentData : (paymentData.data || [])
+      setRows(dataArray)
     } catch (err) {
       console.error("Failed to load insurance data:", err)
     }
   }
 
   const loadDropdownData = async () => {
-    // 1. Fetch Files
     try {
       const filesRes = await filesApi.list(1, 1000) 
       setFiles(filesRes.data || [])
-    } catch (err) {
-      console.error("Failed to load files:", err)
-    }
+    } catch (err) {}
     
-    // 2. Fetch Banks
     try {
       const banksRes = await bankAccountsApi.list(1, 100)
       setCompanyBanks(banksRes.data || [])
-    } catch (err) {
-      console.error("Failed to load banks:", err)
-    }
+    } catch (err) {}
 
-    // 3. Fetch Insurance Companies
     try {
       const companiesRes = await insuranceCompaniesApi.list() 
-      setInsuranceCompanies(companiesRes || [])
-    } catch (err) {
-      console.error("Failed to load insurance companies:", err)
-    }
+      setInsuranceCompanies(Array.isArray(companiesRes) ? companiesRes : (companiesRes.data || []))
+    } catch (err) {}
   }
 
   useEffect(() => {
@@ -120,7 +115,7 @@ export default function InsurancePaymentsPage() {
         const query = search.toLowerCase()
         if (
           !(r.file_number || '').toLowerCase().includes(query) &&
-          !(r.payee_name || '').toLowerCase().includes(query) &&
+          !(r.payee_name || r.insurance_company_name || '').toLowerCase().includes(query) &&
           !(r.remarks || '').toLowerCase().includes(query)
         ) return false
       }
@@ -136,14 +131,14 @@ export default function InsurancePaymentsPage() {
   const safePageIndex = Math.min(page, totalPages)
   const paginatedRows = processedLedgerRows.slice((safePageIndex - 1) * pageSize, safePageIndex * pageSize)
 
-  const totalPremiumsPaid = rows.filter(r => !r.is_deleted).reduce((sum, r) => sum + Number(r.amount), 0)
+  const totalPremiumsPaid = rows.filter(r => !r.is_deleted).reduce((sum, r) => sum + Number(r.amount || 0), 0)
   const activeCount = rows.filter(r => !r.is_deleted && evalPolicyStatus(r.valid_to) === 'Active').length
   const expiredCount = rows.filter(r => !r.is_deleted && evalPolicyStatus(r.valid_to) === 'Expired').length
 
   const validateFormPayload = () => {
     const errCollection: Record<string, string> = {}
     if (!form.file_id.trim()) errCollection.file_id = 'File registration index required.'
-    if (!form.insurance_company_id.trim()) errCollection.insurance_company_id = 'Insurance provider is required.' // 👈 Updated validation
+    if (!form.insurance_company_id.trim()) errCollection.insurance_company_id = 'Insurance provider is required.'
     if (!form.amount || Number(form.amount) <= 0) errCollection.amount = 'Valid transaction premium costing metric mandatory.'
     if (!form.valid_to) errCollection.valid_to = 'Plan protection duration limit boundary target required.'
     
@@ -165,7 +160,7 @@ export default function InsurancePaymentsPage() {
       payment_date: form.payment_date,
       payment_mode: form.mode.toLowerCase(),
       amount: parseFloat(form.amount),
-      insurance_company_id: form.insurance_company_id, // 👈 Send ID
+      insurance_company_id: form.insurance_company_id,
       valid_to: form.valid_to || null,
       company_bank_id: form.company_bank_id && isValidUUID(form.company_bank_id) ? form.company_bank_id : null,
       cheque_bank_name: form.cheque_bank_name.trim() || null,
@@ -188,7 +183,6 @@ export default function InsurancePaymentsPage() {
       fetchPayments() 
       message.success("Insurance payment recorded successfully!")
     } catch (error: any) {
-      console.error("Submission failed:", error)
       const errorMsg = error.response?.data?.detail 
         ? (Array.isArray(error.response.data.detail) ? error.response.data.detail[0].msg : error.response.data.detail)
         : "Failed to save the record.";
@@ -223,7 +217,6 @@ export default function InsurancePaymentsPage() {
 
       {/* ── KPI Metric Container Grid Blocks ── */}
       <div className="pay-kpi-row">
-        {/* ... (Unchanged KPI blocks) ... */}
         <div className="pay-kpi-card">
           <div className="pay-kpi-icon blue"><IndianRupee size={20} /></div>
           <div className="pay-kpi-body">
@@ -312,14 +305,19 @@ export default function InsurancePaymentsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedRows.map((r) => {
+                  {paginatedRows.map((r, i) => {
                     const status = evalPolicyStatus(r.valid_to)
+                    // Safe ID Fallback
+                    const safeId = r.id || r.insurance_payment_id || `temp-${i}`;
+                    
                     return (
-                      <tr key={r.id}>
-                        <td style={{ fontFamily: 'monospace', color: 'var(--gray-400)', fontSize: '0.82rem' }}>{r.id.slice(0, 8)}</td>
+                      <tr key={safeId}>
+                        <td style={{ fontFamily: 'monospace', color: 'var(--gray-400)', fontSize: '0.82rem' }}>
+                          {safeId.startsWith('temp') ? '—' : safeId.slice(0, 8)}
+                        </td>
                         <td><span className="db-file-id">{r.file_number}</span></td>
-                        <td style={{ fontWeight: 500, color: 'var(--gray-800)' }}>{r.payee_name}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>₹{Number(r.amount).toLocaleString('en-IN')}</td>
+                        <td style={{ fontWeight: 500, color: 'var(--gray-800)' }}>{r.payee_name || r.insurance_company_name || '—'}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>₹{Number(r.amount || 0).toLocaleString('en-IN')}</td>
                         <td>
                           <span className={`from-badge ${status === 'Active' ? 'from-dealer' : status === 'Expiring' ? 'from-broker' : 'from-other'}`} style={{ fontWeight: 600 }}>
                             {status.toUpperCase()}
@@ -333,9 +331,12 @@ export default function InsurancePaymentsPage() {
                             <button className="btn btn-outline btn-sm" style={{ padding: '5px 10px' }} onClick={() => setViewRow(r)}>
                               <Eye size={13} />
                             </button>
-                            <button className="btn btn-outline btn-sm" style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }} onClick={(e) => dispatchSoftDeletionMutation(r.id, e)}>
-                              <Trash2 size={13} />
-                            </button>
+                            {/* Hide Delete for Non-Admins */}
+                            {isAdmin && (
+                              <button className="btn btn-outline btn-sm" style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }} onClick={(e) => { if(r.id) dispatchSoftDeletionMutation(r.id, e) }}>
+                                <Trash2 size={13} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -389,7 +390,6 @@ export default function InsurancePaymentsPage() {
                     {errors.file_id && <span className="form-error">{errors.file_id}</span>}
                   </div>
 
-                  {/* 👇 THE NEW DROPDOWN 👇 */}
                   <div className="form-group">
                     <label className="form-label">Insurer Provider Corporation <span style={{ color: 'red' }}>*</span></label>
                     <select 
@@ -428,7 +428,6 @@ export default function InsurancePaymentsPage() {
                     </select>
                   </div>
 
-                  {/* ─ Cheque / DD fields ─ */}
                   {isChequeLike && (
                     <>
                       <div className="modal-section-label">
@@ -473,7 +472,6 @@ export default function InsurancePaymentsPage() {
                     </>
                   )}
 
-                  {/* ─ NEFT / RTGS fields ─ */}
                   {isTransfer && (
                     <>
                       <div className="modal-section-label">Transfer Details</div>
@@ -525,7 +523,7 @@ export default function InsurancePaymentsPage() {
         <div className="modal-backdrop" onClick={() => setViewRow(null)}>
           <div className="modal" style={{ maxWidth: 550 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Insurance Plan Audit Ledger — {viewRow.id.slice(0, 8)}</h3>
+              <h3>Insurance Plan Audit Ledger — {(viewRow.id || viewRow.insurance_payment_id || '').slice(0, 8)}</h3>
               <button className="btn btn-ghost btn-sm" onClick={() => setViewRow(null)}><X size={16} /></button>
             </div>
             <div className="modal-body">
@@ -544,11 +542,11 @@ export default function InsurancePaymentsPage() {
                 </div>
                 <div className="pay-detail-item" style={{ gridColumn: '1 / -1' }}>
                   <div className="pay-detail-key">Insurance Provider Carrier</div>
-                  <div className="pay-detail-val" style={{ fontWeight: 600 }}>{viewRow.payee_name}</div>
+                  <div className="pay-detail-val" style={{ fontWeight: 600 }}>{viewRow.payee_name || viewRow.insurance_company_name || '—'}</div>
                 </div>
                 <div className="pay-detail-item">
                   <div className="pay-detail-key">Premium Cost Value</div>
-                  <div className="pay-detail-val" style={{ fontWeight: 600 }}>₹{Number(viewRow.amount).toLocaleString('en-IN')}</div>
+                  <div className="pay-detail-val" style={{ fontWeight: 600 }}>₹{Number(viewRow.amount || 0).toLocaleString('en-IN')}</div>
                 </div>
                 <div className="pay-detail-item">
                   <div className="pay-detail-key">Transaction Channel</div>
