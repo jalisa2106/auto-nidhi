@@ -28,4 +28,31 @@
 \echo '=== Step 8: Seed Data & Comments ==='
 \i 008_seed_comments.sql
 
+\echo '=== Step 9: RTO Soft Delete ==='
+\i 009_add_soft_delete_rto.sql
+
+\echo '=== Step 10: Payment Out + Expense Soft Delete ==='
+\i 010_add_company_bank_to_out.sql
+\i 010_add_soft_delete_expense_ledger.sql
+
+\echo '=== Step 11: Broker Soft Delete + Seed Finance Banks ==='
+\i 011_broker_soft_delete.sql
+\i 011_seed_finance_banks.sql
+
+\echo '=== Step 12: Insurance + Advances Soft Delete ==='
+\i 012_add_soft_delete_insurance.sql
+\i 012_advances_soft_delete.sql
+
+\echo '=== Step 13: Dealer Soft Delete ==='
+\i 013_dealer_soft_delete.sql
+
+\echo '=== Step 14: Expense Category Soft Delete ==='
+\i 014_expense_category_soft_delete.sql
+
+\echo '=== Step 15: User Notification Preferences ==='
+\i 015_user_notification_preferences.sql
+
+\echo '=== Step 16: Customer Document Vault ==='
+\i 016_customer_documents.sql
+
 \echo '=== AutoConsultancy schema setup COMPLETE ==='

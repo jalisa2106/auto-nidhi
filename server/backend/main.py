@@ -29,6 +29,7 @@ from backend.routes.customer.profile import router as customer_profile_router
 from backend.routes.customer.insurance import router as customer_insurance_router
 from backend.routes.customer.settings import router as customer_settings_router
 from backend.routes.customer.payments import router as customer_payments_router
+from backend.routes.customer.documents import router as customer_documents_router
 from backend.routes.customer.files import router as customer_files_router
 
 #Masters Routes
@@ -95,6 +96,7 @@ app.include_router(customer_profile_router)
 app.include_router(customer_insurance_router)
 app.include_router(customer_settings_router)
 app.include_router(customer_payments_router)
+app.include_router(customer_documents_router)
 app.include_router(customer_files_router)
 
 # Masters   
