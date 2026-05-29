@@ -390,6 +390,33 @@ class InsuranceInfo(Base):
     insurance_company = relationship("MasterInsuranceCompany")
     insurance_type = relationship("MasterInsuranceType")
 
+class CustomerDocument(Base):
+    __tablename__ = "customer_document"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+
+    customer_id = Column(UUID(as_uuid=True), ForeignKey("customer.id"), nullable=False)
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=True)
+
+    document_type = Column(String(100), nullable=False)
+    label = Column(String(255), nullable=False)
+    category = Column(String(50), nullable=False)  # kyc / transactional
+    status = Column(String(50), nullable=False, default="missing")  # verified / pending_review / rejected / missing
+
+    file_name = Column(String(255))
+    file_path = Column(Text)
+    file_size = Column(Integer)
+    content_type = Column(String(100))
+
+    rejection_reason = Column(Text)
+
+    uploaded_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+    customer = relationship("Customer")
+    file = relationship("FileRecord")
+
 class UserNotificationPreference(Base):
     __tablename__ = "user_notification_preferences"
 

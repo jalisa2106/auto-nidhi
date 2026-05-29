@@ -16,40 +16,6 @@ interface InsurancePolicy {
   idv_amount: number // maps to insurance_info.idv_amount
 }
 
-// Sleek fallback/mock data matching database records precisely
-const FALLBACK_POLICIES: InsurancePolicy[] = [
-  {
-    file_number: 'FILE/2026/001',
-    file_type: 'new_vehicle',
-    company_name: 'HDFC ERGO General Insurance',
-    policy_number: '2312-9908-1123-00',
-    valid_from: '2026-01-15',
-    valid_to: '2027-01-14',
-    premium_amount: 24850.00,
-    idv_amount: 850000.00,
-  },
-  {
-    file_number: 'FILE/2026/005',
-    file_type: 'used_vehicle',
-    company_name: 'ICICI Lombard General Insurance',
-    policy_number: '3005/29188273/00/000',
-    valid_from: '2025-06-10',
-    valid_to: '2026-06-09',
-    premium_amount: 18400.00,
-    idv_amount: 520000.00,
-  },
-  {
-    file_number: 'FILE/2025/082',
-    file_type: 'renewal',
-    company_name: 'Tata AIG General Insurance',
-    policy_number: '0159283748231',
-    valid_from: '2024-05-20',
-    valid_to: '2025-05-19',
-    premium_amount: 15200.00,
-    idv_amount: 410000.00,
-  }
-]
-
 // ── Pagination Sub-component matching Admin spec ─────────────────────────────
 function Pagination({
   total, page, pageSize, onPage, onPageSize,
@@ -113,7 +79,7 @@ export default function CustomerInsurancePage() {
       })
       .catch((err) => {
         console.error('Failed to load insurance policies', err)
-        setPolicies(FALLBACK_POLICIES)
+        setPolicies([])
       })
       .finally(() => {
         setLoading(false)
