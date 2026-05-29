@@ -2,15 +2,30 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, Users, FolderOpen,
+  ArrowDownToLine, ArrowUpFromLine, Receipt, ShieldCheck, Wallet,
   Car, LogOut, BellRing,
 } from 'lucide-react'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
+interface NavGroup { title: string; items: NavItem[] }
 
-const dataEntryNav: NavItem[] = [
-  { to: '/data-entry/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/data-entry/customers', label: 'Customers', icon: Users },
-  { to: '/data-entry/files',     label: 'Files',     icon: FolderOpen },
+const dataEntryNav: NavGroup[] = [
+  {
+    title: 'Overview', items: [
+      { to: '/data-entry/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/data-entry/customers', label: 'Customers', icon: Users           },
+      { to: '/data-entry/files',     label: 'Files',     icon: FolderOpen      },
+    ],
+  },
+  {
+    title: 'Finance', items: [
+      { to: '/data-entry/payments/in',         label: 'Payment IN',         icon: ArrowDownToLine },
+      { to: '/data-entry/payments/out',        label: 'Payment OUT',        icon: ArrowUpFromLine },
+      { to: '/data-entry/rto-payments',        label: 'RTO Payments',       icon: Receipt         },
+      { to: '/data-entry/insurance-payments',  label: 'Insurance Payments', icon: ShieldCheck     },
+      { to: '/data-entry/expenses',            label: 'Expenses',           icon: Wallet          },
+    ],
+  },
 ]
 
 export default function DataEntryLayout() {
@@ -51,19 +66,21 @@ export default function DataEntryLayout() {
           <div className="sb-brand">Auto<span>Nidhi</span></div>
         </div>
 
-        <div>
-          <div className="sb-section">Overview</div>
-          {dataEntryNav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/data-entry/dashboard'}
-              className={({ isActive }) => (isActive ? 'active-link' : '')}
-            >
-              <item.icon size={16} /> {item.label}
-            </NavLink>
-          ))}
-        </div>
+        {dataEntryNav.map((group) => (
+          <div key={group.title}>
+            <div className="sb-section">{group.title}</div>
+            {group.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/data-entry/dashboard'}
+                className={({ isActive }) => (isActive ? 'active-link' : '')}
+              >
+                <item.icon size={16} /> {item.label}
+              </NavLink>
+            ))}
+          </div>
+        ))}
 
         <div className="sb-foot">
           Signed in as <strong style={{ color: '#fff' }}>{userName}</strong><br />
