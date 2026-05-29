@@ -184,7 +184,16 @@ export const filesApi = {
   create: async (payload: any) => {
     const { data } = await api.post('/files/', payload, skipAuthRedirectConfig)
     return data
-  }
+  },
+
+  update: async (id: string, payload: any) => {
+    const { data } = await api.put(`/files/${id}/`, payload, skipAuthRedirectConfig)
+    return data
+  },
+
+  remove: async (id: string) => {
+    await api.delete(`/files/${id}/`, skipAuthRedirectConfig)
+  },
 }
 
 export const paymentsInApi = {

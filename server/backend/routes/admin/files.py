@@ -14,11 +14,18 @@ router = APIRouter(prefix="/api/v1/files", tags=["Admin Files"])
 
 class FileCreate(BaseModel):
     customer_id: UUID
-    bank_id: UUID  
-    # file_number is removed since it will be auto-generated
+    bank_id: UUID
     file_type: str
     status: str
+    docket_date: Optional[str] = None
     remarks: Optional[str] = None
+
+class FileUpdate(BaseModel):
+    file_type: Optional[str] = None
+    status: Optional[str] = None
+    docket_date: Optional[str] = None
+    remarks: Optional[str] = None
+    assigned_to: Optional[UUID] = None
 
 def generate_file_number(db: Session) -> str:
     current_year = datetime.datetime.now().year
@@ -117,6 +124,87 @@ def create_file(payload: FileCreate, db: Session = Depends(get_db), current_user
         db.commit()
         db.refresh(new_file)
         return {"status": "success", "id": str(new_file.id), "file_number": new_file.file_number}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.put("/{file_id}/", status_code=200)
+def update_file(
+    file_id: UUID,
+    payload: FileUpdate,
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_admin)
+):
+    file = db.query(FileRecord).filter(
+        FileRecord.id == file_id,
+        FileRecord.is_deleted == False
+    ).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if payload.file_type is not None:
+        file.file_type = payload.file_type
+    if payload.status is not None:
+        file.status = payload.status
+    if payload.remarks is not None:
+        file.remarks = payload.remarks
+    if payload.docket_date is not None:
+        try:
+            file.docket_date = datetime.date.fromisoformat(payload.docket_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid docket_date format. Use YYYY-MM-DD.")
+    if payload.assigned_to is not None:
+        file.assigned_to = payload.assigned_to
+
+    file.updated_at = datetime.datetime.utcnow()
+
+    try:
+        record_dashboard_event(
+            db,
+            current_user,
+            action="updated file",
+            table_name="file_record",
+            record_id=file.id,
+            message=f"File {file.file_number} was updated",
+            preference_key="updated",
+        )
+        db.commit()
+        db.refresh(file)
+        return {"status": "success", "id": str(file.id), "file_number": file.file_number}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/{file_id}/", status_code=200)
+def delete_file(
+    file_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_admin)
+):
+    file = db.query(FileRecord).filter(
+        FileRecord.id == file_id,
+        FileRecord.is_deleted == False
+    ).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    file.is_deleted = True
+    file.updated_at = datetime.datetime.utcnow()
+
+    try:
+        record_dashboard_event(
+            db,
+            current_user,
+            action="deleted file",
+            table_name="file_record",
+            record_id=file.id,
+            message=f"File {file.file_number} was deleted",
+            preference_key="deleted",
+        )
+        db.commit()
+        return {"status": "success", "message": f"File {file.file_number} deleted"}
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))
