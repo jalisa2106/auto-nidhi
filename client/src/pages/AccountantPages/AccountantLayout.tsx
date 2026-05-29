@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, FolderOpen, ArrowDownToLine, ArrowUpFromLine,
-  Receipt, ShieldCheck, Wallet, Landmark,
+  Receipt, ShieldCheck, Wallet, Landmark, BadgePercent,
   Car, LogOut, BellRing,
 } from 'lucide-react'
 
@@ -18,12 +18,14 @@ const accountantNav: NavGroup[] = [
   },
   {
     title: 'Finance', items: [
-      { to: '/accountant/payments/in',        label: 'Payment IN',         icon: ArrowDownToLine  },
-      { to: '/accountant/payments/out',       label: 'Payment OUT',        icon: ArrowUpFromLine  },
-      { to: '/accountant/rto-payments',       label: 'RTO Payments',       icon: Receipt          },
-      { to: '/accountant/insurance-payments', label: 'Insurance Payments', icon: ShieldCheck      },
-      { to: '/accountant/expenses',           label: 'Expenses',           icon: Wallet           },
-      { to: '/accountant/advances',           label: 'Advances',           icon: Landmark         },
+      { to: '/accountant/payments/in',         label: 'Payment IN',         icon: ArrowDownToLine  },
+      { to: '/accountant/payments/out',        label: 'Payment OUT',        icon: ArrowUpFromLine  },
+      { to: '/accountant/rto-payments',        label: 'RTO Payments',       icon: Receipt          },
+      { to: '/accountant/insurance-payments',  label: 'Insurance Payments', icon: ShieldCheck      },
+      { to: '/accountant/expenses',            label: 'Expenses',           icon: Wallet           },
+      { to: '/accountant/advances',            label: 'Advances',           icon: Landmark         },
+      { to: '/accountant/commission/in',       label: 'Commission IN',      icon: BadgePercent     },
+      { to: '/accountant/commission/out',      label: 'Commission OUT',     icon: BadgePercent     },
     ],
   },
 ]
