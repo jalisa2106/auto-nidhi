@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Customer, SystemUser
-from backend.utils import get_current_customer, get_current_customer_profile
+from backend.utils import get_current_customer
 
 router = APIRouter(prefix="/api/v1/customer", tags=["Customer Dashboard"])
 
@@ -16,10 +16,27 @@ def _rows(db: Session, sql: str, params: dict | None = None):
 @router.get("/dashboard")
 def customer_dashboard(
     current_user: SystemUser = Depends(get_current_customer),
-    customer: Customer = Depends(get_current_customer_profile),
     db: Session = Depends(get_db),
 ):
     user_id = str(current_user.id)
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+
+    if not customer:
+        return {
+            "user": {
+                "id": user_id,
+                "first_name": current_user.first_name,
+                "last_name": current_user.last_name,
+                "email": current_user.email,
+                "role_id": str(current_user.role_id) if current_user.role_id else None,
+            },
+            "dashboard": {
+                "total_files": 0,
+                "completed_files": 0,
+                "recent_files": [],
+            },
+        }
+
     customer_id = str(customer.id)
 
     total_files = db.execute(

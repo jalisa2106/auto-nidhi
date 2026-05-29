@@ -8,7 +8,7 @@ from backend.database import get_db
 from backend.models import Customer, FileRecord, SystemUser
 from backend.utils import get_current_customer
 
-router = APIRouter(prefix="/portal", tags=["Customer Portal"])
+router = APIRouter(prefix="/api/v1/portal", tags=["Customer Portal"])
 
 
 def _get_customer_by_user(db: Session, current_user: SystemUser) -> Optional[Customer]:
