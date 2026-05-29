@@ -92,10 +92,11 @@ def get_current_admin(
 ) -> SystemUser:
     role = db.query(MasterRole).filter(MasterRole.id == current_user.role_id).first()
 
-    if not role or role.role_name.lower() != "admin":
+    # UPDATED: We now allow BOTH admin and data_entry to pass this security check
+    if not role or role.role_name.lower() not in ["admin", "data_entry"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            detail="Admin or Data Entry access required"
         )
 
     return current_user
@@ -134,23 +135,6 @@ def get_current_customer_profile(
         )
 
     return customer
-
-def get_password_hash(password: str) -> str:
-    # Bcrypt requires bytes, so we encode the password string
-    pwd_bytes = password.encode('utf-8')
-    # Generate a secure salt
-    salt = bcrypt.gensalt()
-    # Hash the password
-    hashed_password = bcrypt.hashpw(pwd_bytes, salt)
-    # Decode back to a string so it can be saved in the PostgreSQL database
-    return hashed_password.decode('utf-8')
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    # Convert both the plain password and the stored hash into bytes for comparison
-    password_bytes = plain_password.encode('utf-8')
-    hashed_password_bytes = hashed_password.encode('utf-8')
-    
-    return bcrypt.checkpw(password_bytes, hashed_password_bytes)
 
 
 def _jsonb(value: Optional[dict[str, Any]]) -> Optional[str]:

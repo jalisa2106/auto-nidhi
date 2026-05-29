@@ -63,17 +63,27 @@ export default function DataEntryLayout() {
 
   useEffect(() => {
     const role = localStorage.getItem('user_role') || ''
+    
+    // Initial load from storage
     try {
       const stored = localStorage.getItem('an_current_user')
       if (stored) {
         const u = JSON.parse(stored)
-        setUserName(u.first_name || u.name || 'Data Entry')
+        setUserName(u.first_name || u.name || u.email?.split('@')[0] || 'Data Entry')
       }
     } catch { /* ignore */ }
 
     if (!localStorage.getItem('access_token') || role.toLowerCase() !== 'data_entry') {
       navigate('/login', { replace: true })
     }
+
+    // NEW: Listen for the exact same sync event that DashboardPage dispatches
+    const handleNameSync = (e: any) => {
+      if (e.detail) setUserName(e.detail);
+    };
+    window.addEventListener('user_name_sync', handleNameSync);
+    
+    return () => window.removeEventListener('user_name_sync', handleNameSync);
   }, [navigate])
 
   useEffect(() => {
