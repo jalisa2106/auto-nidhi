@@ -129,18 +129,7 @@ const NotificationPanel: React.FC<Props> = ({ onClose }) => {
             )
           })
         )}
-      </div>
-      
-      {/* Footer */}
-      {notifs.length > 0 && (
-        <div style={{ padding: '10px 16px', borderTop: '1px solid #f1f5f9', textAlign: 'center', flexShrink: 0 }}>
-          <span style={{ fontSize: '12px', color: '#94a3b8' }}>
-            {notifs.length > visibleNotifs.length 
-              ? `Showing ${visibleNotifs.length} of ${notifs.length} notifications` 
-              : `Showing all ${visibleNotifs.length} notifications`}
-          </span>
-        </div>
-      )}
+      </div>      
     </div>
   )
 }
