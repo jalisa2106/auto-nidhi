@@ -1,17 +1,29 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom' // 👈 Added navigation hook handler
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '../../components/app/PageHeader'
 import FileStatusBadge from '../../components/CustomerPages/FileStatusBadge'
-import { mockCustomerFiles, type MockFile } from '../../lib/mockCustomerFiles'
+import api from '../../api/axios'
 import '../CSS_pages/CustomerFilesPage.css'
+
+interface CustomerFile {
+  id: string
+  file_number: string
+  file_type: string
+  status: string
+  assigned_to?: string | null
+  finance_amount?: number | null
+  finance_bank?: string | null
+  created_at: string
+  updated_at: string
+}
 
 type FileStatus = 'draft' | 'login' | 'under_process' | 'sanctioned' | 'disbursed' | 'completed' | 'cancelled' | 'all'
 type FileType = 'new_vehicle' | 'used_vehicle' | 'renewal' | 'all'
 type SortField = 'file_number' | 'created_at' | 'status' | 'assigned_to'
 
 export default function CustomerFilesPage() {
-  const navigate = useNavigate() // 👈 Initialize routing agent tool bounds
-  const [files, setFiles] = useState<MockFile[]>([])
+  const navigate = useNavigate()
+  const [files, setFiles] = useState<CustomerFile[]>([])
   const [loading, setLoading] = useState(true)
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -24,10 +36,10 @@ export default function CustomerFilesPage() {
   const itemsPerPage = 10
 
   useEffect(() => {
-    setTimeout(() => {
-      setFiles(mockCustomerFiles)
-      setLoading(false)
-    }, 400)
+    api.get<CustomerFile[]>('/portal/files')
+      .then((res) => setFiles(res.data || []))
+      .catch(() => setFiles([]))
+      .finally(() => setLoading(false))
   }, [])
 
   const filteredAndSortedFiles = useMemo(() => {
