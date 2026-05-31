@@ -4,12 +4,13 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
   FileSpreadsheet, FileDown,
 } from 'lucide-react'
-import { message } from 'antd'
+import { message, Select } from 'antd'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
-import { paymentsOutApi, filesApi, bankAccountsApi } from '../../api/services'
+import { paymentsOutApi, filesApi, bankAccountsApi, usersSettingsApi } from '../../api/services'
+
 
 const PAYMENT_MODES  = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 const PAYMENT_TO_TYPES = ['Customer', 'Dealer', 'Broker', 'Agent', 'Other'] as const
@@ -124,6 +125,7 @@ export default function PaymentOutPage() {
   const [totalRows, setTotalRows] = useState(0)
   const [availableFiles, setAvailableFiles] = useState<any[]>([])
   const [companyBanks, setCompanyBanks] = useState<{ id: string; label: string }[]>([])
+  const [staff, setStaff] = useState<any[]>([])
   
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<any | null>(null)
@@ -172,12 +174,27 @@ export default function PaymentOutPage() {
   }, [page, pageSize, search, filterMode, filterTo, filterDateFrom, filterDateTo])
 
   useEffect(() => {
-    // Load company banks once on mount for the dropdown
+    // Load company banks once on mount
     bankAccountsApi.list(1, 200).then(res => {
       setCompanyBanks((res.data || []).map((b: any) => ({
         id: b.id,
         label: `${b.bank_name} – ${b.account_number}`,
       })))
+    }).catch(() => {})
+
+    // Load staff for payee dropdown
+    usersSettingsApi.list(1, 500).then(res => {
+      const allUsers = res.data || []
+      const filtered = allUsers.filter((u: any) => {
+        const r = (u.role_name || '').toLowerCase()
+        const isActive = u.is_active === true
+        // Show all active users except Customers
+        return isActive && r !== 'customer'
+      }).map((u: any) => ({
+        label: `${u.first_name} ${u.last_name || ''}`.trim(),
+        value: `${u.first_name} ${u.last_name || ''}`.trim()
+      }))
+      setStaff(filtered)
     }).catch(() => {})
   }, [])
 
@@ -540,12 +557,19 @@ export default function PaymentOutPage() {
 
                   <div className="form-group modal-full">
                     <label className="form-label">Payee Name <span style={{ color: 'var(--error)' }}>*</span></label>
-                    <input
-                      id="pay-out-payee-name"
-                      className={`form-input ${errors.payee_name ? 'error' : ''}`}
-                      placeholder="e.g. Auto Hub Pvt Ltd, Aditya Rao…"
-                      value={form.payee_name}
-                      onChange={(e) => updateForm('payee_name', e.target.value)}
+                    <Select
+                      showSearch
+                      className={`form-input-antd ${errors.payee_name ? 'error' : ''}`}
+                      style={{ width: '100%', height: 42 }}
+                      placeholder="Search or type payee name…"
+                      value={form.payee_name || undefined}
+                      onChange={(val) => updateForm('payee_name', val)}
+                      onSearch={(val) => updateForm('payee_name', val)}
+                      filterOption={(input, option) =>
+                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                      }
+                      status={errors.payee_name ? 'error' : undefined}
+                      options={staff}
                     />
                     {errors.payee_name && <span className="form-error">{errors.payee_name}</span>}
                   </div>

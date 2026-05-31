@@ -4,13 +4,12 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
   FileSpreadsheet, FileDown,
 } from 'lucide-react'
-import { message } from 'antd'
+import { message, Select } from 'antd'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
-import { commissionsOutApi, filesApi, bankAccountsApi } from '../../api/services'
-import { mockBrokers } from '../../lib/mockData'
+import { commissionsOutApi, filesApi, bankAccountsApi, usersSettingsApi } from '../../api/services'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 type CommissionOut = {
@@ -162,6 +161,7 @@ export default function CommissionOutPage() {
   const [viewRow, setViewRow]   = useState<CommissionOut | null>(null)
   const [form, setForm]         = useState({ ...EMPTY_FORM })
   const [errors, setErrors]     = useState<Record<string, string>>({})
+  const [staff, setStaff]       = useState<any[]>([])
 
   // Filters
   const [search, setSearch]                   = useState('')
@@ -227,12 +227,27 @@ export default function CommissionOutPage() {
 
   useEffect(() => {
     loadCommissions()
-    // Load company banks once on mount for the dropdown
+    // Load company banks once on mount
     bankAccountsApi.list(1, 200).then(res => {
       setCompanyBanks((res.data || []).map((b: any) => ({
         id: b.id,
         label: `${b.bank_name} – ${b.account_number}`,
       })))
+    }).catch(() => {})
+
+    // Load staff for payee dropdown
+    usersSettingsApi.list(1, 500).then(res => {
+      const allUsers = res.data || []
+      const filtered = allUsers.filter((u: any) => {
+        const r = (u.role_name || '').toLowerCase()
+        const isActive = u.is_active === true
+        // Show all active users except Customers
+        return isActive && r !== 'customer'
+      }).map((u: any) => ({
+        label: `${u.first_name} ${u.last_name || ''}`.trim(),
+        value: `${u.first_name} ${u.last_name || ''}`.trim()
+      }))
+      setStaff(filtered)
     }).catch(() => {})
   }, [])
 
@@ -605,27 +620,20 @@ export default function CommissionOutPage() {
 
                   <div className="form-group modal-full">
                     <label className="form-label">Payee Name <span style={{ color: 'var(--error)' }}>*</span></label>
-                    {form.payee_type === 'Broker' ? (
-                      <select
-                        id="comm-out-payee-name"
-                        className={`form-input ${errors.payee_name ? 'error' : ''}`}
-                        value={form.payee_name}
-                        onChange={(e) => updateForm('payee_name', e.target.value)}
-                      >
-                        <option value="">Select broker…</option>
-                        {mockBrokers.map((b) => (
-                          <option key={b.id} value={b.broker_name}>{b.broker_name} — {b.district}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        id="comm-out-payee-name"
-                        className={`form-input ${errors.payee_name ? 'error' : ''}`}
-                        placeholder="e.g. City Motors, Aditya Rao…"
-                        value={form.payee_name}
-                        onChange={(e) => updateForm('payee_name', e.target.value)}
-                      />
-                    )}
+                    <Select
+                      showSearch
+                      className={`form-input-antd ${errors.payee_name ? 'error' : ''}`}
+                      style={{ width: '100%', height: 42 }}
+                      placeholder="Search or type payee name…"
+                      value={form.payee_name || undefined}
+                      onChange={(val) => updateForm('payee_name', val)}
+                      onSearch={(val) => updateForm('payee_name', val)}
+                      filterOption={(input, option) =>
+                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                      }
+                      status={errors.payee_name ? 'error' : undefined}
+                      options={staff}
+                    />
                     {errors.payee_name && <span className="form-error">{errors.payee_name}</span>}
                   </div>
 
