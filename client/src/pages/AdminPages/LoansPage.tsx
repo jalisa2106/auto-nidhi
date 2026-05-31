@@ -9,6 +9,9 @@ import {
 } from 'lucide-react'
 import { loansApi } from '../../api/services'
 import Modal from '../../components/app/Modal'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
@@ -203,6 +206,66 @@ export default function LoansPage() {
   const safePage   = Math.min(page, totalPages)
   const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
+  // ── Export Excel
+  const exportExcel = () => {
+    const data = filtered.map((l) => ({
+      'File No.': l.file_number,
+      'LAN No.': l.lan_number,
+      'Customer': l.full_name,
+      'Mobile': l.mobile_1,
+      'City': l.city,
+      'Bank': l.bank_name,
+      'Loan Amount': l.loan_amount,
+      'EMI/mo': l.emi_amount,
+      'Months': l.no_of_months,
+      'IRR %': l.irr_percentage,
+      'Status': dbStatusToUI[l.status] || l.status,
+      'Docket Date': l.docket_date,
+      'Created By': l.created_by_name,
+      'Remarks': l.remarks || '',
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Loans')
+    XLSX.writeFile(wb, `loans_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  // ── Export PDF
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.text('Loans Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120)
+    doc.text(`Generated on: ${today}`, 14, 22)
+    doc.setTextColor(0)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['File No.', 'LAN No.', 'Customer', 'Bank', 'Loan Amount', 'EMI/mo', 'Tenure', 'Status', 'Docket Date'],
+      ],
+      body: filtered.map((l) => [
+        l.file_number,
+        l.lan_number,
+        l.full_name,
+        l.bank_name,
+        '₹' + l.loan_amount.toLocaleString('en-IN'),
+        '₹' + l.emi_amount.toLocaleString('en-IN'),
+        `${l.no_of_months} mo`,
+        dbStatusToUI[l.status] || l.status,
+        l.docket_date,
+      ]),
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [99, 102, 241] },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+    })
+
+    doc.save(`loans_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
+
   // ── Handlers ──
   const openEdit = (loan: LoanRecord) => {
     setEditForm({ remarks: loan.remarks, status: loan.status })
@@ -300,6 +363,24 @@ export default function LoansPage() {
                   onFocus={e => (e.target.style.borderColor='var(--brand-500)')}
                   onBlur={e  => (e.target.style.borderColor='var(--gray-200)')} />
               </div>
+              <button className="btn btn-outline btn-sm" onClick={exportExcel} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+                Export Excel
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={exportPDF} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="9" y1="13" x2="15" y2="13" />
+                  <line x1="9" y1="17" x2="15" y2="17" />
+                </svg>
+                Export PDF
+              </button>
             </div>
           </div>
 

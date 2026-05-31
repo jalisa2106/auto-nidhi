@@ -2,8 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   TrendingDown, IndianRupee, CalendarClock, Plus, X, Eye,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
+  FileSpreadsheet, FileDown,
 } from 'lucide-react'
 import { message } from 'antd'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
 import { commissionsOutApi, filesApi, bankAccountsApi } from '../../api/services'
 import { mockBrokers } from '../../lib/mockData'
@@ -292,6 +296,66 @@ export default function CommissionOutPage() {
     setFilterDateFrom(''); setFilterDateTo(''); setPage(1)
   }
 
+  const exportExcel = () => {
+    const data = filtered.map((r) => ({
+      'File No.': r.file_number,
+      'Payee Type': r.payee_type,
+      'Payee Name': r.payee_name,
+      'Amount (₹)': r.amount,
+      'Status': r.advance ? 'Advance' : 'Final',
+      'TDS': r.tds_deducted ? 'TDS ✓' : '—',
+      'Mode': r.mode,
+      'Date': r.payment_date,
+      'Cheque / UTR': r.cheque_no || r.utr_no || '—',
+      'Remarks': r.remarks || '—',
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(data)
+    ws['!cols'] = [
+      { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 },
+      { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
+      { wch: 20 }, { wch: 25 }
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Commission OUT')
+    XLSX.writeFile(wb, `CommissionOut_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.text('Commission OUT Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120)
+    doc.text(`Generated on: ${today} | Total records: ${filtered.length}`, 14, 22)
+    doc.setTextColor(0)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['File No.', 'Payee Type', 'Payee Name', 'Amount (₹)', 'Status', 'TDS', 'Mode', 'Date', 'Cheque / UTR'],
+      ],
+      body: filtered.map((r) => [
+        r.file_number,
+        r.payee_type,
+        r.payee_name,
+        '₹' + Number(r.amount).toLocaleString('en-IN'),
+        r.advance ? 'Advance' : 'Final',
+        r.tds_deducted ? 'Yes' : 'No',
+        r.mode,
+        r.payment_date,
+        r.cheque_no || r.utr_no || '—',
+      ]),
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [185, 28, 28] },
+      alternateRowStyles: { fillColor: [254, 242, 242] },
+    })
+
+    doc.save(`CommissionOut_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
+
   const hasFilters = search || filterType || filterMode || filterDateFrom || filterDateTo
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -343,6 +407,20 @@ export default function CommissionOutPage() {
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
         </div>
+        <button
+          className="btn btn-outline btn-sm"
+          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
+          onClick={exportExcel}
+        >
+          <FileSpreadsheet size={14} /> Export Excel
+        </button>
+        <button
+          className="btn btn-outline btn-sm"
+          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
+          onClick={exportPDF}
+        >
+          <FileDown size={14} /> Export PDF
+        </button>
         <div className="pay-filter-group">
           <span className="pay-filter-label">Payee Type</span>
           <select

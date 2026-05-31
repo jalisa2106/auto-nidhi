@@ -2,8 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
 import {
   Building2, UserCheck, Plus, X, Pencil, Trash2, RotateCcw,
-  ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight
+  ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight,
+  FileSpreadsheet, FileDown
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
 import { dealersApi } from '../../api/services'
 
@@ -89,6 +93,61 @@ export default function DealersPage() {
   const totalPages = Math.max(1, Math.ceil(processedRows.length / pageSize))
   const safePageIndex = Math.min(page, totalPages)
   const paginatedRows = processedRows.slice((safePageIndex - 1) * pageSize, safePageIndex * pageSize)
+
+  const exportExcel = () => {
+    const data = processedRows.map((r, i) => ({
+      '#': i + 1,
+      ID: formatDealerId(r.id),
+      'Showroom Name': r.showroom_name || '—',
+      'Contact Person': r.name || '—',
+      Phone: r.phone || '—',
+      Email: r.email || '—',
+      'Area / Branch': r.area_branch || '—',
+      Status: r.status ? r.status.toUpperCase() : 'ACTIVE',
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    ws['!cols'] = [
+      { wch: 6 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 16 }, { wch: 25 }, { wch: 18 }, { wch: 12 }
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Dealers')
+    XLSX.writeFile(wb, `dealers_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.setTextColor(40, 40, 40)
+    doc.text('Dealers Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120, 120, 120)
+    doc.text(`Generated on: ${today} | Total Records: ${processedRows.length}`, 14, 22)
+    doc.setTextColor(0, 0, 0)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['#', 'ID', 'Showroom Name', 'Contact Person', 'Phone', 'Email', 'Area / Branch', 'Status'],
+      ],
+      body: processedRows.map((r, i) => [
+        i + 1,
+        formatDealerId(r.id),
+        r.showroom_name || '—',
+        r.name || '—',
+        r.phone || '—',
+        r.email || '—',
+        r.area_branch || '—',
+        r.status ? r.status.toUpperCase() : 'ACTIVE',
+      ]),
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [79, 70, 229] },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+    })
+
+    doc.save(`dealers_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
 
   // ─── CORE KPI METRIC COMPUTING ───
   const totalDealers = rows.filter(r => !r.is_deleted).length
@@ -230,6 +289,12 @@ export default function DealersPage() {
             <RotateCcw size={13} style={{ marginRight: 4 }} />Reset
           </button>
         )}
+        <button className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6 }} onClick={exportExcel}>
+          <FileSpreadsheet size={14} /> Export Excel
+        </button>
+        <button className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6 }} onClick={exportPDF}>
+          <FileDown size={14} /> Export PDF
+        </button>
         <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }} onClick={() => { setForm(INITIAL_FORM_STATE); setErrors({}); setShowAdd(true); }}>
           <Plus size={14} /> Add Dealer
         </button>

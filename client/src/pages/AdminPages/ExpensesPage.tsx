@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import {
   Wallet, X, Search, Plus,
   FileText, Banknote, Calendar,
@@ -231,6 +234,54 @@ export default function ExpensesPage() {
   const safePage = Math.min(page, totalPages)
   const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
+  const exportExcel = () => {
+    const data = filtered.map((e) => ({
+      ID: formatExpenseId(e.id),
+      Category: e.expense_category_name,
+      Amount: e.amount,
+      Date: e.expense_date,
+      'File Linked': e.file_number || '—',
+      'Recorded By': e.created_by_name,
+      Remarks: e.remarks || '',
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Expenses')
+    XLSX.writeFile(wb, `expenses_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'portrait' })
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.text('Expenses Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120)
+    doc.text(`Generated on: ${today}`, 14, 22)
+    doc.setTextColor(0)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['Expense ID', 'Category', 'Amount', 'Date', 'File Linked', 'Recorded By'],
+      ],
+      body: filtered.map((e) => [
+        formatExpenseId(e.id),
+        e.expense_category_name,
+        '₹' + e.amount.toLocaleString('en-IN'),
+        e.expense_date,
+        e.file_number || '—',
+        e.created_by_name,
+      ]),
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [79, 70, 229] },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+    })
+
+    doc.save(`expenses_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
+
   const resolveFileId = (fileNumber: string): string | null => {
     const match = fileOptions.find(item => item.file_number === fileNumber)
     return match?.id ?? null
@@ -384,6 +435,50 @@ export default function ExpensesPage() {
                   onFocus={e => (e.target.style.borderColor = 'var(--brand-500)')}
                   onBlur={e => (e.target.style.borderColor = 'var(--gray-200)')} />
               </div>
+              <button
+                id="expense-export-excel-btn"
+                onClick={exportExcel}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                onMouseEnter={e => {
+                  const b = e.currentTarget as HTMLButtonElement
+                  b.style.background = 'var(--surface-1)'
+                  b.style.borderColor = 'var(--gray-300)'
+                }}
+                onMouseLeave={e => {
+                  const b = e.currentTarget as HTMLButtonElement
+                  b.style.background = '#fff'
+                  b.style.borderColor = 'var(--gray-200)'
+                }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+                Export Excel
+              </button>
+              <button
+                id="expense-export-pdf-btn"
+                onClick={exportPDF}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                onMouseEnter={e => {
+                  const b = e.currentTarget as HTMLButtonElement
+                  b.style.background = 'var(--surface-1)'
+                  b.style.borderColor = 'var(--gray-300)'
+                }}
+                onMouseLeave={e => {
+                  const b = e.currentTarget as HTMLButtonElement
+                  b.style.background = '#fff'
+                  b.style.borderColor = 'var(--gray-200)'
+                }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="9" y1="13" x2="15" y2="13" />
+                  <line x1="9" y1="17" x2="15" y2="17" />
+                </svg>
+                Export PDF
+              </button>
               <button id="expense-add-btn" disabled={categoriesList.length === 0 || loading} onClick={() => { setForm(emptyForm(categoriesList[0]?.name || '')); setAddOpen(true) }}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', background: categoriesList.length === 0 || loading ? 'var(--gray-300)' : 'var(--brand-600)', color: '#fff', fontSize: '.85rem', fontWeight: 600, cursor: categoriesList.length === 0 || loading ? 'not-allowed' : 'pointer', border: 'none', transition: 'background .15s' }}
                 onMouseEnter={e => { if (!(categoriesList.length === 0 || loading)) ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-700)') }}
