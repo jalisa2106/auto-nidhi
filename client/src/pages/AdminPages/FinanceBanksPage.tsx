@@ -7,6 +7,9 @@ import {
 import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
 import { financeBanksApi } from '../../api/services'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FinanceBank {
@@ -108,6 +111,67 @@ export default function FinanceBanksPage() {
   useEffect(() => {
     loadBanks()
   }, [page, pageSize, search])
+
+  // ── Export Excel
+  const exportExcel = async () => {
+    try {
+      message.loading({ content: 'Preparing Excel export...', key: 'export' })
+      const res = await financeBanksApi.list(1, 100000, search)
+      const allMatchingRows = res.data || []
+      
+      const data = allMatchingRows.map((r: FinanceBank) => ({
+        'Bank / NBFC Name': r.bank_name,
+        'Area / Region': r.area || '—',
+        'Contact No.': r.contact_no || '—',
+      }))
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Finance Banks')
+      XLSX.writeFile(wb, `finance_banks_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      message.success({ content: 'Excel exported successfully!', key: 'export' })
+    } catch {
+      message.error({ content: 'Failed to export Excel', key: 'export' })
+    }
+  }
+
+  // ── Export PDF
+  const exportPDF = async () => {
+    try {
+      message.loading({ content: 'Preparing PDF export...', key: 'export' })
+      const res = await financeBanksApi.list(1, 100000, search)
+      const allMatchingRows = res.data || []
+      
+      const doc = new jsPDF()
+      const today = new Date().toLocaleDateString('en-IN')
+
+      doc.setFontSize(16)
+      doc.text('Finance Banks Report', 14, 15)
+      doc.setFontSize(10)
+      doc.setTextColor(120)
+      doc.text(`Generated on: ${today}`, 14, 22)
+      doc.setTextColor(0)
+
+      autoTable(doc, {
+        startY: 28,
+        head: [
+          ['Bank / NBFC Name', 'Area / Region', 'Contact No.'],
+        ],
+        body: allMatchingRows.map((r: FinanceBank) => [
+          r.bank_name,
+          r.area || '—',
+          r.contact_no || '—',
+        ]),
+        styles: { fontSize: 10, cellPadding: 4 },
+        headStyles: { fillColor: [99, 102, 241] },
+        alternateRowStyles: { fillColor: [248, 248, 255] },
+      })
+
+      doc.save(`finance_banks_${new Date().toISOString().slice(0, 10)}.pdf`)
+      message.success({ content: 'PDF exported successfully!', key: 'export' })
+    } catch {
+      message.error({ content: 'Failed to export PDF', key: 'export' })
+    }
+  }
 
   function updateForm(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -231,6 +295,24 @@ export default function FinanceBanksPage() {
             <RotateCcw size={13} style={{ marginRight: 4 }} />Reset
           </button>
         )}
+        <button className="btn btn-outline btn-sm" onClick={exportExcel} style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="12" y1="18" x2="12" y2="12" />
+            <line x1="9" y1="15" x2="15" y2="15" />
+          </svg>
+          Export Excel
+        </button>
+        <button className="btn btn-outline btn-sm" onClick={exportPDF} style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="9" y1="13" x2="15" y2="13" />
+            <line x1="9" y1="17" x2="15" y2="17" />
+          </svg>
+          Export PDF
+        </button>
         <button
           id="finance-banks-add-btn"
           className="btn btn-primary btn-sm"

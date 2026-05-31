@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
 import { message } from 'antd'
-import { Phone, MapPin, Search, Plus, Pencil, Trash2, Handshake, TrendingDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { Phone, MapPin, Search, Plus, Pencil, Trash2, Handshake, TrendingDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, FileDown } from 'lucide-react'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import Modal from '../../components/app/Modal'
 import { brokersApi } from '../../api/services'
 
@@ -150,6 +153,59 @@ export default function BrokersPage() {
     )
   })
 
+  const exportExcel = () => {
+    const data = filtered.map((row, i) => ({
+      '#': i + 1,
+      ID: formatBrokerId(row.id),
+      Name: row.broker_name || 'Unnamed Broker',
+      Area: row.area || '—',
+      District: row.district || '—',
+      Phone: row.phone || '—',
+      Status: row.status ? row.status.toUpperCase() : 'ACTIVE',
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    ws['!cols'] = [
+      { wch: 6 }, { wch: 20 }, { wch: 25 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Brokers')
+    XLSX.writeFile(wb, `brokers_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'portrait' })
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.setTextColor(40, 40, 40)
+    doc.text('Brokers Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120, 120, 120)
+    doc.text(`Generated on: ${today} | Total Records: ${filtered.length}`, 14, 22)
+    doc.setTextColor(0, 0, 0)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['#', 'ID', 'Broker Name', 'Area', 'District', 'Phone', 'Status'],
+      ],
+      body: filtered.map((row, i) => [
+        i + 1,
+        formatBrokerId(row.id),
+        row.broker_name || 'Unnamed Broker',
+        row.area || '—',
+        row.district || '—',
+        row.phone || '—',
+        row.status ? row.status.toUpperCase() : 'ACTIVE',
+      ]),
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [79, 70, 229] },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+    })
+
+    doc.save(`brokers_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage   = Math.min(page, totalPages)
   const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
@@ -257,6 +313,24 @@ export default function BrokersPage() {
                 onBlur={e => (e.target.style.borderColor = 'var(--gray-200)')}
               />
             </div>
+            <button
+              id="broker-export-excel-btn"
+              type="button"
+              onClick={exportExcel}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-1)')}
+              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+              <FileSpreadsheet size={15} /> Export Excel
+            </button>
+            <button
+              id="broker-export-pdf-btn"
+              type="button"
+              onClick={exportPDF}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-1)')}
+              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+              <FileDown size={15} /> Export PDF
+            </button>
             <button
               id="broker-add-btn"
               type="button"

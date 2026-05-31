@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import {
   TrendingDown, TrendingUp, Clock,
   Search, Plus, X, Pencil, Trash2, Eye,
@@ -246,6 +249,61 @@ export default function AdvancesPage() {
   const safePage = Math.min(page, totalPages)
   const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
+  const exportExcel = () => {
+    const data = filtered.map((r) => ({
+      ID: formatAdvanceId(r.id),
+      Date: r.advance_date,
+      'Party Name': r.party_name,
+      'Party Type': r.party_type.toUpperCase(),
+      Amount: r.amount,
+      Recovered: r.amount_recovered,
+      Outstanding: r.amount - r.amount_recovered,
+      Mode: r.mode.toUpperCase(),
+      Purpose: r.purpose || '',
+      'Recovery Status': statusMeta[r.recovery_status]?.label ?? r.recovery_status,
+      Remarks: r.remarks || '',
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Advances')
+    XLSX.writeFile(wb, `advances_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.text('Advances Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120)
+    doc.text(`Generated on: ${today}`, 14, 22)
+    doc.setTextColor(0)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['ID', 'Date', 'Party Name', 'Party Type', 'Amount', 'Recovered', 'Outstanding', 'Mode', 'Status'],
+      ],
+      body: filtered.map((r) => [
+        formatAdvanceId(r.id),
+        r.advance_date,
+        r.party_name,
+        r.party_type.toUpperCase(),
+        '₹' + r.amount.toLocaleString('en-IN'),
+        '₹' + r.amount_recovered.toLocaleString('en-IN'),
+        '₹' + (r.amount - r.amount_recovered).toLocaleString('en-IN'),
+        r.mode.toUpperCase(),
+        statusMeta[r.recovery_status]?.label ?? r.recovery_status,
+      ]),
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [79, 70, 229] },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+    })
+
+    doc.save(`advances_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
+
   const loadAdvances = async () => {
     setLoading(true)
     try {
@@ -429,6 +487,50 @@ export default function AdvancesPage() {
                   onBlur={e  => (e.target.style.borderColor = 'var(--gray-200)')}
                 />
               </div>
+              <button
+                id="advance-export-excel-btn"
+                onClick={exportExcel}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                onMouseEnter={e => {
+                  const b = e.currentTarget as HTMLButtonElement
+                  b.style.background = 'var(--surface-1)'
+                  b.style.borderColor = 'var(--gray-300)'
+                }}
+                onMouseLeave={e => {
+                  const b = e.currentTarget as HTMLButtonElement
+                  b.style.background = '#fff'
+                  b.style.borderColor = 'var(--gray-200)'
+                }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+                Export Excel
+              </button>
+              <button
+                id="advance-export-pdf-btn"
+                onClick={exportPDF}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                onMouseEnter={e => {
+                  const b = e.currentTarget as HTMLButtonElement
+                  b.style.background = 'var(--surface-1)'
+                  b.style.borderColor = 'var(--gray-300)'
+                }}
+                onMouseLeave={e => {
+                  const b = e.currentTarget as HTMLButtonElement
+                  b.style.background = '#fff'
+                  b.style.borderColor = 'var(--gray-200)'
+                }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="9" y1="13" x2="15" y2="13" />
+                  <line x1="9" y1="17" x2="15" y2="17" />
+                </svg>
+                Export PDF
+              </button>
               <button
                 id="advance-add-btn"
                 onClick={() => { setForm(emptyForm()); setErrors({}); setFormError(''); setAddOpen(true) }}
