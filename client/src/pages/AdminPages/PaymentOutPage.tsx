@@ -11,7 +11,6 @@ import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
 import { paymentsOutApi, filesApi, bankAccountsApi, usersSettingsApi } from '../../api/services'
 
-const { Option } = Select
 
 const PAYMENT_MODES  = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 const PAYMENT_TO_TYPES = ['Customer', 'Dealer', 'Broker', 'Agent', 'Other'] as const

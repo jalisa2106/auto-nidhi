@@ -11,8 +11,6 @@ import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
 import { commissionsOutApi, filesApi, bankAccountsApi, usersSettingsApi } from '../../api/services'
 
-const { Option } = Select
-
 // ─── Types ────────────────────────────────────────────────────────────────
 type CommissionOut = {
   id: string
