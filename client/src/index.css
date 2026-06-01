@@ -153,6 +153,17 @@ input, textarea, select { font-family: inherit; }
 }
 .form-input::placeholder { color: var(--gray-400); }
 .form-input.error { border-color: var(--error); }
+.form-input-antd.error .ant-select-selector { border-color: var(--error) !important; }
+
+/* Hide number input arrows (spinners) */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield; /* Firefox */
+}
 
 .input-wrapper {
   position: relative;
@@ -216,3 +227,24 @@ input, textarea, select { font-family: inherit; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gray-300); }
+
+/* ─── Ant Design Overrides ───────────────────────────────────────────── */
+/* Ensure searchable dropdowns match the design system exactly */
+.ant-select-selector {
+  border: 1.5px solid var(--gray-200) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+  height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.ant-select-focused:not(.ant-select-disabled).ant-select:not(.ant-select-customize-input) .ant-select-selector {
+  border-color: var(--brand-500) !important;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.12) !important;
+}
+
+.ant-select-selection-placeholder {
+  color: var(--gray-400) !important;
+}

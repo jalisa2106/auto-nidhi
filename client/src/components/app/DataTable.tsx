@@ -17,12 +17,18 @@ interface Props<T extends Record<string, any>> {
   empty?: string
   loading?: boolean
   pageSize?: number
+  search?: string
+  onSearchChange?: (val: string) => void
+  onFilteredChange?: (filteredRows: T[]) => void
 }
 
 export default function DataTable<T extends Record<string, any>>({
   columns, rows, searchKeys, onAdd, addLabel = 'Add new', rightSlot, empty = 'No records', loading = false, pageSize,
+  search, onSearchChange, onFilteredChange,
 }: Props<T>) {
-  const [q, setQ] = useState('')
+  const [localQ, setLocalQ] = useState('')
+  const q = search !== undefined ? search : localQ
+  const setQ = onSearchChange !== undefined ? onSearchChange : setLocalQ
   const filtered = useMemo(() => {
     if (!q || !searchKeys?.length) return rows
     const t = q.toLowerCase()
@@ -32,6 +38,10 @@ export default function DataTable<T extends Record<string, any>>({
   const currentPageSize = pageSize && pageSize > 0 ? pageSize : filtered.length
   const pageCount = Math.max(1, Math.ceil(filtered.length / currentPageSize))
   const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    onFilteredChange?.(filtered)
+  }, [filtered, onFilteredChange])
 
   useEffect(() => {
     if (page > pageCount) {

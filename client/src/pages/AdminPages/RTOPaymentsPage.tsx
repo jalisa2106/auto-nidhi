@@ -10,6 +10,9 @@ import Modal from '../../components/app/Modal'
 import { mockDealers, mockBrokers } from '../../lib/mockData'
 import { rtoPaymentsApi, filesApi, dealersApi, brokersApi } from '../../api/services'
 import { message } from 'antd'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 interface RTOPayment {
   id               : string
@@ -253,6 +256,60 @@ export default function RTOPaymentsPage() {
     return r.id.toLowerCase().includes(q) || r.file_number.toLowerCase().includes(q) || getPayeeName(r).toLowerCase().includes(q) || r.payment_mode.toLowerCase().includes(q)
   })
 
+  // ── Export Excel
+  const exportExcel = () => {
+    const data = filtered.map((r) => ({
+      'Payment ID': formatPaymentId(r.id),
+      'File No.': r.file_number,
+      'Payee Name': getPayeeName(r),
+      'Payee Type': getPayeeType(r),
+      'Amount': r.amount,
+      'Mode': r.payment_mode.toUpperCase(),
+      'Date': r.payment_date,
+      'UTR / Cheque No.': r.utr_no || r.cheque_no || '',
+      'Remarks': r.remarks,
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'RTO Payments')
+    XLSX.writeFile(wb, `rto_payments_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  // ── Export PDF
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.text('RTO Payments Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120)
+    doc.text(`Generated on: ${today}`, 14, 22)
+    doc.setTextColor(0)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['Payment ID', 'File No.', 'Payee Name', 'Payee Type', 'Amount', 'Mode', 'Date', 'Reference'],
+      ],
+      body: filtered.map((r) => [
+        formatPaymentId(r.id),
+        r.file_number,
+        getPayeeName(r),
+        getPayeeType(r),
+        '₹' + r.amount.toLocaleString('en-IN'),
+        r.payment_mode.toUpperCase(),
+        r.payment_date,
+        r.utr_no || r.cheque_no || '—',
+      ]),
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [99, 102, 241] },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+    })
+
+    doc.save(`rto_payments_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage   = Math.min(page, totalPages)
   const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
@@ -430,6 +487,30 @@ export default function RTOPaymentsPage() {
                   onFocus={e => (e.target.style.borderColor='var(--brand-500)')}
                   onBlur={e  => (e.target.style.borderColor='var(--gray-200)')} />
               </div>
+              <button onClick={exportExcel}
+                style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--gray-200)', background:'#fff', color:'var(--gray-700)', fontSize:'.85rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='var(--gray-550)'; (e.currentTarget as HTMLButtonElement).style.borderColor='var(--gray-300)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='#fff'; (e.currentTarget as HTMLButtonElement).style.borderColor='var(--gray-200)' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 2 }}>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+                Export Excel
+              </button>
+              <button onClick={exportPDF}
+                style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--gray-200)', background:'#fff', color:'var(--gray-700)', fontSize:'.85rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='var(--gray-50)'; (e.currentTarget as HTMLButtonElement).style.borderColor='var(--gray-300)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='#fff'; (e.currentTarget as HTMLButtonElement).style.borderColor='var(--gray-200)' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 2 }}>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="9" y1="13" x2="15" y2="13" />
+                  <line x1="9" y1="17" x2="15" y2="17" />
+                </svg>
+                Export PDF
+              </button>
               <button id="rto-add-btn" onClick={() => { setForm(emptyForm()); setAddOpen(true) }}
                 style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:'var(--radius-sm)', background:'var(--brand-600)', color:'#fff', fontSize:'.85rem', fontWeight:600, cursor:'pointer', border:'none', transition:'background .15s' }}
                 onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-700)')}

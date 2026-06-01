@@ -6,6 +6,9 @@ import Modal from "../../components/app/Modal";
 import { filesApi } from "../../api/services";
 import api from "../../api/axios";
 import { message } from "antd";
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // Standardized color mapping based on Dashboard styles
 const STATUS_COLOR: Record<string, { bg: string; text: string; dot: string }> = {
@@ -29,6 +32,7 @@ function formatStatus(status: string) {
 export default function FilesPage() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<any[]>([]);
+  const [filteredRows, setFilteredRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [typeF, setTypeF] = useState("");
   const [statusF, setStatusF] = useState("");
@@ -37,6 +41,55 @@ export default function FilesPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [banks, setBanks] = useState<any[]>([]);
   const [form, setForm] = useState({ customer_id: '', bank_id: '', file_type: '', status: '', remarks: '' });
+
+  const exportExcel = () => {
+    const data = filteredRows.map((r) => ({
+      'File #': r.file_number,
+      'Customer': r.customer,
+      'Type': r.type ? r.type.split('_').map((part: string) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') : '',
+      'Status': formatStatus(r.status),
+      'Bank': r.bank,
+      'Assigned': r.assigned || '—',
+      'Created': r.created,
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Files')
+    XLSX.writeFile(wb, `files_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.text('Files Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120)
+    doc.text(`Generated on: ${today}`, 14, 22)
+    doc.setTextColor(0)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['File #', 'Customer', 'Type', 'Status', 'Bank', 'Assigned', 'Created'],
+      ],
+      body: filteredRows.map((r) => [
+        r.file_number,
+        r.customer,
+        r.type ? r.type.split('_').map((part: string) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') : '',
+        formatStatus(r.status),
+        r.bank,
+        r.assigned || '—',
+        r.created,
+      ]),
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [99, 102, 241] },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+    })
+
+    doc.save(`files_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
 
   const loadFiles = async () => {
     setLoading(true);
@@ -167,6 +220,29 @@ export default function FilesPage() {
         rows={rows}
         loading={loading}
         searchKeys={["file_number", "customer", "bank", "assigned"]}
+        onFilteredChange={setFilteredRows}
+        rightSlot={
+          <>
+            <button className="btn btn-outline btn-sm" onClick={exportExcel} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <line x1="9" y1="15" x2="15" y2="15" />
+              </svg>
+              Export Excel
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={exportPDF} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="9" y1="13" x2="15" y2="13" />
+                <line x1="9" y1="17" x2="15" y2="17" />
+              </svg>
+              Export PDF
+            </button>
+          </>
+        }
         columns={[
           {
             key: "file_number",

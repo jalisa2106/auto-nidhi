@@ -1,6 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, X } from "lucide-react";
+import { Eye, X, FileSpreadsheet, FileDown } from "lucide-react";
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import PageHeader from "../../components/app/PageHeader";
 import DataTable from "../../components/app/DataTable";
 import Modal from "../../components/app/Modal";
@@ -48,6 +51,79 @@ export default function CustomersPage() {
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState(emptyForm());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
+
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    const q = search.toLowerCase();
+    return rows.filter((r) => {
+      return (
+        String(r.name ?? "").toLowerCase().includes(q) ||
+        String(r.mobile ?? "").toLowerCase().includes(q) ||
+        String(r.city ?? "").toLowerCase().includes(q) ||
+        String(r.state ?? "").toLowerCase().includes(q) ||
+        String(r.email ?? "").toLowerCase().includes(q) ||
+        String(r.aadhar ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [rows, search]);
+
+  const exportExcel = () => {
+    const data = filteredRows.map((r, i) => ({
+      '#': i + 1,
+      ID: r.id ? `#${r.id.slice(0, 6)}` : '—',
+      Name: r.name || '—',
+      Type: r.type || 'Individual',
+      Mobile: r.mobile || '—',
+      State: r.state || '—',
+      City: r.city || '—',
+      Aadhaar: r.aadhar || '—',
+      'Active Files': r.files || 0,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [
+      { wch: 6 }, { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 14 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+    XLSX.writeFile(wb, `customers_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const today = new Date().toLocaleDateString('en-IN');
+
+    doc.setFontSize(16);
+    doc.setTextColor(40, 40, 40);
+    doc.text('Customers Report', 14, 15);
+    doc.setFontSize(10);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Generated on: ${today} | Total Records: ${filteredRows.length}`, 14, 22);
+    doc.setTextColor(0, 0, 0);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['#', 'ID', 'Customer Name', 'Type', 'Mobile', 'State', 'City', 'Aadhaar', 'Active Files'],
+      ],
+      body: filteredRows.map((r, i) => [
+        i + 1,
+        r.id ? `#${r.id.slice(0, 6)}` : '—',
+        r.name || '—',
+        r.type || 'Individual',
+        r.mobile || '—',
+        r.state || '—',
+        r.city || '—',
+        r.aadhar || '—',
+        r.files || 0,
+      ]),
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [79, 70, 229] },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+    });
+
+    doc.save(`customers_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
 
   const loadCustomers = async () => {
     setLoading(true);
@@ -167,9 +243,31 @@ export default function CustomersPage() {
       ) : (
         <DataTable
           rows={rows}
+          search={search}
+          onSearchChange={setSearch}
           searchKeys={["name", "mobile", "city", "state", "email", "aadhar"]}
           onAdd={() => setOpen(true)}
           addLabel="New customer"
+          rightSlot={
+            <>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
+                onClick={exportExcel}
+              >
+                <FileSpreadsheet size={14} /> Export Excel
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
+                onClick={exportPDF}
+              >
+                <FileDown size={14} /> Export PDF
+              </button>
+            </>
+          }
           columns={[
             {
               key: "id",
