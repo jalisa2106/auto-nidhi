@@ -54,22 +54,40 @@ const adminNav: NavGroup[] = [
   },
 ]
 
-const staffNav: NavGroup[] = [
+const dataEntryNav: NavGroup[] = [
   {
     title: 'Overview', items: [
-      { to: '/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/customers',  label: 'Customers', icon: Users },
-      { to: '/files',      label: 'Files',     icon: FolderOpen },
+      { to: '/data-entry/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/data-entry/customers',  label: 'Customers', icon: Users },
+      { to: '/data-entry/files',      label: 'Files',     icon: FolderOpen },
     ],
   },
   {
     title: 'Finance', items: [
-      { to: '/payments/in',          label: 'Payment IN',          icon: ArrowDownToLine  },
-      { to: '/payments/out',         label: 'Payment OUT',         icon: ArrowUpFromLine  },
-      { to: '/rto-payments',         label: 'RTO Payments',        icon: Receipt          },
-      { to: '/insurance-payments',   label: 'Insurance Payments',  icon: ShieldCheck      },
-      { to: '/expenses',             label: 'Expenses',            icon: Wallet           },
-      { to: '/advances',             label: 'Advances',            icon: Landmark         },
+      { to: '/data-entry/payments/in',          label: 'Payment IN',          icon: ArrowDownToLine  },
+      { to: '/data-entry/payments/out',         label: 'Payment OUT',         icon: ArrowUpFromLine  },
+      { to: '/data-entry/rto-payments',         label: 'RTO Payments',        icon: Receipt          },
+      { to: '/data-entry/insurance-payments',   label: 'Insurance Payments',  icon: ShieldCheck      },
+      { to: '/data-entry/expenses',             label: 'Expenses',            icon: Wallet           },
+    ],
+  },
+]
+
+const accountantNav: NavGroup[] = [
+  {
+    title: 'Overview', items: [
+      { to: '/accountant/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/accountant/files',      label: 'Files',     icon: FolderOpen },
+    ],
+  },
+  {
+    title: 'Finance', items: [
+      { to: '/accountant/payments/in',          label: 'Payment IN',          icon: ArrowDownToLine  },
+      { to: '/accountant/payments/out',         label: 'Payment OUT',         icon: ArrowUpFromLine  },
+      { to: '/accountant/rto-payments',         label: 'RTO Payments',        icon: Receipt          },
+      { to: '/accountant/insurance-payments',   label: 'Insurance Payments',  icon: ShieldCheck      },
+      { to: '/accountant/expenses',             label: 'Expenses',            icon: Wallet           },
+      { to: '/accountant/advances',             label: 'Advances',            icon: Landmark         },
     ],
   },
 ]
@@ -81,7 +99,6 @@ export default function AdminLayout() {
   const [userRole, setUserRole]     = useState('admin')
   const [badgeCount, setBadgeCount] = useState(0)
 
-  // Dropdown states
   const [showNotifs,  setShowNotifs]  = useState(false)
   const [showProfile, setShowProfile] = useState(false)
 
@@ -111,7 +128,6 @@ export default function AdminLayout() {
       }
     } catch { /* ignore */ }
 
-    // Listen for name sync event from the Dashboard component
     const handleNameSync = (e: any) => {
       if (e.detail) setUserName(e.detail);
     };
@@ -147,7 +163,9 @@ export default function AdminLayout() {
 
   const closeNotifs = useCallback(() => setShowNotifs(false), [])
 
-  const pathTitleMap: Record<string, string> = {
+  // Resolve Title smoothly dynamically based on role routes
+  const baseRoute = location.pathname.replace('/data-entry', '').replace('/accountant', '').replace('/admin', '')
+  const titleMap: Record<string, string> = {
     '/dashboard': 'Dashboard', '/customers': 'Customers', '/files': 'Files',
     '/payments/in': 'Payment IN', '/payments/out': 'Payment OUT',
     '/commissions/in': 'Commission IN', '/commissions/out': 'Commission OUT',
@@ -161,16 +179,19 @@ export default function AdminLayout() {
     '/settings/company': 'Company Settings',
     '/settings/banks': 'Bank Accounts',
     '/settings/users': 'User Management',
-    '/admin/profile': 'My Profile',
-    '/admin/settings': 'Account Settings',
+    '/profile': 'My Profile',
+    '/settings': 'Account Settings',
   }
-  const pageTitle = pathTitleMap[location.pathname] || 'AutoNidhi'
+  const pageTitle = titleMap[baseRoute] || 'AutoNidhi'
 
   const initials = userName.slice(0, 1).toUpperCase()
+  
+  // Choose Navigation Array based on Role
+  const activeNav = userRole === 'admin' ? adminNav : (userRole === 'accountant' ? accountantNav : dataEntryNav)
+  const profilePrefix = userRole === 'admin' ? '/admin' : `/${userRole.replace('_', '-')}`
 
   return (
     <div className="app-shell">
-      {/* ── Sidebar ── */}
       <aside className="app-sidebar">
         <div className="sb-logo">
           <div className="sb-logo-mark">
@@ -179,7 +200,7 @@ export default function AdminLayout() {
           <div className="sb-brand">Auto<span>Nidhi</span></div>
         </div>
 
-        {(userRole === 'admin' ? adminNav : staffNav).map((group) => (
+        {activeNav.map((group) => (
           <div key={group.title}>
             <div className="sb-section">{group.title}</div>
             {group.items.map((item) => {
@@ -204,14 +225,11 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      {/* ── Main Area ── */}
       <div className="app-main">
         <header className="app-topbar">
           <h1>{pageTitle}</h1>
 
           <div className="app-user" style={{ position: 'relative' }}>
-
-            {/* ── Bell Icon with badge ── */}
             <div style={{ position: 'relative' }}>
               <button
                 id="notif-bell-btn"
@@ -251,7 +269,6 @@ export default function AdminLayout() {
               )}
             </div>
 
-            {/* ── Avatar + dropdown ── */}
             <div ref={profileRef} style={{ position: 'relative' }}>
               <button
                 id="profile-avatar-btn"
@@ -268,7 +285,6 @@ export default function AdminLayout() {
                 }}
                 aria-label="User menu"
               >
-                {/* Avatar circle */}
                 <div style={{
                   width: '32px', height: '32px', borderRadius: '50%',
                   background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
@@ -285,7 +301,6 @@ export default function AdminLayout() {
                   style={{ transform: showProfile ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
               </button>
 
-              {/* Profile dropdown */}
               {showProfile && (
                 <div style={{
                   position: 'absolute', top: '46px', right: 0,
@@ -296,24 +311,21 @@ export default function AdminLayout() {
                   zIndex: 1000, overflow: 'hidden',
                   animation: 'notifPanelIn .15s ease',
                 }}>
-                  {/* User info top */}
                   <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{userName}</div>
                     <div style={{ fontSize: '11.5px', color: '#94a3b8', textTransform: 'capitalize' }}>
                       {userRole.replace('_', ' ')}
                     </div>
                   </div>
-
-                  {/* Menu items */}
                   <DropdownItem
                     icon={<User size={14} />}
                     label="My Profile"
-                    onClick={() => { navigate('/admin/profile'); setShowProfile(false) }}
+                    onClick={() => { navigate(`${profilePrefix}/profile`); setShowProfile(false) }}
                   />
                   <DropdownItem
                     icon={<Settings size={14} />}
                     label="Account Settings"
-                    onClick={() => { navigate('/admin/settings'); setShowProfile(false) }}
+                    onClick={() => { navigate(`${profilePrefix}/settings`); setShowProfile(false) }}
                   />
                   <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 0' }} />
                   <DropdownItem
@@ -328,9 +340,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        {/* Notification Panel — absolutely positioned */}
         {showNotifs && <NotificationPanel onClose={closeNotifs} />}
-
         <main className="app-content">
           <Outlet />
         </main>
@@ -346,7 +356,6 @@ export default function AdminLayout() {
   )
 }
 
-// ── Dropdown menu item ────────────────────────────────────────────────────────
 function DropdownItem({
   icon, label, onClick, danger,
 }: {

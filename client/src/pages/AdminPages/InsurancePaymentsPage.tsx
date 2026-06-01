@@ -421,6 +421,7 @@ export default function InsurancePaymentsPage() {
           </svg>
           Export Excel
         </button>
+
         <button
           className="btn btn-outline btn-sm"
           onClick={handleExportPDF}
@@ -443,9 +444,11 @@ export default function InsurancePaymentsPage() {
           </svg>
           Export PDF
         </button>
-        <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }} onClick={() => setShowAdd(true)}>
-          <Plus size={14} /> Add new
-        </button>
+        {isAdmin && (
+          <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }} onClick={() => setShowAdd(true)}>
+            <Plus size={14} /> Add new
+          </button>
+        )}
       </div>
 
       {/* ── Main Structured Ledger Layout View ── */}
