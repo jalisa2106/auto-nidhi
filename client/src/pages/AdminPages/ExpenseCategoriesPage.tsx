@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Pencil, Trash2, Tag, AlertCircle } from 'lucide-react'
+import { Pencil, Trash2, Tag, AlertCircle, FileSpreadsheet, FileDown } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
 import { expenseCategoriesApi } from '../../api/services'
+import { exportToExcel, exportToPDF, ColumnDefinition } from '../../utils/exportUtils'
 
 interface ExpenseCategory {
   id: string
@@ -104,9 +105,60 @@ export default function ExpenseCategoriesPage() {
     }
   }
 
+  const exportColumns: ColumnDefinition[] = [
+    { header: 'ID', dataKey: 'formattedId' },
+    { header: 'Category Name', dataKey: 'name' }
+  ]
+
+  const getExportData = () => {
+    return categories.map((c) => ({
+      ...c,
+      formattedId: formatCategoryId(c.id)
+    }))
+  }
+
+  const handleExportExcel = () => {
+    exportToExcel({
+      filename: `expense_categories_${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Categories',
+      columns: exportColumns,
+      data: getExportData()
+    })
+  }
+
+  const handleExportPDF = () => {
+    exportToPDF({
+      filename: `expense_categories_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Expense Categories Report',
+      columns: exportColumns,
+      data: getExportData(),
+      orientation: 'portrait'
+    })
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 20 }}>
-      <PageHeader title="Expense Categories" subtitle="Manage and configure operating expense categories" />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <PageHeader title="Expense Categories" subtitle="Manage and configure operating expense categories" />
+        <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-1)')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+            <FileSpreadsheet size={15} /> Export Excel
+          </button>
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-1)')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+            <FileDown size={15} /> Export PDF
+          </button>
+        </div>
+      </div>
 
         {loading && (
           <div style={{ padding: '12px 16px', color: 'var(--gray-500)', fontSize: '.85rem' }}>

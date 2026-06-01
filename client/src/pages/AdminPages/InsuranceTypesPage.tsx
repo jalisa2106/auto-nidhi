@@ -5,9 +5,7 @@ import PageHeader from '../../components/app/PageHeader'
 import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
 import { insuranceTypesApi } from '../../api/services'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPDF, ColumnDefinition } from '../../utils/exportUtils'
 
 interface InsuranceType {
   id: string
@@ -23,43 +21,29 @@ export default function InsuranceTypesPage() {
   const [typeName, setTypeName] = useState('')
   const [saving, setSaving]   = useState(false)
 
+  const exportColumns: ColumnDefinition[] = [
+    { header: 'Insurance Type Name', dataKey: 'insurance_type_name' }
+  ]
+
   // ── Export Excel
   const exportExcel = () => {
-    const data = filteredRows.map((r) => ({
-      'Insurance Type Name': r.insurance_type_name,
-    }))
-    const ws = XLSX.utils.json_to_sheet(data)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Insurance Types')
-    XLSX.writeFile(wb, `insurance_types_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    exportToExcel({
+      filename: `insurance_types_${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Insurance Types',
+      columns: exportColumns,
+      data: filteredRows
+    })
   }
 
   // ── Export PDF
   const exportPDF = () => {
-    const doc = new jsPDF()
-    const today = new Date().toLocaleDateString('en-IN')
-
-    doc.setFontSize(16)
-    doc.text('Insurance Types Report', 14, 15)
-    doc.setFontSize(10)
-    doc.setTextColor(120)
-    doc.text(`Generated on: ${today}`, 14, 22)
-    doc.setTextColor(0)
-
-    autoTable(doc, {
-      startY: 28,
-      head: [
-        ['Insurance Type Name'],
-      ],
-      body: filteredRows.map((r) => [
-        r.insurance_type_name,
-      ]),
-      styles: { fontSize: 10, cellPadding: 4 },
-      headStyles: { fillColor: [99, 102, 241] },
-      alternateRowStyles: { fillColor: [248, 248, 255] },
+    exportToPDF({
+      filename: `insurance_types_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Insurance Types Report',
+      columns: exportColumns,
+      data: filteredRows,
+      orientation: 'portrait'
     })
-
-    doc.save(`insurance_types_${new Date().toISOString().slice(0, 10)}.pdf`)
   }
 
   const load = useCallback(async () => {

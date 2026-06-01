@@ -167,25 +167,15 @@ export default function LoansPage() {
   const [filterStatus, setFilterStatus] = useState<'All' | LoanRecord['status']>('All')
 
   // Edit modal state
-  const [editOpen, setEditOpen] = useState(false)
-  const [editForm, setEditForm] = useState<{ remarks: string; status: LoanRecord['status'] }>({ remarks: '', status: 'disbursed' })
-
-  const [viewOpen, setViewOpen] = useState(false)
+  const [setViewOpen] = useState(false)
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(5)
-  const closeView = useCallback(() => { setViewOpen(false); setSelected(null) }, [])
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeView() }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [closeView])
 
   useEffect(() => {
     const loadLoans = async () => {
       const data = await loansApi.list()
       setRows(data?.data ?? [])
     }
-
     void loadLoans()
   }, [])
 
@@ -206,64 +196,62 @@ export default function LoansPage() {
   const safePage   = Math.min(page, totalPages)
   const pageRows   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
+  const exportExcelColumns: ColumnDefinition[] = [
+    { header: 'File No.', dataKey: 'file_number' },
+    { header: 'LAN No.', dataKey: 'lan_number' },
+    { header: 'Customer', dataKey: 'full_name' },
+    { header: 'Mobile', dataKey: 'mobile_1' },
+    { header: 'City', dataKey: 'city' },
+    { header: 'Bank', dataKey: 'bank_name' },
+    { header: 'Loan Amount', dataKey: 'loan_amount', format: 'number' },
+    { header: 'EMI/mo', dataKey: 'emi_amount', format: 'number' },
+    { header: 'Months', dataKey: 'no_of_months', format: 'number' },
+    { header: 'IRR %', dataKey: 'irr_percentage', format: 'number' },
+    { header: 'Status', dataKey: 'status_label' },
+    { header: 'Docket Date', dataKey: 'docket_date' },
+    { header: 'Created By', dataKey: 'created_by_name' },
+    { header: 'Remarks', dataKey: 'remarks' }
+  ]
+
+  const exportPDFColumns: ColumnDefinition[] = [
+    { header: 'File No.', dataKey: 'file_number' },
+    { header: 'LAN No.', dataKey: 'lan_number' },
+    { header: 'Customer', dataKey: 'full_name' },
+    { header: 'Bank', dataKey: 'bank_name' },
+    { header: 'Loan Amount', dataKey: 'loan_amount', format: 'currency' },
+    { header: 'EMI/mo', dataKey: 'emi_amount', format: 'currency' },
+    { header: 'Tenure', dataKey: 'tenure' },
+    { header: 'Status', dataKey: 'status_label' },
+    { header: 'Docket Date', dataKey: 'docket_date' }
+  ]
+
+  const getExportData = () => {
+    return filtered.map((l) => ({
+      ...l,
+      status_label: dbStatusToUI[l.status] || l.status,
+      tenure: `${l.no_of_months} mo`
+    }))
+  }
+
   // ── Export Excel
   const exportExcel = () => {
-    const data = filtered.map((l) => ({
-      'File No.': l.file_number,
-      'LAN No.': l.lan_number,
-      'Customer': l.full_name,
-      'Mobile': l.mobile_1,
-      'City': l.city,
-      'Bank': l.bank_name,
-      'Loan Amount': l.loan_amount,
-      'EMI/mo': l.emi_amount,
-      'Months': l.no_of_months,
-      'IRR %': l.irr_percentage,
-      'Status': dbStatusToUI[l.status] || l.status,
-      'Docket Date': l.docket_date,
-      'Created By': l.created_by_name,
-      'Remarks': l.remarks || '',
-    }))
-    const ws = XLSX.utils.json_to_sheet(data)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Loans')
-    XLSX.writeFile(wb, `loans_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    exportToExcel({
+      filename: `loans_${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Loans',
+      columns: exportExcelColumns,
+      data: getExportData()
+    })
   }
 
   // ── Export PDF
   const exportPDF = () => {
-    const doc = new jsPDF({ orientation: 'landscape' })
-    const today = new Date().toLocaleDateString('en-IN')
-
-    doc.setFontSize(16)
-    doc.text('Loans Report', 14, 15)
-    doc.setFontSize(10)
-    doc.setTextColor(120)
-    doc.text(`Generated on: ${today}`, 14, 22)
-    doc.setTextColor(0)
-
-    autoTable(doc, {
-      startY: 28,
-      head: [
-        ['File No.', 'LAN No.', 'Customer', 'Bank', 'Loan Amount', 'EMI/mo', 'Tenure', 'Status', 'Docket Date'],
-      ],
-      body: filtered.map((l) => [
-        l.file_number,
-        l.lan_number,
-        l.full_name,
-        l.bank_name,
-        '₹' + l.loan_amount.toLocaleString('en-IN'),
-        '₹' + l.emi_amount.toLocaleString('en-IN'),
-        `${l.no_of_months} mo`,
-        dbStatusToUI[l.status] || l.status,
-        l.docket_date,
-      ]),
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [99, 102, 241] },
-      alternateRowStyles: { fillColor: [248, 248, 255] },
+    exportToPDF({
+      filename: `loans_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Loans Report',
+      columns: exportPDFColumns,
+      data: getExportData(),
+      orientation: 'landscape'
     })
-
-    doc.save(`loans_${new Date().toISOString().slice(0, 10)}.pdf`)
   }
 
   // ── Handlers ──

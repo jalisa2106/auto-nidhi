@@ -7,9 +7,7 @@ import {
 import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
 import { financeBanksApi } from '../../api/services'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPDF, ColumnDefinition } from '../../utils/exportUtils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FinanceBank {
@@ -112,6 +110,21 @@ export default function FinanceBanksPage() {
     loadBanks()
   }, [page, pageSize, search])
 
+  const exportColumns: ColumnDefinition[] = [
+    { header: 'Bank / NBFC Name', dataKey: 'bank_name' },
+    { header: 'Area / Region', dataKey: 'area' },
+    { header: 'Contact No.', dataKey: 'contact_no' }
+  ]
+
+  const getExportData = (data: FinanceBank[]) => {
+    return data.map((r) => ({
+      ...r,
+      bank_name: r.bank_name,
+      area: r.area || '—',
+      contact_no: r.contact_no || '—',
+    }))
+  }
+
   // ── Export Excel
   const exportExcel = async () => {
     try {
@@ -119,15 +132,13 @@ export default function FinanceBanksPage() {
       const res = await financeBanksApi.list(1, 100000, search)
       const allMatchingRows = res.data || []
       
-      const data = allMatchingRows.map((r: FinanceBank) => ({
-        'Bank / NBFC Name': r.bank_name,
-        'Area / Region': r.area || '—',
-        'Contact No.': r.contact_no || '—',
-      }))
-      const ws = XLSX.utils.json_to_sheet(data)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Finance Banks')
-      XLSX.writeFile(wb, `finance_banks_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      exportToExcel({
+        filename: `finance_banks_${new Date().toISOString().slice(0, 10)}`,
+        sheetName: 'Finance Banks',
+        columns: exportColumns,
+        data: getExportData(allMatchingRows)
+      })
+
       message.success({ content: 'Excel exported successfully!', key: 'export' })
     } catch {
       message.error({ content: 'Failed to export Excel', key: 'export' })
@@ -141,32 +152,14 @@ export default function FinanceBanksPage() {
       const res = await financeBanksApi.list(1, 100000, search)
       const allMatchingRows = res.data || []
       
-      const doc = new jsPDF()
-      const today = new Date().toLocaleDateString('en-IN')
-
-      doc.setFontSize(16)
-      doc.text('Finance Banks Report', 14, 15)
-      doc.setFontSize(10)
-      doc.setTextColor(120)
-      doc.text(`Generated on: ${today}`, 14, 22)
-      doc.setTextColor(0)
-
-      autoTable(doc, {
-        startY: 28,
-        head: [
-          ['Bank / NBFC Name', 'Area / Region', 'Contact No.'],
-        ],
-        body: allMatchingRows.map((r: FinanceBank) => [
-          r.bank_name,
-          r.area || '—',
-          r.contact_no || '—',
-        ]),
-        styles: { fontSize: 10, cellPadding: 4 },
-        headStyles: { fillColor: [99, 102, 241] },
-        alternateRowStyles: { fillColor: [248, 248, 255] },
+      exportToPDF({
+        filename: `finance_banks_${new Date().toISOString().slice(0, 10)}`,
+        title: 'Finance Banks Report',
+        columns: exportColumns,
+        data: getExportData(allMatchingRows),
+        orientation: 'portrait'
       })
 
-      doc.save(`finance_banks_${new Date().toISOString().slice(0, 10)}.pdf`)
       message.success({ content: 'PDF exported successfully!', key: 'export' })
     } catch {
       message.error({ content: 'Failed to export PDF', key: 'export' })
