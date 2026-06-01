@@ -58,6 +58,21 @@ class PaymentOutCreate(BaseModel):
     remarks: Optional[str] = None
 
 
+class PaymentOutUpdate(BaseModel):
+    payment_to: Optional[str] = None
+    payee_name: Optional[str] = None
+    amount: Optional[float] = None
+    payment_mode: Optional[str] = None
+    payment_date: Optional[date] = None
+    company_bank_id: Optional[UUID] = None
+    cheque_bank_name: Optional[str] = None
+    branch_name: Optional[str] = None
+    cheque_no: Optional[str] = None
+    cheque_date: Optional[date] = None
+    utr_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+
 @router.get("/")
 def list_payments_out(
     page: int = 1,
@@ -182,6 +197,90 @@ def create_payment_out(
         db.commit()
         db.refresh(new_payment)
         return {"status": "success", "id": str(new_payment.id)}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.put("/{payment_id}")
+def update_payment_out(
+    payment_id: UUID,
+    payload: PaymentOutUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    payment = db.query(PaymentOut).filter(PaymentOut.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment OUT record not found")
+
+    old_values = {"amount": float(payment.amount), "payment_mode": payment.payment_mode}
+
+    update_data = payload.dict(exclude_none=True)
+    payee_name = update_data.pop("payee_name", None)
+
+    for field, value in update_data.items():
+        if field == "payment_mode" and value:
+            value = norm_mode(value)
+        if field == "payment_to" and value:
+            value = norm_to(value)
+        setattr(payment, field, value)
+
+    # Rebuild bundled remarks if payee_name or remarks changed
+    if payee_name is not None or "remarks" in update_data:
+        existing_remarks = payment.remarks or ""
+        clean_remarks = existing_remarks
+        if existing_remarks.startswith("[Payee: "):
+            end_idx = existing_remarks.find("] ")
+            if end_idx != -1:
+                clean_remarks = existing_remarks[end_idx + 2:]
+        new_payee = payee_name if payee_name is not None else (
+            existing_remarks[8:existing_remarks.find("] ")] if existing_remarks.startswith("[Payee: ") else "Unknown"
+        )
+        new_remarks_text = update_data.get("remarks", clean_remarks)
+        payment.remarks = f"[Payee: {new_payee}] {new_remarks_text}".strip()
+
+    try:
+        record_dashboard_event(
+            db, current_admin,
+            action="updated payment out",
+            table_name="payment_out",
+            record_id=payment.id,
+            message=f"Payment OUT {payment_id} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values={"amount": float(payment.amount), "payment_mode": payment.payment_mode},
+        )
+        db.commit()
+        db.refresh(payment)
+        return {"status": "success", "id": str(payment.id)}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/{payment_id}", status_code=200)
+def delete_payment_out(
+    payment_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    payment = db.query(PaymentOut).filter(PaymentOut.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment OUT record not found")
+
+    try:
+        record_dashboard_event(
+            db, current_admin,
+            action="deleted payment out",
+            table_name="payment_out",
+            record_id=payment.id,
+            message=f"Payment OUT {payment_id} was deleted",
+            preference_key="deleted",
+            old_values={"amount": float(payment.amount)},
+        )
+        db.delete(payment)
+        db.commit()
+        return {"status": "success", "message": "Payment OUT deleted"}
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))
