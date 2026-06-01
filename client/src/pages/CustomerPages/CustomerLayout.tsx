@@ -22,6 +22,7 @@ const customerNav: NavGroup[] = [
     items: [
       { to: '/portal/documents',  label: 'Documents',       icon: FolderOpen  },
       { to: '/portal/payments',   label: 'Payment Status',  icon: CreditCard  },
+      { to: '/portal/loans',      label: 'Vehicle Loans',   icon: Car         },
       { to: '/portal/insurance',  label: 'Insurance',       icon: ShieldCheck },
       { to: '/portal/rto',        label: 'RTO Services',    icon: ClipboardList },
     ],

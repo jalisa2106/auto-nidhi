@@ -9,7 +9,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
-import { commissionsOutApi, filesApi, bankAccountsApi, usersSettingsApi } from '../../api/services'
+import { commissionsOutApi, filesApi, bankAccountsApi, usersSettingsApi, brokersApi, dealersApi } from '../../api/services'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 type CommissionOut = {
@@ -34,7 +34,7 @@ type CommissionOut = {
 }
 
 const PAYMENT_MODES   = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
-const PAYEE_TYPES     = ['Dealer', 'Broker', 'Agent', 'Other'] as const
+const PAYEE_TYPES     = ['Dealer', 'Broker', 'Other'] as const
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 function fmtINR(n: number) {
@@ -59,7 +59,7 @@ function modeBadge(mode: string) {
 function payeeBadge(type: string) {
   const cls: Record<string, string> = {
     Dealer: 'from-dealer', Broker: 'from-broker',
-    Agent: 'from-agent', Other: 'from-other',
+    Other: 'from-other',
   }
   return <span className={`from-badge ${cls[type] ?? 'from-other'}`}>{type}</span>
 }
@@ -164,6 +164,8 @@ export default function CommissionOutPage() {
   const [form, setForm]         = useState({ ...EMPTY_FORM })
   const [errors, setErrors]     = useState<Record<string, string>>({})
   const [staff, setStaff]       = useState<any[]>([])
+  const [brokers, setBrokers]   = useState<any[]>([])
+  const [dealers, setDealers]   = useState<any[]>([])
 
   // Filters
   const [search, setSearch]                   = useState('')
@@ -175,6 +177,12 @@ export default function CommissionOutPage() {
   // Pagination
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(10)
+
+  const payeeOptions = useMemo(() => {
+    if (form.payee_type === 'Broker') return brokers
+    if (form.payee_type === 'Dealer') return dealers
+    return staff
+  }, [form.payee_type, staff, brokers, dealers])
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -250,6 +258,22 @@ export default function CommissionOutPage() {
         value: `${u.first_name} ${u.last_name || ''}`.trim()
       }))
       setStaff(filtered)
+    }).catch(() => {})
+
+    // Load brokers
+    brokersApi.list().then(res => {
+      setBrokers((res.data || []).map((b: any) => ({
+        label: b.broker_name,
+        value: b.broker_name
+      })))
+    }).catch(() => {})
+
+    // Load dealers
+    dealersApi.list().then(res => {
+      setDealers((res.data || []).map((d: any) => ({
+        label: `${d.showroom_name} (${d.name})`,
+        value: `${d.showroom_name} (${d.name})`
+      })))
     }).catch(() => {})
   }, [])
 
@@ -700,7 +724,7 @@ export default function CommissionOutPage() {
                         (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                       }
                       status={errors.payee_name ? 'error' : undefined}
-                      options={staff}
+                      options={payeeOptions}
                     />
                     {errors.payee_name && <span className="form-error">{errors.payee_name}</span>}
                   </div>

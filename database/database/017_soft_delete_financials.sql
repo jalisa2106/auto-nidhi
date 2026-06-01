@@ -1,0 +1,14 @@
+-- Add soft delete columns
+ALTER TABLE master_dealer 
+ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL;
+
+ALTER TABLE master_bank 
+ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL;
+
+ALTER TABLE master_company_bank 
+ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL;
+
+-- Note: Broker already has these based on your 011_broker_soft_delete.sql

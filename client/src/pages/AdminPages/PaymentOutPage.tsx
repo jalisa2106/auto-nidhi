@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   TrendingDown, IndianRupee, Hash, Plus, X, Eye, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
@@ -9,11 +9,11 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
-import { paymentsOutApi, filesApi, bankAccountsApi, usersSettingsApi } from '../../api/services'
+import { paymentsOutApi, filesApi, bankAccountsApi, usersSettingsApi, customersApi, brokersApi, dealersApi } from '../../api/services'
 
 
 const PAYMENT_MODES  = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
-const PAYMENT_TO_TYPES = ['Customer', 'Dealer', 'Broker', 'Agent', 'Other'] as const
+const PAYMENT_TO_TYPES = ['Customer', 'Dealer', 'Broker', 'Other'] as const
 
 function fmtINR(n: number) {
   return '₹' + Number(n).toLocaleString('en-IN')
@@ -30,7 +30,7 @@ function modeBadge(mode: string) {
 function toBadge(to: string) {
   const cls: Record<string, string> = {
     Customer: 'from-customer', Dealer: 'from-dealer',
-    Broker: 'from-broker', Agent: 'from-agent', Other: 'from-other',
+    Broker: 'from-broker', Other: 'from-other',
   }
   return <span className={`from-badge ${cls[to] ?? 'from-other'}`}>{to}</span>
 }
@@ -126,6 +126,9 @@ export default function PaymentOutPage() {
   const [availableFiles, setAvailableFiles] = useState<any[]>([])
   const [companyBanks, setCompanyBanks] = useState<{ id: string; label: string }[]>([])
   const [staff, setStaff] = useState<any[]>([])
+  const [brokers, setBrokers] = useState<any[]>([])
+  const [dealers, setDealers] = useState<any[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
   
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<any | null>(null)
@@ -144,6 +147,13 @@ export default function PaymentOutPage() {
   // Pagination
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(10)
+
+  const payeeOptions = useMemo(() => {
+    if (form.payment_to === 'Broker') return brokers
+    if (form.payment_to === 'Dealer') return dealers
+    if (form.payment_to === 'Customer') return customers
+    return staff
+  }, [form.payment_to, staff, brokers, dealers, customers])
 
   // Data Fetching
   const loadPayments = async () => {
@@ -197,6 +207,30 @@ export default function PaymentOutPage() {
         value: `${u.first_name} ${u.last_name || ''}`.trim()
       }))
       setStaff(filtered)
+    }).catch(() => {})
+
+    // Load brokers
+    brokersApi.list().then(res => {
+      setBrokers((res.data || []).map((b: any) => ({
+        label: b.broker_name,
+        value: b.broker_name
+      })))
+    }).catch(() => {})
+
+    // Load dealers
+    dealersApi.list().then(res => {
+      setDealers((res.data || []).map((d: any) => ({
+        label: `${d.showroom_name} (${d.name})`,
+        value: `${d.showroom_name} (${d.name})`
+      })))
+    }).catch(() => {})
+
+    // Load customers
+    customersApi.list(1, 2000).then(res => {
+      setCustomers((res.data || []).map((c: any) => ({
+        label: c.full_name,
+        value: c.full_name
+      })))
     }).catch(() => {})
   }, [])
 
@@ -635,7 +669,7 @@ export default function PaymentOutPage() {
                         (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                       }
                       status={errors.payee_name ? 'error' : undefined}
-                      options={staff}
+                      options={payeeOptions}
                     />
                     {errors.payee_name && <span className="form-error">{errors.payee_name}</span>}
                   </div>

@@ -42,6 +42,7 @@ const EMPTY_CREATE = {
 const EMPTY_EDIT = {
   first_name: '',
   last_name: '',
+  email: '',
   phone_number: '',
   role_id: '',
   is_active: true,
@@ -234,11 +235,15 @@ export default function UsersPage() {
     setEditForm({
       first_name: u.first_name,
       last_name: u.last_name || '',
+      email: u.email,
       phone_number: u.phone_number || '',
       role_id: u.role_id || '',
       is_active: u.is_active,
     })
     setEditErrors({})
+    setShowResetPw(false)
+    setResetPw('')
+    setResetPwConfirm('')
   }
 
   function setEditField(key: keyof typeof EMPTY_EDIT, value: any) {
@@ -249,6 +254,8 @@ export default function UsersPage() {
   function validateEdit() {
     const e: Record<string, string> = {}
     if (!editForm.first_name.trim()) e.first_name = 'First name is required'
+    if (!editForm.email.trim()) e.email = 'Email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) e.email = 'Invalid email address'
     if (editForm.phone_number && !/^\d{10,15}$/.test(editForm.phone_number.replace(/\D/g, '')))
       e.phone_number = 'Enter a valid 10–15 digit phone number'
     setEditErrors(e)
@@ -262,6 +269,7 @@ export default function UsersPage() {
       await usersSettingsApi.update(editUser.id, {
         first_name: editForm.first_name.trim(),
         last_name: editForm.last_name.trim() || null,
+        email: editForm.email.trim().toLowerCase(),
         phone_number: editForm.phone_number.trim() || null,
         role_id: editForm.role_id || null,
         is_active: editForm.is_active,
@@ -605,13 +613,14 @@ export default function UsersPage() {
                   <div className="modal-section-label">Contact & Role</div>
 
                   <div className="form-group modal-full">
-                    <label className="form-label">Email <span style={{ fontSize: '.72rem', color: 'var(--gray-400)', fontWeight: 400 }}>(read-only)</span></label>
+                    <label className="form-label">Email Address <span style={{ color: 'var(--error)' }}>*</span></label>
                     <input
-                      className="form-input"
-                      value={editUser.email}
-                      readOnly
-                      style={{ background: 'var(--gray-50)', color: 'var(--gray-500)', cursor: 'not-allowed' }}
+                      type="email"
+                      className={`form-input${editErrors.email ? ' error' : ''}`}
+                      value={editForm.email}
+                      onChange={e => setEditField('email', e.target.value)}
                     />
+                    {editErrors.email && <span className="form-error">{editErrors.email}</span>}
                   </div>
 
                   <div className="form-group">
