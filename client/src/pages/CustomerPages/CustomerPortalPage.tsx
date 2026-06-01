@@ -219,7 +219,7 @@ export default function CustomerPortalPage() {
             <div className="db-card-title"><FileText size={16} /> Quick Services</div>
           </div>
           {[
-            { icon: Car,        bg: '#2563eb', title: 'Vehicle Loan',      desc: 'New or used vehicle financing from banks/NBFCs', to: '/portal/files' },
+            { icon: Car,        bg: '#2563eb', title: 'Vehicle Loan',      desc: 'New or used vehicle financing from banks/NBFCs', to: '/portal/loans' },
             { icon: ShieldCheck, bg: '#7c3aed', title: 'Vehicle Insurance', desc: 'Fresh coverage or renewal — third-party & comprehensive', to: '/portal/insurance' },
             { icon: FileText,   bg: '#d97706', title: 'RTO Services',      desc: 'Transfer, NOC, and fitness certificate applications', to: '/portal/rto' },
           ].map(({ icon: Icon, bg, title, desc, to }) => (
