@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom' // Fixed import!
 import {
   FolderOpen, TrendingUp, TrendingDown,
   BadgePercent, ShieldAlert, ArrowRight, Activity,
@@ -176,8 +176,11 @@ export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData>(emptyDashboard)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  
   const role = localStorage.getItem('user_role') || 'admin'
   const isAdmin = role === 'admin'
+  const isAccountant = role === 'accountant'
+  const canManageCustomers = !isAccountant // Data Entry and Admin can manage customers
 
   useEffect(() => {
     try {
@@ -289,7 +292,9 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <Link to="/files" className="btn btn-primary btn-sm">Manage Files</Link>
-              <Link to="/customers" className="btn btn-outline btn-sm">Manage Customers</Link>
+              {canManageCustomers && (
+                <Link to="/customers" className="btn btn-outline btn-sm">Manage Customers</Link>
+              )}
             </div>
           </div>
 
@@ -589,10 +594,11 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-                <Link to="/customers" className="btn btn-outline btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
-                  Customers
-                </Link>
-                {/* Only Admins can see the Manage Users link */}
+                {canManageCustomers && (
+                  <Link to="/customers" className="btn btn-outline btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
+                    Customers
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link to="/settings/users" className="btn btn-outline btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
                     Manage Users
