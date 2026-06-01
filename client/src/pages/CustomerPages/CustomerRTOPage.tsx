@@ -367,6 +367,20 @@ export default function CustomerRTOPage() {
 
             <form onSubmit={handleWizardSubmit}>
               <div className="modal-body" style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {eligibleFiles.length === 0 && (
+                  <div style={{
+                    background: '#fffbeb', border: '1px solid #fef08a', borderRadius: 8,
+                    padding: '12px 16px', display: 'flex', gap: 10, color: '#a16207',
+                    fontSize: '0.82rem', lineHeight: 1.4, fontWeight: 500, marginBottom: 4
+                  }}>
+                    <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1, color: '#d97706' }} />
+                    <div>
+                      <span style={{ fontWeight: 700, display: 'block', marginBottom: 2 }}>No Active Files Registered</span>
+                      You do not have any active or disbursed vehicle files registered under your profile yet. Please apply for a Vehicle Loan first or contact AutoNidhi support to get started.
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: 6 }}>
                     Select Vehicle / File ID <span style={{ color: '#ef4444' }}>*</span>
@@ -375,7 +389,8 @@ export default function CustomerRTOPage() {
                     value={selectedFileId}
                     onChange={e => setSelectedFileId(e.target.value)}
                     required
-                    style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem' }}
+                    disabled={eligibleFiles.length === 0 || uploading}
+                    style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem', background: eligibleFiles.length === 0 ? '#f8fafc' : '#fff' }}
                   >
                     <option value="">-- Choose file --</option>
                     {eligibleFiles.map(f => (
@@ -397,7 +412,8 @@ export default function CustomerRTOPage() {
                     value={serviceType}
                     onChange={e => setServiceType(e.target.value)}
                     required
-                    style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem' }}
+                    disabled={eligibleFiles.length === 0 || uploading}
+                    style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem', background: eligibleFiles.length === 0 ? '#f8fafc' : '#fff' }}
                   >
                     <option value="hypothecation_removal">Hypothecation Termination (Form 35)</option>
                     <option value="ownership_transfer">Ownership Transfer (TO)</option>
@@ -413,10 +429,11 @@ export default function CustomerRTOPage() {
                   <input
                     type="text"
                     required
+                    disabled={eligibleFiles.length === 0 || uploading}
                     placeholder="e.g. MH-12 (Pune) or DL-3C"
                     value={rtoDistrict}
                     onChange={e => setRtoDistrict(e.target.value)}
-                    style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem' }}
+                    style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem', background: eligibleFiles.length === 0 ? '#f8fafc' : '#fff' }}
                   />
                 </div>
 
@@ -426,10 +443,11 @@ export default function CustomerRTOPage() {
                   </label>
                   <textarea
                     rows={3}
+                    disabled={eligibleFiles.length === 0 || uploading}
                     placeholder="Enter chassis/engine details or special instructions..."
                     value={remarks}
                     onChange={e => setRemarks(e.target.value)}
-                    style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem', fontFamily: 'inherit' }}
+                    style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem', fontFamily: 'inherit', background: eligibleFiles.length === 0 ? '#f8fafc' : '#fff' }}
                   />
                 </div>
 
@@ -440,6 +458,7 @@ export default function CustomerRTOPage() {
                   <input
                     type="file"
                     accept=".pdf,.png,.jpg,.jpeg"
+                    disabled={eligibleFiles.length === 0 || uploading}
                     onChange={e => setSelectedFile(e.target.files?.[0] || null)}
                     style={{ width: '100%', fontSize: '0.82rem' }}
                   />
@@ -450,7 +469,7 @@ export default function CustomerRTOPage() {
                 <button type="button" className="btn btn-outline btn-sm" disabled={uploading} onClick={() => setIsModalOpen(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary btn-sm" disabled={uploading}>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={eligibleFiles.length === 0 || uploading}>
                   {uploading ? 'Submitting...' : 'Submit Request'}
                 </button>
               </div>
