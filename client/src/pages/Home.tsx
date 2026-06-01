@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CheckCircle2, ArrowRight, Car, Shield, TrendingUp
@@ -45,12 +44,6 @@ const features = [
 ]
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-
-  useEffect(() => {
-    setIsLoggedIn(!!localStorage.getItem('access_token'))
-  }, [])
-
   return (
     <>
       {/* ── Navbar ── */}
@@ -70,14 +63,8 @@ export default function Home() {
           </ul>
  
           <div className="navbar-actions">
-            {isLoggedIn ? (
-              <Link to="/dashboard-redirect" className="btn btn-primary btn-sm">Go to Dashboard</Link>
-            ) : (
-              <>
-                <Link to="/login" className="btn btn-outline btn-sm">Sign In</Link>
-                <Link to="/signup" className="btn btn-primary btn-sm">Get Started</Link>
-              </>
-            )}
+            <Link to="/login" className="btn btn-outline btn-sm">Sign In</Link>
+            <Link to="/signup" className="btn btn-primary btn-sm">Get Started</Link>
           </div>
         </div>
       </nav>
@@ -103,20 +90,12 @@ export default function Home() {
             </p>
  
             <div className="hero-actions">
-              {isLoggedIn ? (
-                <Link to="/dashboard-redirect" className="btn btn-primary btn-lg">
-                  Go to Dashboard <ArrowRight size={18} />
-                </Link>
-              ) : (
-                <>
-                  <Link to="/signup" className="btn btn-primary btn-lg">
-                    Start Free <ArrowRight size={18} />
-                  </Link>
-                  <Link to="/login" className="btn btn-outline btn-lg">
-                    Sign In
-                  </Link>
-                </>
-              )}
+              <Link to="/signup" className="btn btn-primary btn-lg">
+                Start Free <ArrowRight size={18} />
+              </Link>
+              <Link to="/login" className="btn btn-outline btn-lg">
+                Sign In
+              </Link>
             </div>
 
             <div className="hero-stats">
@@ -218,15 +197,9 @@ export default function Home() {
         <div className="container">
           <h2 className="cta-title">Ready to streamline your consultancy?</h2>
           <p className="cta-desc">Join hundreds of auto finance consultants already using AutoNidhi.</p>
-          {isLoggedIn ? (
-            <Link to="/dashboard-redirect" className="btn btn-gold btn-lg">
-              Go to Dashboard <ArrowRight size={18} />
-            </Link>
-          ) : (
-            <Link to="/signup" className="btn btn-gold btn-lg">
-              Create Free Account <ArrowRight size={18} />
-            </Link>
-          )}
+          <Link to="/signup" className="btn btn-gold btn-lg">
+            Create Free Account <ArrowRight size={18} />
+          </Link>
         </div>
       </section>
 
