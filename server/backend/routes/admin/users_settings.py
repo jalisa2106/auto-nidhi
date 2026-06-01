@@ -253,3 +253,46 @@ def toggle_user_active(
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ── Admin Password Reset ────────────────────────────────────────────────────
+
+class AdminResetPassword(BaseModel):
+    new_password: str
+
+    @validator("new_password")
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 6:
+            raise ValueError("Password must be at least 6 characters")
+        return v
+
+
+@router.patch("/users/{user_id}/reset-password")
+def admin_reset_password(
+    user_id: UUID,
+    payload: AdminResetPassword,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    """Admin resets a user's password (no old password needed)."""
+    user = db.query(SystemUser).filter(SystemUser.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = get_password_hash(payload.new_password)
+    try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="reset user password",
+            table_name="system_user",
+            record_id=user.id,
+            message=f"Password was reset for {user.email}",
+            preference_key="updated",
+        )
+        db.commit()
+        return {"message": f"Password reset successfully for {user.email}"}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
