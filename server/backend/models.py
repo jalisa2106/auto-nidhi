@@ -321,6 +321,7 @@ class CommissionOut(Base):
     file = relationship("FileRecord")
     payee_dealer = relationship("MasterDealer", foreign_keys=[payee_dealer_id])
     payee_broker = relationship("MasterBroker", foreign_keys=[payee_broker_id])
+    company_bank = relationship("MasterCompanyBank", foreign_keys=[company_bank_id])
 
 class ExpenseLedger(Base):
     __tablename__ = "expense_ledger"
