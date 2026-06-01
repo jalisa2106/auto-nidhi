@@ -7,7 +7,7 @@ import {
 import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
 import { financeBanksApi } from '../../api/services'
-import { exportToExcel, exportToPDF, ColumnDefinition } from '../../utils/exportUtils'
+import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FinanceBank {

@@ -9,9 +9,7 @@ import {
 } from 'lucide-react'
 import { loansApi } from '../../api/services'
 import Modal from '../../components/app/Modal'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
@@ -167,9 +165,18 @@ export default function LoansPage() {
   const [filterStatus, setFilterStatus] = useState<'All' | LoanRecord['status']>('All')
 
   // Edit modal state
-  const [setViewOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editForm, setEditForm] = useState<{ remarks: string; status: LoanRecord['status'] }>({ remarks: '', status: 'disbursed' })
+
+  const [viewOpen, setViewOpen] = useState(false)
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(5)
+  const closeView = useCallback(() => { setViewOpen(false); setSelected(null) }, [])
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeView() }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [closeView])
 
   useEffect(() => {
     const loadLoans = async () => {
@@ -256,7 +263,8 @@ export default function LoansPage() {
 
   // ── Handlers ──
   const openEdit = (loan: LoanRecord) => {
-    setEditForm({ remarks: loan.remarks, status: loan.status })
+    setSelected(loan)
+    setEditForm({ remarks: loan.remarks || '', status: loan.status })
     setEditOpen(true)
   }
 

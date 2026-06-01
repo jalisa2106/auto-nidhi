@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
 import { message } from 'antd'
 import { Phone, MapPin, Search, Plus, Pencil, Trash2, Handshake, TrendingDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, FileDown } from 'lucide-react'
-import { exportToExcel, exportToPDF, ColumnDefinition } from '../../utils/exportUtils'
+import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
 import Modal from '../../components/app/Modal'
 import { brokersApi } from '../../api/services'
 

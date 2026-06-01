@@ -110,7 +110,7 @@ export const exportToPDF = (options: ExportPDFOptions) => {
     columnStyles,
     didDrawPage: (data) => {
       // Footer
-      const str = 'Page ' + doc.internal.getNumberOfPages()
+      const str = 'Page ' + (doc.internal as any).getNumberOfPages()
       doc.setFontSize(8)
       doc.setTextColor(156, 163, 175) // gray-400
       const pageSize = doc.internal.pageSize

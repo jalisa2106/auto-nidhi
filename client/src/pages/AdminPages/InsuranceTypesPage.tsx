@@ -5,7 +5,7 @@ import PageHeader from '../../components/app/PageHeader'
 import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
 import { insuranceTypesApi } from '../../api/services'
-import { exportToExcel, exportToPDF, ColumnDefinition } from '../../utils/exportUtils'
+import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
 
 interface InsuranceType {
   id: string

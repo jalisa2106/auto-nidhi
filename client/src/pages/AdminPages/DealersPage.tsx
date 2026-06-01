@@ -5,7 +5,7 @@ import {
   ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight,
   FileSpreadsheet, FileDown
 } from 'lucide-react'
-import { exportToExcel, exportToPDF, ColumnDefinition } from '../../utils/exportUtils'
+import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
 import PageHeader from '../../components/app/PageHeader'
 import { dealersApi } from '../../api/services'
 
