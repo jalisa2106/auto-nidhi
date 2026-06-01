@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  TrendingDown, IndianRupee, CalendarClock, Plus, X, Eye,
+  TrendingDown, IndianRupee, CalendarClock, Plus, X, Eye, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
   FileSpreadsheet, FileDown,
 } from 'lucide-react'
@@ -160,6 +160,8 @@ export default function CommissionInPage() {
   const [companyBanks, setCompanyBanks] = useState<{ id: string; label: string }[]>([])
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<CommissionIn | null>(null)
+  const [editRow, setEditRow]   = useState<CommissionIn | null>(null)
+  const [editForm, setEditForm] = useState({ ...EMPTY_FORM })
   const [form, setForm]         = useState({ ...EMPTY_FORM })
   const [errors, setErrors]     = useState<Record<string, string>>({})
 
@@ -263,7 +265,7 @@ export default function CommissionInPage() {
   async function handleAdd() {
     if (!validate()) return
     const payload = {
-      file_id: form.file_number, // stores file UUID from dropdown
+      file_id: form.file_number,
       source_type: form.source_type,
       source_name: form.source_name.trim(),
       amount: Number(form.amount),
@@ -289,6 +291,66 @@ export default function CommissionInPage() {
       loadCommissions()
     } catch (err: any) {
       message.error(err.response?.data?.detail || 'Failed to save commission')
+    }
+  }
+
+  function openEdit(r: CommissionIn) {
+    setEditRow(r)
+    setEditForm({
+      file_number: r.file_id || '',
+      source_type: r.source_type || 'Bank',
+      source_name: r.source_name || '',
+      amount: String(r.amount || ''),
+      advance: r.advance || false,
+      tds_tracked: r.tds_deducted || false,
+      mode: r.mode || 'UPI',
+      payment_date: r.payment_date || new Date().toISOString().slice(0, 10),
+      company_bank_id: r.company_bank_id || '',
+      cheque_bank_name: r.cheque_bank_name || '',
+      branch_name: r.branch_name || '',
+      cheque_no: r.cheque_no || '',
+      cheque_date: r.cheque_date || '',
+      utr_no: r.utr_no || '',
+      remarks: r.remarks || '',
+    })
+  }
+
+  async function handleEdit() {
+    if (!editRow) return
+    const payload: any = {
+      source_type: editForm.source_type,
+      source_name: editForm.source_name,
+      amount: Number(editForm.amount),
+      advance: editForm.advance,
+      tds_deducted: editForm.tds_tracked,
+      mode: editForm.mode,
+      payment_date: editForm.payment_date,
+      company_bank_id: editForm.company_bank_id || null,
+      cheque_bank_name: editForm.cheque_bank_name || null,
+      branch_name: editForm.branch_name || null,
+      cheque_no: editForm.cheque_no || null,
+      cheque_date: editForm.cheque_date || null,
+      utr_no: editForm.utr_no || null,
+      remarks: editForm.remarks || null,
+    }
+    try {
+      await commissionsInApi.update(editRow.id, payload)
+      message.success('Commission updated')
+      setEditRow(null)
+      loadCommissions()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Failed to update')
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm('Delete this commission record? This cannot be undone.')) return
+    try {
+      await commissionsInApi.remove(id)
+      message.success('Commission deleted')
+      loadCommissions()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Failed to delete')
     }
   }
 
@@ -534,14 +596,22 @@ export default function CommissionInPage() {
                         {r.remarks || '—'}
                       </td>
                       <td>
-                        <button
-                          className="btn btn-outline btn-sm"
-                          style={{ padding: '5px 12px', fontSize: '.78rem' }}
-                          onClick={() => setViewRow(r)}
-                          title="View details"
-                        >
-                          <Eye size={13} />
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-outline btn-sm" style={{ padding: '5px 10px' }}
+                            onClick={() => setViewRow(r)} title="View">
+                            <Eye size={13} />
+                          </button>
+                          <button className="btn btn-outline btn-sm"
+                            style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
+                            onClick={() => { openEdit(r); if (!availableFiles.length) loadFilesDropdown() }} title="Edit">
+                            <Pencil size={13} />
+                          </button>
+                          <button className="btn btn-outline btn-sm"
+                            style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }}
+                            onClick={() => handleDelete(r.id)} title="Delete">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -864,6 +934,90 @@ export default function CommissionInPage() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-primary btn-sm" onClick={() => setViewRow(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Modal ── */}
+      {editRow && (
+        <div className="modal-backdrop" onClick={() => setEditRow(null)}>
+          <div className="modal" style={{ maxWidth: 580 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Commission IN</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditRow(null)}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-grid-2">
+                <div className="form-group">
+                  <label className="form-label">Source Type</label>
+                  <select className="form-input" value={editForm.source_type}
+                    onChange={(e) => setEditForm(p => ({ ...p, source_type: e.target.value }))}>
+                    {SOURCE_TYPES.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Source Name</label>
+                  <input className="form-input" value={editForm.source_name}
+                    onChange={(e) => setEditForm(p => ({ ...p, source_name: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Amount (₹)</label>
+                  <input type="number" className="form-input" value={editForm.amount}
+                    onChange={(e) => setEditForm(p => ({ ...p, amount: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Mode</label>
+                  <select className="form-input" value={editForm.mode}
+                    onChange={(e) => setEditForm(p => ({ ...p, mode: e.target.value }))}>
+                    {PAYMENT_MODES.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment Date</label>
+                  <input type="date" className="form-input" value={editForm.payment_date}
+                    onChange={(e) => setEditForm(p => ({ ...p, payment_date: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Company Bank</label>
+                  <select className="form-input" value={editForm.company_bank_id}
+                    onChange={(e) => setEditForm(p => ({ ...p, company_bank_id: e.target.value }))}>
+                    <option value="">— None —</option>
+                    {companyBanks.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Cheque No.</label>
+                  <input className="form-input" value={editForm.cheque_no}
+                    onChange={(e) => setEditForm(p => ({ ...p, cheque_no: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">UTR No.</label>
+                  <input className="form-input" value={editForm.utr_no}
+                    onChange={(e) => setEditForm(p => ({ ...p, utr_no: e.target.value }))} />
+                </div>
+                <div style={{ display: 'flex', gap: 16, gridColumn: '1/-1' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={editForm.advance}
+                      onChange={(e) => setEditForm(p => ({ ...p, advance: e.target.checked }))} />
+                    Advance
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={editForm.tds_tracked}
+                      onChange={(e) => setEditForm(p => ({ ...p, tds_tracked: e.target.checked }))} />
+                    TDS Deducted
+                  </label>
+                </div>
+                <div className="form-group modal-full">
+                  <label className="form-label">Remarks</label>
+                  <textarea className="form-input" rows={2} value={editForm.remarks}
+                    onChange={(e) => setEditForm(p => ({ ...p, remarks: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => setEditRow(null)}>Cancel</button>
+              <button className="btn btn-primary btn-sm" onClick={handleEdit}>Save Changes</button>
             </div>
           </div>
         </div>

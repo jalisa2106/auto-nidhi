@@ -120,6 +120,10 @@ export const customersApi = {
     const { data } = await api.post('/customers/', payload, skipAuthRedirectConfig)
     return data
   },
+  update: async (id: string, payload: any) => {
+    const { data } = await api.put(`/customers/${id}`, payload, skipAuthRedirectConfig)
+    return data
+  },
 }
 
 export const brokersApi = {
@@ -205,6 +209,14 @@ export const paymentsInApi = {
     const { data } = await api.post('/payments/in/', payload, skipAuthRedirectConfig)
     return data
   },
+  update: async (id: string, payload: any) => {
+    const { data } = await api.put(`/payments/in/${id}`, payload, skipAuthRedirectConfig)
+    return data
+  },
+  remove: async (id: string) => {
+    const { data } = await api.delete(`/payments/in/${id}`, skipAuthRedirectConfig)
+    return data
+  },
 }
 
 export const paymentsOutApi = {
@@ -214,6 +226,14 @@ export const paymentsOutApi = {
   },
   create: async (payload: any) => {
     const { data } = await api.post('/payments/out/', payload, skipAuthRedirectConfig)
+    return data
+  },
+  update: async (id: string, payload: any) => {
+    const { data } = await api.put(`/payments/out/${id}`, payload, skipAuthRedirectConfig)
+    return data
+  },
+  remove: async (id: string) => {
+    const { data } = await api.delete(`/payments/out/${id}`, skipAuthRedirectConfig)
     return data
   },
 }
@@ -227,6 +247,14 @@ export const commissionsInApi = {
     const { data } = await api.post('/commissions/in/', payload, skipAuthRedirectConfig)
     return data
   },
+  update: async (id: string, payload: any) => {
+    const { data } = await api.put(`/commissions/in/${id}`, payload, skipAuthRedirectConfig)
+    return data
+  },
+  remove: async (id: string) => {
+    const { data } = await api.delete(`/commissions/in/${id}`, skipAuthRedirectConfig)
+    return data
+  },
 }
 
 export const commissionsOutApi = {
@@ -236,6 +264,14 @@ export const commissionsOutApi = {
   },
   create: async (payload: any) => {
     const { data } = await api.post('/commissions/out/', payload, skipAuthRedirectConfig)
+    return data
+  },
+  update: async (id: string, payload: any) => {
+    const { data } = await api.put(`/commissions/out/${id}`, payload, skipAuthRedirectConfig)
+    return data
+  },
+  remove: async (id: string) => {
+    const { data } = await api.delete(`/commissions/out/${id}`, skipAuthRedirectConfig)
     return data
   },
 }
@@ -297,6 +333,10 @@ export const insurancePaymentsApi = {
   },
   delete: async (id: string) => {
     const { data } = await api.patch(`/insurance-payments/${id}/delete`, undefined, skipAuthRedirectConfig);
+    return data;
+  },
+  update: async (id: string, payload: any) => {
+    const { data } = await api.put(`/insurance-payments/${id}`, payload, skipAuthRedirectConfig);
     return data;
   },
 };
@@ -385,6 +425,10 @@ export const usersSettingsApi = {
   },
   toggleActive: async (id: string) => {
     const { data } = await api.patch(`/settings/users/${id}/toggle-active`, undefined, skipAuthRedirectConfig)
+    return data
+  },
+  resetPassword: async (id: string, newPassword: string) => {
+    const { data } = await api.patch(`/settings/users/${id}/reset-password`, { new_password: newPassword }, skipAuthRedirectConfig)
     return data
   },
 }

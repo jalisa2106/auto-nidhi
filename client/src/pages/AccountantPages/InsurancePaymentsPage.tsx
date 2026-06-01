@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
+  Pencil,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
@@ -109,6 +110,13 @@ export default function InsurancePaymentsPage() {
 
   // ── View-detail modal state ───────────────────────────────────────────────
   const [viewRow, setViewRow] = useState<InsurancePayment | null>(null)
+
+  // ── Edit modal state ──────────────────────────────────────────────────────
+  const [editRow, setEditRow] = useState<InsurancePayment | null>(null)
+  const [editForm, setEditForm] = useState({
+    payee_name: '', amount: '', mode: 'UPI', payment_date: '', valid_to: '', remarks: '',
+    cheque_no: '', utr_no: '',
+  })
 
   // ── Mail modal state ──────────────────────────────────────────────────────
   const [showMail, setShowMail] = useState(false)
@@ -340,6 +348,41 @@ export default function InsurancePaymentsPage() {
       alert(`Error: ${msg}`)
     } finally {
       setMailSending(false)
+    }
+  }
+
+  // ── Edit handlers ─────────────────────────────────────────────────────────
+  const openEdit = (r: InsurancePayment) => {
+    setEditRow(r)
+    setEditForm({
+      payee_name: r.payee_name || '',
+      amount: String(r.amount || ''),
+      mode: r.mode || 'UPI',
+      payment_date: r.payment_date || '',
+      valid_to: r.valid_to || '',
+      remarks: r.remarks || '',
+      cheque_no: r.cheque_no || '',
+      utr_no: r.utr_no || '',
+    })
+  }
+
+  const handleEditSave = async () => {
+    if (!editRow) return
+    try {
+      await insurancePaymentsApi.update(editRow.id, {
+        payee_name: editForm.payee_name,
+        amount: Number(editForm.amount),
+        mode: editForm.mode,
+        payment_date: editForm.payment_date || null,
+        valid_to: editForm.valid_to || null,
+        cheque_no: editForm.cheque_no || null,
+        utr_no: editForm.utr_no || null,
+        remarks: editForm.remarks || null,
+      })
+      setRows(rows.map(r => r.id === editRow.id ? { ...r, ...editForm, amount: Number(editForm.amount) } : r))
+      setEditRow(null)
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Failed to update insurance payment')
     }
   }
 
@@ -730,14 +773,24 @@ export default function InsurancePaymentsPage() {
                           {fmtDate(r.valid_to)}
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            title="View details"
-                            onClick={() => setViewRow(r)}
-                            style={{ padding: '4px 8px' }}
-                          >
-                            <Eye size={14} />
-                          </button>
+                          <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              title="View details"
+                              onClick={() => setViewRow(r)}
+                              style={{ padding: '4px 8px' }}
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              title="Edit"
+                              onClick={() => openEdit(r)}
+                              style={{ padding: '4px 8px', color: '#4f46e5' }}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -1058,6 +1111,68 @@ export default function InsurancePaymentsPage() {
                 <Mail size={14} />
                 {mailSending ? 'Sending…' : 'Send Message'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Insurance Payment Modal ── */}
+      {editRow && (
+        <div className="modal-backdrop" onClick={() => setEditRow(null)}>
+          <div className="modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Insurance Payment</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditRow(null)}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-grid-2">
+                <div className="form-group modal-full">
+                  <label className="form-label">Insurance Company Name</label>
+                  <input className="form-input" value={editForm.payee_name}
+                    onChange={(e) => setEditForm(p => ({ ...p, payee_name: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Amount (₹)</label>
+                  <input type="number" className="form-input" value={editForm.amount}
+                    onChange={(e) => setEditForm(p => ({ ...p, amount: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment Mode</label>
+                  <select className="form-input" value={editForm.mode}
+                    onChange={(e) => setEditForm(p => ({ ...p, mode: e.target.value }))}>
+                    {PAYMENT_MODES.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment Date</label>
+                  <input type="date" className="form-input" value={editForm.payment_date}
+                    onChange={(e) => setEditForm(p => ({ ...p, payment_date: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Valid Until (Expiry)</label>
+                  <input type="date" className="form-input" value={editForm.valid_to}
+                    onChange={(e) => setEditForm(p => ({ ...p, valid_to: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Cheque No.</label>
+                  <input className="form-input" value={editForm.cheque_no}
+                    onChange={(e) => setEditForm(p => ({ ...p, cheque_no: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">UTR No.</label>
+                  <input className="form-input" value={editForm.utr_no}
+                    onChange={(e) => setEditForm(p => ({ ...p, utr_no: e.target.value }))} />
+                </div>
+                <div className="form-group modal-full">
+                  <label className="form-label">Remarks</label>
+                  <textarea className="form-input" rows={2} value={editForm.remarks}
+                    onChange={(e) => setEditForm(p => ({ ...p, remarks: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => setEditRow(null)}>Cancel</button>
+              <button className="btn btn-primary btn-sm" onClick={handleEditSave}>Save Changes</button>
             </div>
           </div>
         </div>
