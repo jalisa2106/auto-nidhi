@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Link, Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   LayoutDashboard, FileText, FolderOpen, CreditCard, ShieldCheck,
@@ -93,10 +93,12 @@ export default function CustomerLayout() {
     <div className="app-shell">
       {/* ── Sidebar ── */}
       <aside className="app-sidebar">
-        <div className="sb-logo">
-          <div className="sb-logo-mark"><Car size={18} color="#fff" /></div>
-          <div className="sb-brand">Auto<span>Nidhi</span></div>
-        </div>
+        <Link to="/" style={{ textDecoration: 'none', display: 'block' }}>
+          <div className="sb-logo" style={{ cursor: 'pointer' }}>
+            <div className="sb-logo-mark"><Car size={18} color="#fff" /></div>
+            <div className="sb-brand">Auto<span>Nidhi</span></div>
+          </div>
+        </Link>
 
         {customerNav.map((group) => (
           <div key={group.title}>

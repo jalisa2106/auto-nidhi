@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CheckCircle2, ArrowRight, Car, Shield, TrendingUp
@@ -44,6 +45,12 @@ const features = [
 ]
 
 export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    setIsLoggedIn(!!localStorage.getItem('access_token'))
+  }, [])
+
   return (
     <>
       {/* ── Navbar ── */}
@@ -55,20 +62,26 @@ export default function Home() {
             </div>
             Auto<span className="logo-nidhi">Nidhi</span>
           </Link>
-
+ 
           <ul className="navbar-links">
             <li><a href="#features">Features</a></li>
             <li><a href="#about">About</a></li>
             <li><a href="#contact">Contact</a></li>
           </ul>
-
+ 
           <div className="navbar-actions">
-            <Link to="/login" className="btn btn-outline btn-sm">Sign In</Link>
-            <Link to="/signup" className="btn btn-primary btn-sm">Get Started</Link>
+            {isLoggedIn ? (
+              <Link to="/dashboard-redirect" className="btn btn-primary btn-sm">Go to Dashboard</Link>
+            ) : (
+              <>
+                <Link to="/login" className="btn btn-outline btn-sm">Sign In</Link>
+                <Link to="/signup" className="btn btn-primary btn-sm">Get Started</Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
-
+ 
       {/* ── Hero ── */}
       <section className="hero">
         <div className="container">
@@ -77,25 +90,33 @@ export default function Home() {
               <span className="dot" />
               India's Smart Auto Finance Platform
             </div>
-
+ 
             <h1 className="hero-title">
               Manage Loans &<br />
               <span className="highlight">Insurance Files</span><br />
               the <span className="highlight-gold">Smart Way</span>
             </h1>
-
+ 
             <p className="hero-desc">
               AutoNidhi is a complete consultancy management system for auto loans and
               insurance — built for agents, brokers, and finance consultants across India.
             </p>
-
+ 
             <div className="hero-actions">
-              <Link to="/signup" className="btn btn-primary btn-lg">
-                Start Free <ArrowRight size={18} />
-              </Link>
-              <Link to="/login" className="btn btn-outline btn-lg">
-                Sign In
-              </Link>
+              {isLoggedIn ? (
+                <Link to="/dashboard-redirect" className="btn btn-primary btn-lg">
+                  Go to Dashboard <ArrowRight size={18} />
+                </Link>
+              ) : (
+                <>
+                  <Link to="/signup" className="btn btn-primary btn-lg">
+                    Start Free <ArrowRight size={18} />
+                  </Link>
+                  <Link to="/login" className="btn btn-outline btn-lg">
+                    Sign In
+                  </Link>
+                </>
+              )}
             </div>
 
             <div className="hero-stats">
@@ -197,9 +218,15 @@ export default function Home() {
         <div className="container">
           <h2 className="cta-title">Ready to streamline your consultancy?</h2>
           <p className="cta-desc">Join hundreds of auto finance consultants already using AutoNidhi.</p>
-          <Link to="/signup" className="btn btn-gold btn-lg">
-            Create Free Account <ArrowRight size={18} />
-          </Link>
+          {isLoggedIn ? (
+            <Link to="/dashboard-redirect" className="btn btn-gold btn-lg">
+              Go to Dashboard <ArrowRight size={18} />
+            </Link>
+          ) : (
+            <Link to="/signup" className="btn btn-gold btn-lg">
+              Create Free Account <ArrowRight size={18} />
+            </Link>
+          )}
         </div>
       </section>
 

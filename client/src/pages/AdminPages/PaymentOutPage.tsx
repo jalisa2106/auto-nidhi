@@ -2,10 +2,15 @@ import { useEffect, useState } from 'react'
 import {
   TrendingDown, IndianRupee, Hash, Plus, X, Eye,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
+  FileSpreadsheet, FileDown,
 } from 'lucide-react'
-import { message } from 'antd'
+import { message, Select } from 'antd'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
-import { paymentsOutApi, filesApi, bankAccountsApi } from '../../api/services'
+import { paymentsOutApi, filesApi, bankAccountsApi, usersSettingsApi } from '../../api/services'
+
 
 const PAYMENT_MODES  = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 const PAYMENT_TO_TYPES = ['Customer', 'Dealer', 'Broker', 'Agent', 'Other'] as const
@@ -120,6 +125,7 @@ export default function PaymentOutPage() {
   const [totalRows, setTotalRows] = useState(0)
   const [availableFiles, setAvailableFiles] = useState<any[]>([])
   const [companyBanks, setCompanyBanks] = useState<{ id: string; label: string }[]>([])
+  const [staff, setStaff] = useState<any[]>([])
   
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<any | null>(null)
@@ -168,12 +174,27 @@ export default function PaymentOutPage() {
   }, [page, pageSize, search, filterMode, filterTo, filterDateFrom, filterDateTo])
 
   useEffect(() => {
-    // Load company banks once on mount for the dropdown
+    // Load company banks once on mount
     bankAccountsApi.list(1, 200).then(res => {
       setCompanyBanks((res.data || []).map((b: any) => ({
         id: b.id,
         label: `${b.bank_name} – ${b.account_number}`,
       })))
+    }).catch(() => {})
+
+    // Load staff for payee dropdown
+    usersSettingsApi.list(1, 500).then(res => {
+      const allUsers = res.data || []
+      const filtered = allUsers.filter((u: any) => {
+        const r = (u.role_name || '').toLowerCase()
+        const isActive = u.is_active === true
+        // Show all active users except Customers
+        return isActive && r !== 'customer'
+      }).map((u: any) => ({
+        label: `${u.first_name} ${u.last_name || ''}`.trim(),
+        value: `${u.first_name} ${u.last_name || ''}`.trim()
+      }))
+      setStaff(filtered)
     }).catch(() => {})
   }, [])
 
@@ -246,6 +267,61 @@ export default function PaymentOutPage() {
     setFilterDateFrom(''); setFilterDateTo(''); setPage(1)
   }
 
+  const exportExcel = () => {
+    const data = rows.map((r) => ({
+      'File No.': r.file_number,
+      'Payment To': r.payment_to,
+      'Payee Name': r.payee_name,
+      'Amount (₹)': r.amount,
+      'Mode': r.payment_mode,
+      'Date': r.payment_date,
+      'Cheque / UTR': r.cheque_no || r.utr_no || '—',
+      'Remarks': r.remarks || '—',
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(data)
+    ws['!cols'] = [
+      { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 },
+      { wch: 10 }, { wch: 12 }, { wch: 20 }, { wch: 25 }
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Payment OUT')
+    XLSX.writeFile(wb, `PaymentOut_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.text('Payment OUT Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120)
+    doc.text(`Generated on: ${today} | Total records: ${rows.length}`, 14, 22)
+    doc.setTextColor(0)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['File No.', 'Payment To', 'Payee Name', 'Amount (₹)', 'Mode', 'Date', 'Cheque / UTR'],
+      ],
+      body: rows.map((r) => [
+        r.file_number,
+        r.payment_to,
+        r.payee_name,
+        '₹' + Number(r.amount).toLocaleString('en-IN'),
+        r.payment_mode,
+        r.payment_date,
+        r.cheque_no || r.utr_no || '—',
+      ]),
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [239, 68, 68] },
+      alternateRowStyles: { fillColor: [255, 245, 245] },
+    })
+
+    doc.save(`PaymentOut_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
+
   const hasFilters = search || filterMode || filterTo || filterDateFrom || filterDateTo
 
   return (
@@ -294,6 +370,20 @@ export default function PaymentOutPage() {
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
         </div>
+        <button
+          className="btn btn-outline btn-sm"
+          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
+          onClick={exportExcel}
+        >
+          <FileSpreadsheet size={14} /> Export Excel
+        </button>
+        <button
+          className="btn btn-outline btn-sm"
+          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
+          onClick={exportPDF}
+        >
+          <FileDown size={14} /> Export PDF
+        </button>
         <div className="pay-filter-group">
           <span className="pay-filter-label">Mode</span>
           <select
@@ -467,12 +557,19 @@ export default function PaymentOutPage() {
 
                   <div className="form-group modal-full">
                     <label className="form-label">Payee Name <span style={{ color: 'var(--error)' }}>*</span></label>
-                    <input
-                      id="pay-out-payee-name"
-                      className={`form-input ${errors.payee_name ? 'error' : ''}`}
-                      placeholder="e.g. Auto Hub Pvt Ltd, Aditya Rao…"
-                      value={form.payee_name}
-                      onChange={(e) => updateForm('payee_name', e.target.value)}
+                    <Select
+                      showSearch
+                      className={`form-input-antd ${errors.payee_name ? 'error' : ''}`}
+                      style={{ width: '100%', height: 42 }}
+                      placeholder="Search or type payee name…"
+                      value={form.payee_name || undefined}
+                      onChange={(val) => updateForm('payee_name', val)}
+                      onSearch={(val) => updateForm('payee_name', val)}
+                      filterOption={(input, option) =>
+                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                      }
+                      status={errors.payee_name ? 'error' : undefined}
+                      options={staff}
                     />
                     {errors.payee_name && <span className="form-error">{errors.payee_name}</span>}
                   </div>

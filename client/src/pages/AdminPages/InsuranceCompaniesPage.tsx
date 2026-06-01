@@ -5,6 +5,9 @@ import PageHeader from '../../components/app/PageHeader'
 import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
 import { insuranceCompaniesApi } from '../../api/services'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 interface InsuranceCo {
   id: string
@@ -23,12 +26,58 @@ const EMPTY_FORM = {
 
 export default function InsuranceCompaniesPage() {
   const [rows, setRows]       = useState<InsuranceCo[]>([])
+  const [filteredRows, setFilteredRows] = useState<InsuranceCo[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen]       = useState(false)
   const [editRow, setEditRow] = useState<InsuranceCo | null>(null)
   const [form, setForm]       = useState({ ...EMPTY_FORM })
   const [saving, setSaving]   = useState(false)
   const [search, setSearch]   = useState('')
+
+  // ── Export Excel
+  const exportExcel = () => {
+    const data = filteredRows.map((r) => ({
+      'Company Name': r.company_name,
+      'Contact Person': r.contact_person || '—',
+      'Mobile No.': r.mobile_no || '—',
+      'Phone No.': r.phone_no || '—',
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Insurance Companies')
+    XLSX.writeFile(wb, `insurance_companies_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  // ── Export PDF
+  const exportPDF = () => {
+    const doc = new jsPDF()
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.text('Insurance Companies Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120)
+    doc.text(`Generated on: ${today}`, 14, 22)
+    doc.setTextColor(0)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [
+        ['Company Name', 'Contact Person', 'Mobile No.', 'Phone No.'],
+      ],
+      body: filteredRows.map((r) => [
+        r.company_name,
+        r.contact_person || '—',
+        r.mobile_no || '—',
+        r.phone_no || '—',
+      ]),
+      styles: { fontSize: 10, cellPadding: 4 },
+      headStyles: { fillColor: [99, 102, 241] },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+    })
+
+    doc.save(`insurance_companies_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -121,11 +170,34 @@ export default function InsuranceCompaniesPage() {
         />
       </div>
 
-      <DataTable
+       <DataTable
         rows={rows}
         searchKeys={['company_name', 'contact_person', 'mobile_no']}
         onAdd={openAdd}
         addLabel="Add Insurance Co."
+        onFilteredChange={setFilteredRows}
+        rightSlot={
+          <>
+            <button className="btn btn-outline btn-sm" onClick={exportExcel} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <line x1="9" y1="15" x2="15" y2="15" />
+              </svg>
+              Export Excel
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={exportPDF} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="9" y1="13" x2="15" y2="13" />
+                <line x1="9" y1="17" x2="15" y2="17" />
+              </svg>
+              Export PDF
+            </button>
+          </>
+        }
         columns={[
           {
             key: 'company_name',

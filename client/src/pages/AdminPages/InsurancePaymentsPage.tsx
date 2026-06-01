@@ -1,10 +1,12 @@
 import { useMemo, useState, useEffect, type MouseEvent } from 'react'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import {
   ShieldAlert, IndianRupee, CalendarClock, Plus, X, Eye, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw, AlertTriangle
 } from 'lucide-react'
 import { message } from 'antd' 
-import type { InsurancePayment } from '../../lib/finance'
 import { insurancePaymentsApi, filesApi, bankAccountsApi, insuranceCompaniesApi } from '../../api/services'
 import PageHeader from '../../components/app/PageHeader'
 
@@ -134,6 +136,60 @@ export default function InsurancePaymentsPage() {
   const totalPremiumsPaid = rows.filter(r => !r.is_deleted).reduce((sum, r) => sum + Number(r.amount || 0), 0)
   const activeCount = rows.filter(r => !r.is_deleted && evalPolicyStatus(r.valid_to) === 'Active').length
   const expiredCount = rows.filter(r => !r.is_deleted && evalPolicyStatus(r.valid_to) === 'Expired').length
+
+  const buildExportData = () =>
+    processedLedgerRows.map((r) => ({
+      ID: r.id || r.insurance_payment_id || '—',
+      'File No.': r.file_number,
+      'Insurance Company': r.payee_name || r.insurance_company_name || '—',
+      'Amount (₹)': Number(r.amount || 0),
+      Mode: r.mode,
+      'Payment Date': r.payment_date || '—',
+      'Valid Until': r.valid_to || '—',
+      'Policy Status': evalPolicyStatus(r.valid_to),
+      Remarks: r.remarks ?? '',
+    }))
+
+  const handleExportExcel = () => {
+    const data = buildExportData()
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Insurance Payments')
+    XLSX.writeFile(wb, `insurance_payments_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const today = new Date().toLocaleDateString('en-IN')
+
+    doc.setFontSize(16)
+    doc.text('Insurance Payments Report', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(120)
+    doc.text(`Generated on: ${today}`, 14, 22)
+    doc.setTextColor(0)
+
+    const data = buildExportData()
+    autoTable(doc, {
+      startY: 28,
+      head: [['ID', 'File No.', 'Insurance Company', 'Amount (₹)', 'Mode', 'Payment Date', 'Valid Until', 'Policy Status']],
+      body: data.map((r) => [
+        r.ID.startsWith('temp') ? '—' : r.ID.slice(0, 8),
+        r['File No.'] || '—',
+        r['Insurance Company'],
+        '₹' + r['Amount (₹)'].toLocaleString('en-IN'),
+        r.Mode,
+        r['Payment Date'],
+        r['Valid Until'],
+        r['Policy Status'].toUpperCase(),
+      ]),
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [79, 70, 229] },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+    })
+
+    doc.save(`insurance_payments_${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
 
   const validateFormPayload = () => {
     const errCollection: Record<string, string> = {}
@@ -278,6 +334,50 @@ export default function InsurancePaymentsPage() {
             <RotateCcw size={13} style={{ marginRight: 4 }} />Reset
           </button>
         )}
+        <button
+          className="btn btn-outline btn-sm"
+          onClick={handleExportExcel}
+          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+          onMouseEnter={e => {
+            const b = e.currentTarget as HTMLButtonElement
+            b.style.background = 'var(--surface-1)'
+            b.style.borderColor = 'var(--gray-300)'
+          }}
+          onMouseLeave={e => {
+            const b = e.currentTarget as HTMLButtonElement
+            b.style.background = '#fff'
+            b.style.borderColor = 'var(--gray-200)'
+          }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="12" y1="18" x2="12" y2="12" />
+            <line x1="9" y1="15" x2="15" y2="15" />
+          </svg>
+          Export Excel
+        </button>
+        <button
+          className="btn btn-outline btn-sm"
+          onClick={handleExportPDF}
+          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+          onMouseEnter={e => {
+            const b = e.currentTarget as HTMLButtonElement
+            b.style.background = 'var(--surface-1)'
+            b.style.borderColor = 'var(--gray-300)'
+          }}
+          onMouseLeave={e => {
+            const b = e.currentTarget as HTMLButtonElement
+            b.style.background = '#fff'
+            b.style.borderColor = 'var(--gray-200)'
+          }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="9" y1="13" x2="15" y2="13" />
+            <line x1="9" y1="17" x2="15" y2="17" />
+          </svg>
+          Export PDF
+        </button>
         <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }} onClick={() => setShowAdd(true)}>
           <Plus size={14} /> Add new
         </button>
