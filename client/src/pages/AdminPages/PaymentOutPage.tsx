@@ -121,6 +121,9 @@ function Pagination({
 }
 
 export default function PaymentOutPage() {
+  const role = localStorage.getItem('user_role') || 'admin';
+  const isAdmin = role === 'admin';
+
   const [rows, setRows]           = useState<any[]>([])
   const [totalRows, setTotalRows] = useState(0)
   const [availableFiles, setAvailableFiles] = useState<any[]>([])
@@ -523,14 +526,16 @@ export default function PaymentOutPage() {
             <RotateCcw size={13} style={{ marginRight: 4 }} />Reset
           </button>
         )}
-        <button
-          id="pay-out-add-btn"
-          className="btn btn-primary btn-sm"
-          style={{ alignSelf: 'flex-end' }}
-          onClick={() => setShowAdd(true)}
-        >
-          <Plus size={14} /> Add Payment OUT
-        </button>
+        {isAdmin && (
+          <button
+            id="pay-out-add-btn"
+            className="btn btn-primary btn-sm"
+            style={{ alignSelf: 'flex-end' }}
+            onClick={() => setShowAdd(true)}
+          >
+            <Plus size={14} /> Add Payment OUT
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -585,16 +590,20 @@ export default function PaymentOutPage() {
                             onClick={() => setViewRow(r)} title="View">
                             <Eye size={13} />
                           </button>
-                          <button className="btn btn-outline btn-sm"
-                            style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
-                            onClick={() => { openEdit(r); if (!availableFiles.length) loadFilesDropdown() }} title="Edit">
-                            <Pencil size={13} />
-                          </button>
-                          <button className="btn btn-outline btn-sm"
-                            style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }}
-                            onClick={() => handleDelete(r.id)} title="Delete">
-                            <Trash2 size={13} />
-                          </button>
+                          {isAdmin && (
+                            <>
+                              <button className="btn btn-outline btn-sm"
+                                style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
+                                onClick={() => { openEdit(r); if (!availableFiles.length) loadFilesDropdown() }} title="Edit">
+                                <Pencil size={13} />
+                              </button>
+                              <button className="btn btn-outline btn-sm"
+                                style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }}
+                                onClick={() => handleDelete(r.id)} title="Delete">
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -892,7 +901,7 @@ export default function PaymentOutPage() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline btn-sm" onClick={() => { setViewRow(null); openEdit(viewRow); if (!availableFiles.length) loadFilesDropdown(); }}>Edit</button>
+              {isAdmin && <button className="btn btn-outline btn-sm" onClick={() => { setViewRow(null); openEdit(viewRow); if (!availableFiles.length) loadFilesDropdown(); }}>Edit</button>}
               <button className="btn btn-primary btn-sm" onClick={() => setViewRow(null)}>Close</button>
             </div>
           </div>
@@ -900,7 +909,7 @@ export default function PaymentOutPage() {
       )}
 
       {/* ── Edit Modal ── */}
-      {editRow && (
+      {editRow && isAdmin && (
         <div className="modal-backdrop" onClick={() => setEditRow(null)}>
           <div className="modal" style={{ maxWidth: 580 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">

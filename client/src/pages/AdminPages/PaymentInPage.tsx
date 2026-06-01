@@ -116,6 +116,9 @@ function Pagination({
 }
 
 export default function PaymentInPage() {
+  const role = localStorage.getItem('user_role') || 'admin';
+  const isAdmin = role === 'admin';
+
   const [rows, setRows]           = useState<any[]>([])
   const [totalRows, setTotalRows] = useState(0)
   const [availableFiles, setAvailableFiles] = useState<any[]>([])
@@ -160,7 +163,7 @@ export default function PaymentInPage() {
   // Fetch Files for dropdown
   const loadFilesDropdown = async () => {
     try {
-      const response = await filesApi.list(1, 1000) // fetch all for dropdown
+      const response = await filesApi.list(1, 1000)
       setAvailableFiles(response.data)
     } catch (err) { }
   }
@@ -170,7 +173,6 @@ export default function PaymentInPage() {
   }, [page, pageSize, search, filterMode, filterFrom, filterDateFrom, filterDateTo])
 
   useEffect(() => {
-    // Load company banks once on mount for the dropdown
     bankAccountsApi.list(1, 200).then(res => {
       setCompanyBanks((res.data || []).map((b: any) => ({
         id: b.id,
@@ -183,7 +185,7 @@ export default function PaymentInPage() {
     if (showAdd) loadFilesDropdown()
   }, [showAdd])
 
-  // KPIs (Calculated based on current page data)
+  // KPIs
   const kpiBilled    = rows.reduce((s, r) => s + Number(r.payment_amount), 0)
   const kpiReceived  = rows.reduce((s, r) => s + Number(r.paid_amount), 0)
   const kpiRemaining = rows.reduce((s, r) => s + Number(r.remaining_amount), 0)
@@ -485,14 +487,16 @@ export default function PaymentInPage() {
             <RotateCcw size={13} style={{ marginRight: 4 }} />Reset
           </button>
         )}
-        <button
-          id="pay-in-add-btn"
-          className="btn btn-primary btn-sm"
-          style={{ alignSelf: 'flex-end' }}
-          onClick={() => setShowAdd(true)}
-        >
-          <Plus size={14} /> Add Payment IN
-        </button>
+        {isAdmin && (
+          <button
+            id="pay-in-add-btn"
+            className="btn btn-primary btn-sm"
+            style={{ alignSelf: 'flex-end' }}
+            onClick={() => setShowAdd(true)}
+          >
+            <Plus size={14} /> Add Payment IN
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -562,22 +566,26 @@ export default function PaymentInPage() {
                           >
                             <Eye size={13} />
                           </button>
-                          <button
-                            className="btn btn-outline btn-sm"
-                            style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
-                            onClick={() => { openEdit(r); if (!availableFiles.length) loadFilesDropdown() }}
-                            title="Edit"
-                          >
-                            <Pencil size={13} />
-                          </button>
-                          <button
-                            className="btn btn-outline btn-sm"
-                            style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }}
-                            onClick={() => handleDelete(r.id)}
-                            title="Delete"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                className="btn btn-outline btn-sm"
+                                style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
+                                onClick={() => { openEdit(r); if (!availableFiles.length) loadFilesDropdown() }}
+                                title="Edit"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                className="btn btn-outline btn-sm"
+                                style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }}
+                                onClick={() => handleDelete(r.id)}
+                                title="Delete"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -920,15 +928,15 @@ export default function PaymentInPage() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline btn-sm" onClick={() => { setViewRow(null); openEdit(viewRow); if (!availableFiles.length) loadFilesDropdown(); }}>Edit</button>
+              {isAdmin && <button className="btn btn-outline btn-sm" onClick={() => { setViewRow(null); openEdit(viewRow); if (!availableFiles.length) loadFilesDropdown(); }}>Edit</button>}
               <button className="btn btn-primary btn-sm" onClick={() => setViewRow(null)}>Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Edit Modal ── */}
-      {editRow && (
+      {/* ── Edit Modal (Rendered securely only for admin when available) ── */}
+      {editRow && isAdmin && (
         <div className="modal-backdrop" onClick={() => setEditRow(null)}>
           <div className="modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">

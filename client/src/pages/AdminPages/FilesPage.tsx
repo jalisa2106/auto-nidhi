@@ -11,7 +11,6 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { Pencil } from 'lucide-react'
 
-// Standardized color mapping based on Dashboard styles
 const STATUS_COLOR: Record<string, { bg: string; text: string; dot: string }> = {
   draft: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
   login: { bg: '#eff6ff', text: '#1d4ed8', dot: '#3b82f6' },
@@ -32,6 +31,9 @@ function formatStatus(status: string) {
 
 export default function FilesPage() {
   const navigate = useNavigate();
+  const role = localStorage.getItem('user_role') || 'admin';
+  const isAdmin = role === 'admin';
+  
   const [rows, setRows] = useState<any[]>([]);
   const [filteredRows, setFilteredRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -179,7 +181,6 @@ export default function FilesPage() {
   };
 
   const statusBadge = (s: string) => {
-    // Determine the raw key to look up colors (handling both "Under Process" and "under_process")
     const rawStatus = s?.toLowerCase().replace(' ', '_') || "draft";
     const sc = STATUS_COLOR[rawStatus] || STATUS_COLOR.draft;
     
@@ -205,9 +206,11 @@ export default function FilesPage() {
         title="Files"
         subtitle="All loan & insurance files"
         actions={
-          <button className="btn btn-primary btn-sm" onClick={() => setAddOpen(true)}>
-            + New file
-          </button>
+          isAdmin && (
+            <button className="btn btn-primary btn-sm" onClick={() => setAddOpen(true)}>
+              + New file
+            </button>
+          )
         }
       />
 
@@ -295,7 +298,7 @@ export default function FilesPage() {
           {
             key: "actions",
             label: "Actions",
-            render: (r) => (
+            render: (r) => isAdmin ? (
               <button
                 className="btn btn-outline btn-sm"
                 style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
@@ -304,66 +307,66 @@ export default function FilesPage() {
               >
                 <Pencil size={13} />
               </button>
-            )
+            ) : null
           },
         ]}
       />
 
       <Modal open={addOpen} title="Create New File" onClose={() => setAddOpen(false)} onSubmit={handleCreate} maxWidth="500px">
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-    <div className="form-group">
-      <label className="form-label">
-        Customer <span style={{ color: '#dc2626' }}>*</span>
-      </label>
-      <select className="form-input" value={form.customer_id} onChange={(e) => setForm(p => ({ ...p, customer_id: e.target.value }))} required>
-        <option value="">-- Select Customer --</option>
-        {customers.map((c) => <option key={c.id} value={c.id}>{c.full_name} ({c.mobile_1})</option>)}
-      </select>
-    </div>
-    <div className="form-group">
-      <label className="form-label">
-        Bank <span style={{ color: '#dc2626' }}>*</span>
-      </label>
-      <select className="form-input" value={form.bank_id} onChange={(e) => setForm(p => ({ ...p, bank_id: e.target.value }))} required>
-        <option value="">-- Select Bank --</option>
-        {banks.map((b) => <option key={b.id} value={b.id}>{b.bank_name}</option>)}
-      </select>
-    </div>
-    
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-      <div className="form-group">
-        <label className="form-label">
-          File Type <span style={{ color: '#dc2626' }}>*</span>
-        </label>
-        <select className="form-select" value={form.file_type} onChange={(e) => setForm(p => ({ ...p, file_type: e.target.value }))} required>
-          <option value="">-- Select Type --</option>
-          <option value="new_vehicle">New Vehicle</option>
-          <option value="used_vehicle">Used Vehicle</option>
-          <option value="renewal">Renewal</option>
-        </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label">
-          Status <span style={{ color: '#dc2626' }}>*</span>
-        </label>
-        <select className="form-select" value={form.status} onChange={(e) => setForm(p => ({ ...p, status: e.target.value }))} required>
-          <option value="">-- Select Status --</option>
-          <option value="draft">Draft</option>
-          <option value="login">Login</option>
-          <option value="under_process">Under Process</option>
-          <option value="sanctioned">Sanctioned</option>
-          <option value="disbursed">Disbursed</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-      </div>
-    </div>
-    <div className="form-group">
-      <label className="form-label">Remarks</label>
-      <textarea className="form-input" rows={2} value={form.remarks} onChange={(e) => setForm(p => ({ ...p, remarks: e.target.value }))} style={{ resize: 'vertical' }} />
-    </div>
-  </div>
-</Modal>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="form-group">
+            <label className="form-label">
+              Customer <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <select className="form-input" value={form.customer_id} onChange={(e) => setForm(p => ({ ...p, customer_id: e.target.value }))} required>
+              <option value="">-- Select Customer --</option>
+              {customers.map((c) => <option key={c.id} value={c.id}>{c.full_name} ({c.mobile_1})</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">
+              Bank <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <select className="form-input" value={form.bank_id} onChange={(e) => setForm(p => ({ ...p, bank_id: e.target.value }))} required>
+              <option value="">-- Select Bank --</option>
+              {banks.map((b) => <option key={b.id} value={b.id}>{b.bank_name}</option>)}
+            </select>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-group">
+              <label className="form-label">
+                File Type <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <select className="form-select" value={form.file_type} onChange={(e) => setForm(p => ({ ...p, file_type: e.target.value }))} required>
+                <option value="">-- Select Type --</option>
+                <option value="new_vehicle">New Vehicle</option>
+                <option value="used_vehicle">Used Vehicle</option>
+                <option value="renewal">Renewal</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                Status <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <select className="form-select" value={form.status} onChange={(e) => setForm(p => ({ ...p, status: e.target.value }))} required>
+                <option value="">-- Select Status --</option>
+                <option value="draft">Draft</option>
+                <option value="login">Login</option>
+                <option value="under_process">Under Process</option>
+                <option value="sanctioned">Sanctioned</option>
+                <option value="disbursed">Disbursed</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Remarks</label>
+            <textarea className="form-input" rows={2} value={form.remarks} onChange={(e) => setForm(p => ({ ...p, remarks: e.target.value }))} style={{ resize: 'vertical' }} />
+          </div>
+        </div>
+      </Modal>
 
       {/* Edit File Modal */}
       <Modal open={!!editFile} title={`Edit File — ${editFile?.file_number || ''}`} onClose={() => setEditFile(null)} onSubmit={handleUpdateFile} maxWidth="480px">

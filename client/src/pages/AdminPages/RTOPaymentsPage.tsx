@@ -511,12 +511,14 @@ export default function RTOPaymentsPage() {
                 </svg>
                 Export PDF
               </button>
-              <button id="rto-add-btn" onClick={() => { setForm(emptyForm()); setAddOpen(true) }}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:'var(--radius-sm)', background:'var(--brand-600)', color:'#fff', fontSize:'.85rem', fontWeight:600, cursor:'pointer', border:'none', transition:'background .15s' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-700)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-600)')}>
-                <Plus size={15} /> Add Payment
-              </button>
+              {isAdmin && (
+                <button id="rto-add-btn" onClick={() => { setForm(emptyForm()); setAddOpen(true) }}
+                  style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:'var(--radius-sm)', background:'var(--brand-600)', color:'#fff', fontSize:'.85rem', fontWeight:600, cursor:'pointer', border:'none', transition:'background .15s' }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-700)')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-600)')}>
+                  <Plus size={15} /> Add Payment
+                </button>
+              )}
             </div>
           </div>
 
@@ -583,26 +585,25 @@ export default function RTOPaymentsPage() {
                   <div style={{ fontSize:'.7rem', color:'var(--brand-600)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px' }}>Payment Amount</div>
                   <div style={{ fontSize:'1.5rem', fontWeight:800, color:'var(--brand-700)' }}>{fmt(selected.amount)}</div>
                 </div>
-                <div style={{ display:'flex', gap:8, marginTop:14 }}>
-                  <button id={`rto-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
-                    style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--brand-200)', background:'var(--brand-50)', color:'var(--brand-700)', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-100)')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-50)')}>
-                    <Pencil size={13} /> Edit
-                  </button>
-                  {/* Hide Delete for Non-Admins */}
-                  {isAdmin && (
+                {isAdmin && (
+                  <div style={{ display:'flex', gap:8, marginTop:14 }}>
+                    <button id={`rto-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
+                      style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--brand-200)', background:'var(--brand-50)', color:'var(--brand-700)', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-100)')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-50)')}>
+                      <Pencil size={13} /> Edit
+                    </button>
                     <button id={`rto-delete-${selected.id}`} onClick={() => { handleDelete(selected.id); closeView() }}
                       style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid #fee2e2', background:'#fff5f5', color:'#b91c1c', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
                       onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='#fee2e2')}
                       onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='#fff5f5')}>
                       <Trash2 size={13} /> Delete
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-                <DetailRow icon={<Hash       size={14}/>} label="Payment ID"       value={formatPaymentId(selected.id)} />
+                <DetailRow icon={<Hash      size={14}/>} label="Payment ID"       value={formatPaymentId(selected.id)} />
                 <DetailRow icon={<FileText   size={14}/>} label="File Number"      value={selected.file_number} />
                 <DetailRow icon={<Calendar   size={14}/>} label="Payment Date"     value={selected.payment_date} />
                 <DetailRow icon={<CreditCard size={14}/>} label="Payment Mode"     value={selected.payment_mode.toUpperCase()} />

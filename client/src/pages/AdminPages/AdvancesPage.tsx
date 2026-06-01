@@ -199,6 +199,9 @@ function FormField({ label, children, error }: { label: string; children: React.
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdvancesPage() {
+  const role = localStorage.getItem('user_role') || 'admin';
+  const isAdmin = role === 'admin';
+
   const [rows, setRows] = useState<Advance[]>([])
   const [brokers, setBrokers] = useState<Broker[]>([])
   const [dealers, setDealers] = useState<Dealer[]>([])
@@ -427,18 +430,6 @@ export default function AdvancesPage() {
     }
   }
 
-  // const handleDelete = (id: string) => {
-  //   // ─── SOFT DELETE — BACKEND ACTION REQUIRED ────────────────────────────────
-  //   // Before uncommenting: add this column to DB:
-  //   //   ALTER TABLE advances ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
-  //   // API call: PATCH /api/advances/:id  →  body: { is_deleted: true }
-  //   //
-  //   // setRows(prev => prev.filter(r => r.id !== id))
-  //   // setSelected(null)
-  //   // ─────────────────────────────────────────────────────────────────────────
-  //   alert(`Soft delete pending backend column.\nAdvance ID: ${id}\n\nRequired: ALTER TABLE advances ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;`)
-  // }
-
   const handleDelete = async (id: string) => {
     try {
       await advancesApi.remove(id)
@@ -531,14 +522,16 @@ export default function AdvancesPage() {
                 </svg>
                 Export PDF
               </button>
-              <button
-                id="advance-add-btn"
-                onClick={() => { setForm(emptyForm()); setErrors({}); setFormError(''); setAddOpen(true) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--brand-600)', color: '#fff', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'background .15s' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-700)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-600)')}>
-                <Plus size={15} /> Add Advance
-              </button>
+              {isAdmin && (
+                <button
+                  id="advance-add-btn"
+                  onClick={() => { setForm(emptyForm()); setErrors({}); setFormError(''); setAddOpen(true) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--brand-600)', color: '#fff', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'background .15s' }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-700)')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-600)')}>
+                  <Plus size={15} /> Add Advance
+                </button>
+              )}
             </div>
           </div>
 
@@ -647,20 +640,22 @@ export default function AdvancesPage() {
                 </div>
 
                 {/* Edit + Delete */}
-                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                  <button id={`advance-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--brand-200)', background: 'var(--brand-50)', color: 'var(--brand-700)', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-100)')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-50)')}>
-                    <Pencil size={13} /> Edit Recovery
-                  </button>
-                  <button id={`advance-delete-${selected.id}`} onClick={() => { handleDelete(selected.id); closeView() }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid #fee2e2', background: '#fff5f5', color: '#b91c1c', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = '#fee2e2')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = '#fff5f5')}>
-                    <Trash2 size={13} /> Delete
-                  </button>
-                </div>
+                {isAdmin && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                    <button id={`advance-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--brand-200)', background: 'var(--brand-50)', color: 'var(--brand-700)', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-100)')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-50)')}>
+                      <Pencil size={13} /> Edit Recovery
+                    </button>
+                    <button id={`advance-delete-${selected.id}`} onClick={() => { handleDelete(selected.id); closeView() }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid #fee2e2', background: '#fff5f5', color: '#b91c1c', fontSize: '.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = '#fee2e2')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = '#fff5f5')}>
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Detail rows */}
