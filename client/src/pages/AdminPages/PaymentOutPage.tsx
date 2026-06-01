@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  TrendingDown, IndianRupee, Hash, Plus, X, Eye,
+  TrendingDown, IndianRupee, Hash, Plus, X, Eye, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
   FileSpreadsheet, FileDown,
 } from 'lucide-react'
@@ -132,6 +132,8 @@ export default function PaymentOutPage() {
   
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<any | null>(null)
+  const [editRow, setEditRow]   = useState<any | null>(null)
+  const [editForm, setEditForm] = useState({ ...EMPTY_FORM })
   const [form, setForm]         = useState({ ...EMPTY_FORM })
   const [errors, setErrors]     = useState<Record<string, string>>({})
 
@@ -293,6 +295,62 @@ export default function PaymentOutPage() {
       loadPayments()
     } catch (err: any) {
       message.error(err.response?.data?.detail || "Failed to save payment")
+    }
+  }
+
+  function openEdit(r: any) {
+    setEditRow(r)
+    setEditForm({
+      file_number: r.file_id || '',
+      payment_to: r.payment_to || 'Dealer',
+      payee_name: r.payee_name || '',
+      amount: String(r.amount || ''),
+      payment_mode: r.payment_mode || 'UPI',
+      payment_date: r.payment_date || new Date().toISOString().slice(0, 10),
+      company_bank_id: r.company_bank_id || '',
+      cheque_bank_name: r.cheque_bank_name || '',
+      branch_name: r.branch_name || '',
+      cheque_no: r.cheque_no || '',
+      cheque_date: r.cheque_date || '',
+      utr_no: r.utr_no || '',
+      remarks: r.remarks || '',
+    })
+  }
+
+  async function handleEdit() {
+    if (!editRow) return
+    const payload: any = {
+      payment_to: editForm.payment_to,
+      payee_name: editForm.payee_name,
+      amount: Number(editForm.amount),
+      payment_mode: editForm.payment_mode,
+      payment_date: editForm.payment_date,
+      company_bank_id: editForm.company_bank_id || null,
+      cheque_bank_name: editForm.cheque_bank_name || null,
+      branch_name: editForm.branch_name || null,
+      cheque_no: editForm.cheque_no || null,
+      cheque_date: editForm.cheque_date || null,
+      utr_no: editForm.utr_no || null,
+      remarks: editForm.remarks || null,
+    }
+    try {
+      await paymentsOutApi.update(editRow.id, payload)
+      message.success('Payment updated')
+      setEditRow(null)
+      loadPayments()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Failed to update payment')
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm('Delete this payment? This cannot be undone.')) return
+    try {
+      await paymentsOutApi.remove(id)
+      message.success('Payment deleted')
+      loadPayments()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Failed to delete payment')
     }
   }
 
@@ -522,14 +580,22 @@ export default function PaymentOutPage() {
                         {r.remarks || '—'}
                       </td>
                       <td>
-                        <button
-                          className="btn btn-outline btn-sm"
-                          style={{ padding: '5px 12px', fontSize: '.78rem' }}
-                          onClick={() => setViewRow(r)}
-                          title="View details"
-                        >
-                          <Eye size={13} />
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-outline btn-sm" style={{ padding: '5px 10px' }}
+                            onClick={() => setViewRow(r)} title="View">
+                            <Eye size={13} />
+                          </button>
+                          <button className="btn btn-outline btn-sm"
+                            style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
+                            onClick={() => { openEdit(r); if (!availableFiles.length) loadFilesDropdown() }} title="Edit">
+                            <Pencil size={13} />
+                          </button>
+                          <button className="btn btn-outline btn-sm"
+                            style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }}
+                            onClick={() => handleDelete(r.id)} title="Delete">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -826,7 +892,80 @@ export default function PaymentOutPage() {
               </div>
             </div>
             <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => { setViewRow(null); openEdit(viewRow); if (!availableFiles.length) loadFilesDropdown(); }}>Edit</button>
               <button className="btn btn-primary btn-sm" onClick={() => setViewRow(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Modal ── */}
+      {editRow && (
+        <div className="modal-backdrop" onClick={() => setEditRow(null)}>
+          <div className="modal" style={{ maxWidth: 580 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Payment OUT</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditRow(null)}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-grid-2">
+                <div className="form-group">
+                  <label className="form-label">Payment To (Type)</label>
+                  <select className="form-input" value={editForm.payment_to}
+                    onChange={(e) => setEditForm(p => ({ ...p, payment_to: e.target.value }))}>
+                    {PAYMENT_TO_TYPES.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payee Name</label>
+                  <input className="form-input" value={editForm.payee_name}
+                    onChange={(e) => setEditForm(p => ({ ...p, payee_name: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Amount (₹)</label>
+                  <input type="number" className="form-input" value={editForm.amount}
+                    onChange={(e) => setEditForm(p => ({ ...p, amount: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment Mode</label>
+                  <select className="form-input" value={editForm.payment_mode}
+                    onChange={(e) => setEditForm(p => ({ ...p, payment_mode: e.target.value }))}>
+                    {PAYMENT_MODES.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment Date</label>
+                  <input type="date" className="form-input" value={editForm.payment_date}
+                    onChange={(e) => setEditForm(p => ({ ...p, payment_date: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Company Bank</label>
+                  <select className="form-input" value={editForm.company_bank_id}
+                    onChange={(e) => setEditForm(p => ({ ...p, company_bank_id: e.target.value }))}>
+                    <option value="">— None —</option>
+                    {companyBanks.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Cheque No.</label>
+                  <input className="form-input" value={editForm.cheque_no}
+                    onChange={(e) => setEditForm(p => ({ ...p, cheque_no: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">UTR No.</label>
+                  <input className="form-input" value={editForm.utr_no}
+                    onChange={(e) => setEditForm(p => ({ ...p, utr_no: e.target.value }))} />
+                </div>
+                <div className="form-group modal-full">
+                  <label className="form-label">Remarks</label>
+                  <textarea className="form-input" rows={2} value={editForm.remarks}
+                    onChange={(e) => setEditForm(p => ({ ...p, remarks: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => setEditRow(null)}>Cancel</button>
+              <button className="btn btn-primary btn-sm" onClick={handleEdit}>Save Changes</button>
             </div>
           </div>
         </div>
