@@ -219,13 +219,13 @@ export default function CustomerPortalPage() {
             <div className="db-card-title"><FileText size={16} /> Quick Services</div>
           </div>
           {[
-            { icon: Car,        bg: '#2563eb', title: 'Vehicle Loan',      desc: 'New or used vehicle financing from banks/NBFCs', path: '/portal/loans' },
-            { icon: ShieldCheck, bg: '#7c3aed', title: 'Vehicle Insurance', desc: 'Fresh coverage or renewal — third-party & comprehensive', path: '/portal/insurance' },
-            { icon: FileText,   bg: '#d97706', title: 'RTO Services',      desc: 'Transfer, NOC, and fitness certificate applications', path: '/portal/rto' },
-          ].map(({ icon: Icon, bg, title, desc, path }) => (
+            { icon: Car,        bg: '#2563eb', title: 'Vehicle Loan',      desc: 'New or used vehicle financing from banks/NBFCs', to: '/portal/files' },
+            { icon: ShieldCheck, bg: '#7c3aed', title: 'Vehicle Insurance', desc: 'Fresh coverage or renewal — third-party & comprehensive', to: '/portal/insurance' },
+            { icon: FileText,   bg: '#d97706', title: 'RTO Services',      desc: 'Transfer, NOC, and fitness certificate applications', to: '/portal/rto' },
+          ].map(({ icon: Icon, bg, title, desc, to }) => (
             <div
               key={title}
-              onClick={() => navigate(path)}
+              onClick={() => navigate(to)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 14,
                 padding: '12px 0', borderBottom: '1px solid #f1f5f9',
