@@ -174,7 +174,7 @@ export default function CustomersPage() {
 
     if (!form.email.trim()) nextErrors.email = "Email is required";
     if (!form.date_of_birth) nextErrors.date_of_birth = "DOB is required";
-    if (!form.aadhar_number.trim()) nextErrors.aadhar_number = "Aadhar is required";
+    if (!form.aadhar_number.trim()) nextErrors.aadhar_number = "Aadhaar is required";
     if (!form.city.trim()) nextErrors.city = "City is required";
     if (!form.pincode.trim()) nextErrors.pincode = "Pincode is required";
     if (!form.address.trim()) nextErrors.address = "Address is required";
@@ -493,11 +493,11 @@ export default function CustomersPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="form-group">
                 <label className="form-label">Full Name <span style={{ color: '#dc2626' }}>*</span></label>
-                <input className="form-input" value={editForm.name} onChange={(e) => setEditForm(p => ({ ...p, name: e.target.value }))} />
+                <input className="form-input" value={editForm.name} onChange={(e) => setEditForm(p => ({ ...p, name: e.target.value }))} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Mobile Number</label>
-                <input className="form-input" value={editForm.mobile} onChange={(e) => setEditForm(p => ({ ...p, mobile: e.target.value }))} />
+                <input className="form-input" value={editForm.mobile} onChange={(e) => setEditForm(p => ({ ...p, mobile: e.target.value }))} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Alt Mobile</label>
@@ -505,11 +505,11 @@ export default function CustomersPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Email</label>
-                <input type="email" className="form-input" value={editForm.email} onChange={(e) => setEditForm(p => ({ ...p, email: e.target.value }))} />
+                <input type="email" className="form-input" value={editForm.email} onChange={(e) => setEditForm(p => ({ ...p, email: e.target.value }))} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Date of Birth</label>
-                <input type="date" className="form-input" value={editForm.date_of_birth} onChange={(e) => setEditForm(p => ({ ...p, date_of_birth: e.target.value }))} />
+                <input type="date" className="form-input" value={editForm.date_of_birth} onChange={(e) => setEditForm(p => ({ ...p, date_of_birth: e.target.value }))} required />
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -522,7 +522,7 @@ export default function CustomersPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Aadhaar Number</label>
-                <input className="form-input" value={editForm.aadhar_number} onChange={(e) => setEditForm(p => ({ ...p, aadhar_number: e.target.value }))} />
+                <input className="form-input" value={editForm.aadhar_number} onChange={(e) => setEditForm(p => ({ ...p, aadhar_number: e.target.value }))} required />
               </div>
               <div className="form-group">
                 <label className="form-label">PAN Number</label>
@@ -531,20 +531,20 @@ export default function CustomersPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div className="form-group">
                   <label className="form-label">State</label>
-                  <input className="form-input" value={editForm.state} onChange={(e) => setEditForm(p => ({ ...p, state: e.target.value }))} />
+                  <input className="form-input" value={editForm.state} onChange={(e) => setEditForm(p => ({ ...p, state: e.target.value }))} required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">City</label>
-                  <input className="form-input" value={editForm.city} onChange={(e) => setEditForm(p => ({ ...p, city: e.target.value }))} />
+                  <input className="form-input" value={editForm.city} onChange={(e) => setEditForm(p => ({ ...p, city: e.target.value }))} required />
                 </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Pincode</label>
-                <input className="form-input" value={editForm.pincode} onChange={(e) => setEditForm(p => ({ ...p, pincode: e.target.value }))} />
+                <input className="form-input" value={editForm.pincode} onChange={(e) => setEditForm(p => ({ ...p, pincode: e.target.value }))} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Address</label>
-                <textarea className="form-input" rows={2} value={editForm.address} onChange={(e) => setEditForm(p => ({ ...p, address: e.target.value }))} style={{ resize: 'vertical' }} />
+                <textarea className="form-input" rows={2} value={editForm.address} onChange={(e) => setEditForm(p => ({ ...p, address: e.target.value }))} style={{ resize: 'vertical' }} required />
               </div>
             </div>
           </div>
