@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -70,7 +71,7 @@ def list_finance_banks(
     db: Session = Depends(get_db),
 ):
     """List all finance banks (paginated, searchable)."""
-    query = db.query(MasterBank)
+    query = db.query(MasterBank).filter(MasterBank.is_deleted == False)
     if search:
         term = f"%{search}%"
         query = query.filter(
@@ -89,7 +90,7 @@ def list_finance_banks(
 @router.get("/all")
 def list_all_finance_banks(db: Session = Depends(get_db)):
     """Return all finance banks (for dropdowns — no pagination)."""
-    banks = db.query(MasterBank).order_by(MasterBank.bank_name).all()
+    banks = db.query(MasterBank).filter(MasterBank.is_deleted == False).order_by(MasterBank.bank_name).all()
     return {"data": [_serialize(b) for b in banks]}
 
 
@@ -102,7 +103,8 @@ def create_finance_bank(
     """Create a new finance bank."""
     # Check duplicate name
     existing = db.query(MasterBank).filter(
-        MasterBank.bank_name.ilike(payload.bank_name.strip())
+        MasterBank.bank_name.ilike(payload.bank_name.strip()),
+        MasterBank.is_deleted == False
     ).first()
     if existing:
         raise HTTPException(
@@ -143,7 +145,7 @@ def update_finance_bank(
     current_admin: SystemUser = Depends(get_current_admin),
 ):
     """Update an existing finance bank."""
-    bank = db.query(MasterBank).filter(MasterBank.id == bank_id).first()
+    bank = db.query(MasterBank).filter(MasterBank.id == bank_id, MasterBank.is_deleted == False).first()
     if not bank:
         raise HTTPException(status_code=404, detail="Finance bank not found")
 
@@ -178,12 +180,16 @@ def delete_finance_bank(
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_admin),
 ):
-    """Delete a finance bank (fails if linked to loans)."""
-    bank = db.query(MasterBank).filter(MasterBank.id == bank_id).first()
+    """Delete a finance bank (soft delete)."""
+    bank = db.query(MasterBank).filter(MasterBank.id == bank_id, MasterBank.is_deleted == False).first()
     if not bank:
         raise HTTPException(status_code=404, detail="Finance bank not found")
     try:
         old_values = _serialize(bank)
+        
+        bank.is_deleted = True
+        bank.deleted_at = datetime.datetime.utcnow()
+
         record_dashboard_event(
             db,
             current_admin,
@@ -194,11 +200,10 @@ def delete_finance_bank(
             preference_key="deleted",
             old_values=old_values,
         )
-        db.delete(bank)
         db.commit()
     except Exception as exc:
         db.rollback()
         raise HTTPException(
             status_code=400,
-            detail="Cannot delete: this bank is linked to existing loan records",
+            detail="Cannot delete this bank.",
         )
