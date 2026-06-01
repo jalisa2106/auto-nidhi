@@ -18,6 +18,7 @@ import CustomerFileDetailPage     from './pages/CustomerPages/CustomerFileDetail
 import CustomerDocumentsPage      from './pages/CustomerPages/CustomerDocumentsPage'
 import CustomerPaymentsPage       from './pages/CustomerPages/CustomerPaymentsPage'
 import CustomerInsurancePage      from './pages/CustomerPages/CustomerInsurancePage'
+import CustomerLoanPage           from './pages/CustomerPages/CustomerLoanPage'
 import CustomerProfilePage        from './pages/CustomerPages/CustomerProfilePage'
 import CustomerSettingsPage       from './pages/CustomerPages/CustomerSettingsPage'
 import CustomerRTOPage            from './pages/CustomerPages/CustomerRTOPage'
@@ -83,6 +84,7 @@ function App() {
           <Route path="/portal/documents"  element={<CustomerDocumentsPage />}  />
           <Route path="/portal/payments"   element={<CustomerPaymentsPage />}   />
           <Route path="/portal/insurance"  element={<CustomerInsurancePage />}  />
+          <Route path="/portal/loans"      element={<CustomerLoanPage />}       />
           <Route path="/portal/rto"        element={<CustomerRTOPage />}        />
           <Route path="/portal/profile"    element={<CustomerProfilePage />}    />
           <Route path="/portal/settings"   element={<CustomerSettingsPage />}   />

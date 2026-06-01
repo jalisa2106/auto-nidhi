@@ -156,6 +156,8 @@ class MasterBank(Base):
     bank_name = Column(String(255), nullable=False)
     area = Column(String(255))
     contact_no = Column(String(15))
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
 class MasterCompanyBank(Base):
     __tablename__ = "master_company_bank"
@@ -164,6 +166,8 @@ class MasterCompanyBank(Base):
     area = Column(String(255))
     account_number = Column(String(50), nullable=False, unique=True)
     ifsc_code = Column(String(20), nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
 class MasterInsuranceCompany(Base):
     __tablename__ = "master_insurance_company"
