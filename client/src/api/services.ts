@@ -427,6 +427,10 @@ export const usersSettingsApi = {
     const { data } = await api.patch(`/settings/users/${id}/toggle-active`, undefined, skipAuthRedirectConfig)
     return data
   },
+  resetPassword: async (id: string, newPassword: string) => {
+    const { data } = await api.patch(`/settings/users/${id}/reset-password`, { new_password: newPassword }, skipAuthRedirectConfig)
+    return data
+  },
 }
 
 export const financeBanksApi = {
