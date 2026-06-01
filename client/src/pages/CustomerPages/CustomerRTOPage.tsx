@@ -1,12 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import {
-  FileText, ShieldAlert, Award, FileSpreadsheet, CheckCircle2,
-  Clock, AlertTriangle, ArrowRight, Download, UploadCloud, Eye, Trash2,
-  PlusCircle, Info, MapPin, ClipboardList, RefreshCw, X, ChevronRight,
+  FileText, CheckCircle2, Clock, AlertTriangle, Download,
+  PlusCircle, Info, MapPin, ClipboardList,
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
-import { customerRtoApi, type CustomerRtoRecord, customerDocumentsApi } from '../../api/services'
-import api from '../../api/axios'
+import { customerRtoApi, type CustomerRtoRecord } from '../../api/services'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -124,7 +122,7 @@ export default function CustomerRTOPage() {
     setUploading(true)
     try {
       // Simulate/trigger RTO submission
-      const res = await customerRtoApi.submitRequest(selectedFileId, serviceType, remarks)
+      await customerRtoApi.submitRequest(selectedFileId, serviceType, remarks)
       
       // If a file was attached, simulate document upload
       if (selectedFile) {
