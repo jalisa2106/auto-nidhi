@@ -421,7 +421,7 @@ export const usersSettingsApi = {
     return data
   },
   update: async (id: string, payload: Record<string, any>) => {
-    const { data } = await api.put(`/settings/users/${id}/`, payload, skipAuthRedirectConfig)
+    const { data } = await api.put(`/settings/users/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
   toggleActive: async (id: string) => {

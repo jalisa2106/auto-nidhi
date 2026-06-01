@@ -56,6 +56,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    email: Optional[str] = None
     phone_number: Optional[str] = None
     role_id: Optional[UUID] = None
     is_active: Optional[bool] = None
@@ -183,7 +184,7 @@ def update_user(
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_admin),
 ):
-    """Update user profile — name, phone, role, or active status."""
+    """Update user profile — name, email, phone, role, or active status."""
     user = db.query(SystemUser).filter(SystemUser.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -195,10 +196,21 @@ def update_user(
         if not role:
             raise HTTPException(status_code=400, detail="Invalid role ID")
 
+    # Validate unique email if changing
+    if payload.email and payload.email.lower() != user.email:
+        existing = db.query(SystemUser).filter(SystemUser.email == payload.email.lower()).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A user with this email already exists",
+            )
+
     update_data = payload.dict(exclude_none=True)
     for field, value in update_data.items():
         if field == "first_name" and value:
             value = value.strip()
+        if field == "email" and value:
+            value = value.strip().lower()
         setattr(user, field, value)
 
     try:
@@ -295,4 +307,3 @@ def admin_reset_password(
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))
-
