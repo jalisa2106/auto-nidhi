@@ -60,6 +60,23 @@ class PaymentInCreate(BaseModel):
     remarks: Optional[str] = None
 
 
+class PaymentInUpdate(BaseModel):
+    payment_amount: Optional[float] = None
+    paid_amount: Optional[float] = None
+    remaining_amount: Optional[float] = None
+    round_up: Optional[bool] = None
+    payment_mode: Optional[str] = None
+    payment_date: Optional[date] = None
+    payment_from: Optional[str] = None
+    cheque_bank_name: Optional[str] = None
+    branch_name: Optional[str] = None
+    cheque_no: Optional[str] = None
+    cheque_date: Optional[date] = None
+    utr_no: Optional[str] = None
+    company_bank_id: Optional[UUID] = None
+    remarks: Optional[str] = None
+
+
 @router.get("/")
 def list_payments_in(
     page: int = 1,
@@ -162,6 +179,80 @@ def create_payment_in(
         db.commit()
         db.refresh(new_payment)
         return {"status": "success", "id": str(new_payment.id)}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.put("/{payment_id}")
+def update_payment_in(
+    payment_id: UUID,
+    payload: PaymentInUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    payment = db.query(PaymentIn).filter(PaymentIn.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment IN record not found")
+
+    old_values = {
+        "payment_amount": float(payment.payment_amount),
+        "payment_mode": payment.payment_mode,
+        "payment_date": str(payment.payment_date),
+    }
+
+    update_data = payload.dict(exclude_none=True)
+    for field, value in update_data.items():
+        if field == "payment_mode" and value:
+            value = norm_mode(value)
+        if field == "payment_from" and value:
+            value = norm_from(value)
+        setattr(payment, field, value)
+
+    try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="updated payment in",
+            table_name="payment_in",
+            record_id=payment.id,
+            message=f"Payment IN {payment_id} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values={"payment_amount": float(payment.payment_amount), "payment_mode": payment.payment_mode},
+        )
+        db.commit()
+        db.refresh(payment)
+        return {"status": "success", "id": str(payment.id)}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/{payment_id}", status_code=200)
+def delete_payment_in(
+    payment_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    payment = db.query(PaymentIn).filter(PaymentIn.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment IN record not found")
+
+    try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="deleted payment in",
+            table_name="payment_in",
+            record_id=payment.id,
+            message=f"Payment IN {payment_id} was deleted",
+            preference_key="deleted",
+            old_values={"payment_amount": float(payment.payment_amount)},
+        )
+        db.delete(payment)
+        db.commit()
+        return {"status": "success", "message": "Payment IN deleted"}
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))

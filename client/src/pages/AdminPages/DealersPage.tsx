@@ -5,9 +5,7 @@ import {
   ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight,
   FileSpreadsheet, FileDown
 } from 'lucide-react'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
 import PageHeader from '../../components/app/PageHeader'
 import { dealersApi } from '../../api/services'
 
@@ -94,59 +92,46 @@ export default function DealersPage() {
   const safePageIndex = Math.min(page, totalPages)
   const paginatedRows = processedRows.slice((safePageIndex - 1) * pageSize, safePageIndex * pageSize)
 
-  const exportExcel = () => {
-    const data = processedRows.map((r, i) => ({
-      '#': i + 1,
-      ID: formatDealerId(r.id),
-      'Showroom Name': r.showroom_name || '—',
-      'Contact Person': r.name || '—',
-      Phone: r.phone || '—',
-      Email: r.email || '—',
-      'Area / Branch': r.area_branch || '—',
-      Status: r.status ? r.status.toUpperCase() : 'ACTIVE',
+  const exportColumns: ColumnDefinition[] = [
+    { header: 'ID', dataKey: 'formattedId' },
+    { header: 'Showroom Name', dataKey: 'showroom_name' },
+    { header: 'Contact Person', dataKey: 'name' },
+    { header: 'Phone', dataKey: 'phone' },
+    { header: 'Email', dataKey: 'email' },
+    { header: 'Area / Branch', dataKey: 'area_branch' },
+    { header: 'Status', dataKey: 'status' }
+  ]
+
+  const getExportData = () => {
+    return processedRows.map((r) => ({
+      ...r,
+      formattedId: formatDealerId(r.id),
+      showroom_name: r.showroom_name || '—',
+      name: r.name || '—',
+      phone: r.phone || '—',
+      email: r.email || '—',
+      area_branch: r.area_branch || '—',
+      status: r.status ? r.status.toUpperCase() : 'ACTIVE',
     }))
-    const ws = XLSX.utils.json_to_sheet(data)
-    ws['!cols'] = [
-      { wch: 6 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 16 }, { wch: 25 }, { wch: 18 }, { wch: 12 }
-    ]
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Dealers')
-    XLSX.writeFile(wb, `dealers_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const exportExcel = () => {
+    exportToExcel({
+      filename: `dealers_${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Dealers',
+      columns: exportColumns,
+      data: getExportData()
+    })
   }
 
   const exportPDF = () => {
-    const doc = new jsPDF({ orientation: 'landscape' })
-    const today = new Date().toLocaleDateString('en-IN')
-
-    doc.setFontSize(16)
-    doc.setTextColor(40, 40, 40)
-    doc.text('Dealers Report', 14, 15)
-    doc.setFontSize(10)
-    doc.setTextColor(120, 120, 120)
-    doc.text(`Generated on: ${today} | Total Records: ${processedRows.length}`, 14, 22)
-    doc.setTextColor(0, 0, 0)
-
-    autoTable(doc, {
-      startY: 28,
-      head: [
-        ['#', 'ID', 'Showroom Name', 'Contact Person', 'Phone', 'Email', 'Area / Branch', 'Status'],
-      ],
-      body: processedRows.map((r, i) => [
-        i + 1,
-        formatDealerId(r.id),
-        r.showroom_name || '—',
-        r.name || '—',
-        r.phone || '—',
-        r.email || '—',
-        r.area_branch || '—',
-        r.status ? r.status.toUpperCase() : 'ACTIVE',
-      ]),
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [79, 70, 229] },
-      alternateRowStyles: { fillColor: [248, 248, 255] },
+    exportToPDF({
+      filename: `dealers_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Dealers Report',
+      columns: exportColumns,
+      data: getExportData(),
+      orientation: 'landscape'
     })
-
-    doc.save(`dealers_${new Date().toISOString().slice(0, 10)}.pdf`)
   }
 
   // ─── CORE KPI METRIC COMPUTING ───
