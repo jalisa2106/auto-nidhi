@@ -20,6 +20,7 @@ import CustomerPaymentsPage       from './pages/CustomerPages/CustomerPaymentsPa
 import CustomerInsurancePage      from './pages/CustomerPages/CustomerInsurancePage'
 import CustomerProfilePage        from './pages/CustomerPages/CustomerProfilePage'
 import CustomerSettingsPage       from './pages/CustomerPages/CustomerSettingsPage'
+import CustomerRTOPage            from './pages/CustomerPages/CustomerRTOPage'
 
 // ── Data Entry pages ─────────────────────────────────────────────────
 import DataEntryLayout             from './pages/DataEntryPages/DataEntryLayout'
@@ -82,6 +83,7 @@ function App() {
           <Route path="/portal/documents"  element={<CustomerDocumentsPage />}  />
           <Route path="/portal/payments"   element={<CustomerPaymentsPage />}   />
           <Route path="/portal/insurance"  element={<CustomerInsurancePage />}  />
+          <Route path="/portal/rto"        element={<CustomerRTOPage />}        />
           <Route path="/portal/profile"    element={<CustomerProfilePage />}    />
           <Route path="/portal/settings"   element={<CustomerSettingsPage />}   />
         </Route>
