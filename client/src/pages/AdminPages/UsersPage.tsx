@@ -613,14 +613,14 @@ export default function UsersPage() {
                   <div className="modal-section-label">Contact & Role</div>
 
                   <div className="form-group modal-full">
-                    <label className="form-label">Email Address <span style={{ color: 'var(--error)' }}>*</span></label>
+                    <label className="form-label">Email Address <span style={{ fontSize: '.75rem', color: 'var(--gray-400)', fontWeight: 400 }}>(read-only — used for login)</span></label>
                     <input
                       type="email"
-                      className={`form-input${editErrors.email ? ' error' : ''}`}
+                      className="form-input"
                       value={editForm.email}
-                      onChange={e => setEditField('email', e.target.value)}
+                      readOnly
+                      style={{ background: 'var(--gray-50)', color: 'var(--gray-400)', cursor: 'not-allowed' }}
                     />
-                    {editErrors.email && <span className="form-error">{editErrors.email}</span>}
                   </div>
 
                   <div className="form-group">

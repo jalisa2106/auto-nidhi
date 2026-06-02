@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   TrendingUp, IndianRupee, Clock, Plus, X, Eye, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
-  FileSpreadsheet, FileDown,
+  FileSpreadsheet, FileDown, CheckCircle2,
 } from 'lucide-react'
 import { message } from 'antd'
 import * as XLSX from 'xlsx'
@@ -548,6 +548,7 @@ export default function PaymentInPage() {
                     <th>Date</th>
                     <th>Cheque / UTR</th>
                     <th>Remarks</th>
+                    <th>Status</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -585,6 +586,17 @@ export default function PaymentInPage() {
                         {r.remarks || '—'}
                       </td>
                       <td>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '3px 8px', borderRadius: 99, fontSize: '.72rem', fontWeight: 700,
+                          background: r.status === 'pending' ? '#fef3c7' : '#dcfce7',
+                          color: r.status === 'pending' ? '#92400e' : '#166534',
+                        }}>
+                          <CheckCircle2 size={11} />
+                          {r.status === 'pending' ? 'Pending' : 'Completed'}
+                        </span>
+                      </td>
+                      <td>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button
                             className="btn btn-outline btn-sm"
@@ -603,6 +615,24 @@ export default function PaymentInPage() {
                                 title="Edit"
                               >
                                 <Pencil size={13} />
+                              </button>
+                              <button
+                                className="btn btn-outline btn-sm"
+                                style={{
+                                  padding: '5px 10px',
+                                  borderColor: r.status === 'pending' ? '#86efac' : '#fcd34d',
+                                  color: r.status === 'pending' ? '#16a34a' : '#b45309',
+                                }}
+                                onClick={async () => {
+                                  try {
+                                    await paymentsInApi.toggleStatus(r.id)
+                                    message.success(`Payment marked as ${r.status === 'pending' ? 'completed' : 'pending'}`)
+                                    loadPayments()
+                                  } catch { message.error('Failed to update status') }
+                                }}
+                                title={r.status === 'pending' ? 'Mark as Completed' : 'Mark as Pending'}
+                              >
+                                <CheckCircle2 size={13} />
                               </button>
                               <button
                                 className="btn btn-outline btn-sm"

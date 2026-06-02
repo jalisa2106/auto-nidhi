@@ -140,6 +140,7 @@ def list_payments_out(
             "cheque_date": p.cheque_date.strftime("%Y-%m-%d") if p.cheque_date else None,
             "utr_no": p.utr_no,
             "remarks": clean_remarks if clean_remarks else None,
+            "status": p.status if hasattr(p, 'status') else "completed",
         })
 
     return {"data": data, "total": total, "page": page, "limit": limit}
@@ -281,6 +282,39 @@ def delete_payment_out(
         db.delete(payment)
         db.commit()
         return {"status": "success", "message": "Payment OUT deleted"}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.patch("/{payment_id}/status", status_code=200)
+def update_payment_out_status(
+    payment_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_staff),
+):
+    """Toggle the payment status between 'pending' and 'completed'."""
+    payment = db.query(PaymentOut).filter(PaymentOut.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment OUT record not found")
+
+    current_status = getattr(payment, 'status', 'completed')
+    new_status = "pending" if current_status == "completed" else "completed"
+
+    try:
+        payment.status = new_status
+        record_dashboard_event(
+            db, current_admin,
+            action=f"marked payment out as {new_status}",
+            table_name="payment_out",
+            record_id=payment.id,
+            message=f"Payment OUT status changed to {new_status}",
+            preference_key="updated",
+            old_values={"status": current_status},
+            new_values={"status": new_status},
+        )
+        db.commit()
+        return {"status": "success", "new_status": new_status}
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))

@@ -223,6 +223,10 @@ export const paymentsInApi = {
     const { data } = await api.delete(`/payments/in/${id}`, skipAuthRedirectConfig)
     return data
   },
+  toggleStatus: async (id: string) => {
+    const { data } = await api.patch(`/payments/in/${id}/status`, {}, skipAuthRedirectConfig)
+    return data
+  },
 }
 
 export const paymentsOutApi = {
@@ -240,6 +244,10 @@ export const paymentsOutApi = {
   },
   remove: async (id: string) => {
     const { data } = await api.delete(`/payments/out/${id}`, skipAuthRedirectConfig)
+    return data
+  },
+  toggleStatus: async (id: string) => {
+    const { data } = await api.patch(`/payments/out/${id}/status`, {}, skipAuthRedirectConfig)
     return data
   },
 }

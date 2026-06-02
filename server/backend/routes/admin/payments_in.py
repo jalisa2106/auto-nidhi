@@ -128,7 +128,8 @@ def list_payments_in(
         "utr_no": p.utr_no,
         "company_bank_id": str(p.company_bank_id) if p.company_bank_id else None,
         "company_bank_label": f"{p.company_bank.bank_name} – {p.company_bank.account_number}" if p.company_bank_id and p.company_bank else None,
-        "remarks": p.remarks
+        "remarks": p.remarks,
+        "status": p.status if hasattr(p, 'status') else "completed",
     } for p in payments]
 
     return {"data": data, "total": total, "page": page, "limit": limit}
@@ -253,6 +254,39 @@ def delete_payment_in(
         db.delete(payment)
         db.commit()
         return {"status": "success", "message": "Payment IN deleted"}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.patch("/{payment_id}/status", status_code=200)
+def update_payment_in_status(
+    payment_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_staff),
+):
+    """Toggle the payment status between 'pending' and 'completed'."""
+    payment = db.query(PaymentIn).filter(PaymentIn.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment IN record not found")
+
+    current_status = getattr(payment, 'status', 'completed')
+    new_status = "pending" if current_status == "completed" else "completed"
+
+    try:
+        payment.status = new_status
+        record_dashboard_event(
+            db, current_admin,
+            action=f"marked payment in as {new_status}",
+            table_name="payment_in",
+            record_id=payment.id,
+            message=f"Payment IN status changed to {new_status}",
+            preference_key="updated",
+            old_values={"status": current_status},
+            new_values={"status": new_status},
+        )
+        db.commit()
+        return {"status": "success", "new_status": new_status}
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))

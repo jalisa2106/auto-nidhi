@@ -206,6 +206,7 @@ class PaymentIn(Base):
     utr_no = Column(String(100))
     company_bank_id = Column(UUID(as_uuid=True), ForeignKey("master_company_bank.id"))
     remarks = Column(String)
+    status = Column(String(20), nullable=False, default="completed")  # pending | completed
     # Relationships to fetch joined data easily
     file = relationship("FileRecord")
     company_bank = relationship("MasterCompanyBank")
@@ -249,6 +250,7 @@ class PaymentOut(Base):
     utr_no = Column(String(100))
     company_bank_id = Column(UUID(as_uuid=True), ForeignKey("master_company_bank.id"), nullable=True)
     remarks = Column(String)
+    status = Column(String(20), nullable=False, default="completed")  # pending | completed
     # Relationships
     file = relationship("FileRecord")
     payee_dealer = relationship("MasterDealer", foreign_keys=[payee_dealer_id])
