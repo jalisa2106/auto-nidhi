@@ -1,7 +1,9 @@
+// client/src/pages/AdminPages/AdminSettingsPage.tsx
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { adminSettingsApi } from '../../api/services'
 import {
-  Bell, Monitor, Clock, Info, Shield, CheckCircle,
+  Bell, Monitor, Clock, Info, Shield, CheckCircle, ArrowLeft,
   ChevronDown, ChevronUp,
 } from 'lucide-react'
 
@@ -53,6 +55,7 @@ function fmtDate(ts?: number) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminSettingsPage() {
+  const navigate = useNavigate()
   const [prefs, setPrefs] = useState<NotifPref[]>(DEFAULT_PREFS)
   const [prefSaved, setPrefSaved] = useState(false)
   const [prefLoading, setPrefLoading] = useState(false)
@@ -61,7 +64,7 @@ export default function AdminSettingsPage() {
   const [security, setSecurity] = useState<AdminSecurity | null>(null)
 
   // Section collapse state
-  const [notifOpen,   setNotifOpen]   = useState(true)
+  const [notifOpen,    setNotifOpen]    = useState(true)
   const [displayOpen, setDisplayOpen] = useState(false)
   const [sessionOpen, setSessionOpen] = useState(false)
   const [securityOpen,setSecurityOpen]= useState(false)
@@ -117,6 +120,14 @@ export default function AdminSettingsPage() {
 
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto', paddingBottom: '32px' }}>
+      
+      {/* ── Back Button ── */}
+      <button 
+        onClick={() => navigate(-1)} 
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 16 }}
+      >
+        <ArrowLeft size={16} /> Back
+      </button>
 
       {/* ─── Section: Notification Preferences ─── */}
       <SettingsCard
