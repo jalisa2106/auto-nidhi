@@ -37,7 +37,7 @@ def list_insurance_companies(db: Session = Depends(get_db)):
 def create_insurance_company(
     data: InsuranceCompanyIn,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     result = db.execute(text("""
         INSERT INTO master_insurance_company (company_name, contact_person, mobile_no, phone_no)
@@ -63,7 +63,7 @@ def update_insurance_company(
     id: str,
     data: InsuranceCompanyUpdate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     existing = db.execute(text("""
         SELECT id, company_name, contact_person, mobile_no, phone_no
@@ -101,7 +101,7 @@ def update_insurance_company(
 def delete_insurance_company(
     id: str,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     existing = db.execute(text("""
         SELECT id, company_name, contact_person, mobile_no, phone_no

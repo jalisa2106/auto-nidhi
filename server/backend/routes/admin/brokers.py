@@ -115,7 +115,7 @@ def list_brokers(search: Optional[str] = None, db: Session = Depends(get_db)):
 def create_broker(
     payload: BrokerCreate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     if payload.phone:
         existing = db.query(MasterBroker).filter(MasterBroker.phone == payload.phone, MasterBroker.is_deleted == False).first()
@@ -155,7 +155,7 @@ def update_broker(
     broker_id: UUID,
     payload: BrokerUpdate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     broker = db.query(MasterBroker).filter(MasterBroker.id == broker_id, MasterBroker.is_deleted == False).first()
     if not broker:
@@ -199,7 +199,7 @@ def update_broker(
 def delete_broker(
     broker_id: UUID,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     broker = db.query(MasterBroker).filter(MasterBroker.id == broker_id).first()
     if not broker:

@@ -236,7 +236,7 @@ def update_expense(
 def delete_expense(
     expense_id: str,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     try:
         expense = db.query(ExpenseLedger).filter(

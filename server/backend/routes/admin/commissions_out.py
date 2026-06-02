@@ -283,7 +283,7 @@ def update_commission_out(
 def delete_commission_out(
     commission_id: UUID,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     row = db.query(CommissionOut).filter(CommissionOut.id == commission_id).first()
     if not row:

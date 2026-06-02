@@ -117,7 +117,7 @@ def list_bank_accounts(
 def create_bank_account(
     payload: BankAccountCreate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     """Create a new company bank account."""
     # Check for duplicate account number
@@ -163,7 +163,7 @@ def update_bank_account(
     bank_id: UUID,
     payload: BankAccountUpdate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     """Update an existing bank account by UUID."""
     bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == bank_id, MasterCompanyBank.is_deleted == False).first()
@@ -215,7 +215,7 @@ def update_bank_account(
 def delete_bank_account(
     bank_id: UUID,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     """Delete a company bank account by UUID (soft delete)."""
     bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == bank_id, MasterCompanyBank.is_deleted == False).first()

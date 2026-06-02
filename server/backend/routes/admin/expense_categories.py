@@ -60,7 +60,7 @@ def list_expense_categories(search: Optional[str] = None, db: Session = Depends(
 def create_expense_category(
     payload: ExpenseCategoryCreate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     existing = db.query(MasterExpenseCategory).filter(
         MasterExpenseCategory.expense_name.ilike(payload.name),
@@ -98,7 +98,7 @@ def update_expense_category(
     category_id: UUID,
     payload: ExpenseCategoryUpdate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     category = db.query(MasterExpenseCategory).filter(
         MasterExpenseCategory.id == category_id,
@@ -145,7 +145,7 @@ def update_expense_category(
 def delete_expense_category(
     category_id: UUID,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     category = db.query(MasterExpenseCategory).filter(
         MasterExpenseCategory.id == category_id,

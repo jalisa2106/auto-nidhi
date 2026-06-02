@@ -260,7 +260,7 @@ def update_commission_in(
 def delete_commission_in(
     commission_id: UUID,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     row = db.query(CommissionIn).filter(CommissionIn.id == commission_id).first()
     if not row:

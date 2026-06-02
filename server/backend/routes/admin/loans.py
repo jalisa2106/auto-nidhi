@@ -189,6 +189,6 @@ def delete_loan_record(
 def delete_loan(
     file_number: str,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     return delete_loan_record(file_number, db, current_admin)

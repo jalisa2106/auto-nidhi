@@ -35,7 +35,7 @@ def list_insurance_types(db: Session = Depends(get_db)):
 def create_insurance_type(
     data: InsuranceTypeIn,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     """
     Create a new insurance type.
@@ -86,7 +86,7 @@ def update_insurance_type(
     id: str,
     data: InsuranceTypeUpdate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     """
     Update an insurance type by ID.
@@ -139,7 +139,7 @@ def update_insurance_type(
 def delete_insurance_type(
     id: str,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     """
     Soft delete an insurance type by ID.

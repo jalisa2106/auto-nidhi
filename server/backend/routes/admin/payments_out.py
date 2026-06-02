@@ -262,7 +262,7 @@ def update_payment_out(
 def delete_payment_out(
     payment_id: UUID,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     payment = db.query(PaymentOut).filter(PaymentOut.id == payment_id).first()
     if not payment:

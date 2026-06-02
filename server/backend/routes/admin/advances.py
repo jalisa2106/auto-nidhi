@@ -111,7 +111,7 @@ def list_advances(
 def create_advance(
     payload: AdvanceCreate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     has_dealer = payload.dealer_id is not None
     has_broker = payload.broker_id is not None
@@ -184,7 +184,7 @@ def update_advance(
     advance_id: UUID,
     payload: AdvanceUpdate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     advance = db.query(Advance).filter(
         Advance.id == advance_id,
@@ -252,7 +252,7 @@ def update_advance(
 def delete_advance(
     advance_id: UUID,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     advance = db.query(Advance).filter(
         Advance.id == advance_id,

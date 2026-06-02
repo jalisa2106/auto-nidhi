@@ -181,7 +181,7 @@ def update_file(
 def delete_file(
     file_id: UUID,
     db: Session = Depends(get_db),
-    current_user: SystemUser = Depends(get_current_staff)
+    current_user: SystemUser = Depends(get_current_admin)
 ):
     file = db.query(FileRecord).filter(
         FileRecord.id == file_id,

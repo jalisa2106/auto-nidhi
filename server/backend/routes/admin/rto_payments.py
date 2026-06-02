@@ -147,7 +147,7 @@ def create_rto_payment(
 def delete_rto_payment(
     payment_id: UUID,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     payment = db.query(RTOPayment).filter(RTOPayment.id == payment_id, RTOPayment.is_deleted == False).first()
     

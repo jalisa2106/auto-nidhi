@@ -233,7 +233,7 @@ def update_payment_in(
 def delete_payment_in(
     payment_id: UUID,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_staff),
+    current_admin: SystemUser = Depends(get_current_admin),
 ):
     payment = db.query(PaymentIn).filter(PaymentIn.id == payment_id).first()
     if not payment:
