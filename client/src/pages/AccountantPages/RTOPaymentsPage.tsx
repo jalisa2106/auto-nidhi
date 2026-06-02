@@ -51,7 +51,7 @@ const MODE_BADGE: Record<RTOPayment['payment_mode'], { bg: string; color: string
   upi:    { bg: '#f0fdf4', color: '#166534' },
 };
 
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+const PAGE_SIZE_OPTIONS = [5, 10, 20];
 const DEFAULT_PAGE_SIZE = 5;
 
 const PAYMENT_MODES: RTOPayment['payment_mode'][] = ['cash', 'cheque', 'rtgs', 'neft', 'imps', 'upi'];

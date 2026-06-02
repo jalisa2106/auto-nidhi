@@ -122,7 +122,7 @@ function Pagination({
           value={pageSize}
           onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}
         >
-          {[10, 20, 50].map((s) => <option key={s} value={s}>{s} / page</option>)}
+          {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
         </select>
       </div>
       <div className="pagination-controls">
@@ -176,7 +176,7 @@ export default function CommissionOutPage() {
 
   // Pagination
   const [page, setPage]         = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(5)
 
   const payeeOptions = useMemo(() => {
     if (form.payee_type === 'Broker') return brokers

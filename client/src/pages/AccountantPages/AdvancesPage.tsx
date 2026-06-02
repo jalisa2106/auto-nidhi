@@ -45,7 +45,7 @@ interface MailForm {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100]
+const PAGE_SIZE_OPTIONS = [5, 10, 20]
 const MODES = ['cash', 'cheque', 'rtgs', 'neft', 'imps', 'upi'] as const
 
 const STATUS_BADGE: Record<

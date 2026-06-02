@@ -52,7 +52,7 @@ interface MailForm {
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
-const PAGE_SIZES = [5, 10, 20, 50] as const
+const PAGE_SIZES = [5, 10, 20] as const
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

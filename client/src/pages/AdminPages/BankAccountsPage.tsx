@@ -55,7 +55,7 @@ function Pagination({ total, page, pageSize, onPage, onPageSize }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span className="pagination-info">Showing {start}–{end} of {total} records</span>
         <select className="page-size-select" value={pageSize} onChange={e => { onPageSize(Number(e.target.value)); onPage(1) }}>
-          {[10, 20, 50].map(s => <option key={s} value={s}>{s} / page</option>)}
+          {[5, 10, 20].map(s => <option key={s} value={s}>{s} / page</option>)}
         </select>
       </div>
       <div className="pagination-controls">
@@ -86,7 +86,7 @@ export default function BankAccountsPage() {
   const [rows, setRows] = useState<BankAccount[]>([])
   const [totalRows, setTotalRows] = useState(0)
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(5)
   const [search, setSearch] = useState('')
 
   const [showModal, setShowModal] = useState(false)
