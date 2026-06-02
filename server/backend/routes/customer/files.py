@@ -1,15 +1,15 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from backend.database import get_db
-from backend.models import Customer, FileRecord, SystemUser
-from backend.utils import get_current_customer
+from backend.models import Customer, FileRecord, SystemUser, MasterRole
+from backend.utils import get_current_customer, send_targeted_notification
 
 router = APIRouter(prefix="/api/v1/portal", tags=["Customer Portal"])
-
 
 def _get_customer_by_user(db: Session, current_user: SystemUser) -> Optional[Customer]:
     return db.query(Customer).filter(Customer.email == current_user.email).first()
@@ -89,3 +89,71 @@ def customer_file_detail(
         "created_at": file.created_at.isoformat() if file.created_at else None,
         "updated_at": file.updated_at.isoformat() if file.updated_at else None,
     }
+
+class CustomerApplicationSubmit(BaseModel):
+    file_type: str
+    bank_id: str
+    assigned_to: Optional[str] = None
+    remarks: Optional[str] = None
+
+@router.post("/submit")
+def submit_application(
+    payload: CustomerApplicationSubmit,
+    current_user: SystemUser = Depends(get_current_customer),
+    db: Session = Depends(get_db),
+):
+    customer = _get_customer_by_user(db, current_user)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer profile required to submit applications.")
+
+    # 1. Handle Auto-Assignment Logic
+    assigned_staff_id = payload.assigned_to
+    
+    if not assigned_staff_id:
+        # Find active Data Entry / Admin staff with the fewest assigned files
+        staff_roles = db.query(MasterRole.id).filter(
+            MasterRole.role_name.in_(["data_entry", "admin"])
+        ).all()
+        staff_role_ids = [r[0] for r in staff_roles]
+
+        staff_counts = db.query(
+            SystemUser.id, func.count(FileRecord.id).label('file_count')
+        ).outerjoin(
+            FileRecord, FileRecord.assigned_to == SystemUser.id
+        ).filter(
+            SystemUser.role_id.in_(staff_role_ids),
+            SystemUser.is_active == True
+        ).group_by(SystemUser.id).order_by('file_count').first()
+
+        if staff_counts:
+            assigned_staff_id = staff_counts[0]
+        else:
+            raise HTTPException(status_code=500, detail="No eligible staff members found for assignment.")
+
+    # 2. Create the File (Application)
+    from backend.routes.admin.files import generate_file_number # Import your existing generator
+    new_file_num = generate_file_number(db)
+
+    new_file = FileRecord(
+        customer_id=customer.id,
+        created_by_user_id=current_user.id,
+        assigned_to=assigned_staff_id,
+        file_number=new_file_num,
+        file_type=payload.file_type,
+        status="draft",
+        remarks=payload.remarks
+    )
+    db.add(new_file)
+    db.flush()
+
+    # 3. Target the Notification ONLY to the assigned staff member
+    send_targeted_notification(
+        db=db,
+        target_user_id=assigned_staff_id,
+        message=f"New application ({new_file_num}) submitted by {customer.full_name}.",
+        notification_type="general",
+        file_id=new_file.id
+    )
+
+    db.commit()
+    return {"status": "success", "file_number": new_file_num, "assigned_to": assigned_staff_id}
