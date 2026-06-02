@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, X, FileSpreadsheet, FileDown, Pencil } from "lucide-react";
+import { Eye, X, FileSpreadsheet, FileDown, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -58,6 +58,9 @@ export default function CustomersPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<any>(null);
+  const role = localStorage.getItem('user_role') || 'guest';
+  const isAdmin = role === 'admin';
   const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf');
 
   const filteredRows = useMemo(() => {
@@ -285,6 +288,18 @@ export default function CustomersPage() {
     }
   };
 
+  const handleDeactivate = async () => {
+    if (!confirmDeactivate) return;
+    try {
+      await customersApi.deactivate(confirmDeactivate.id);
+      message.success(`Customer "${confirmDeactivate.name}" deactivated successfully`);
+      setRows(rows.filter(r => r.id !== confirmDeactivate.id));
+      setConfirmDeactivate(null);
+    } catch (err: any) {
+      message.error(extractError(err) || 'Failed to deactivate customer');
+    }
+  };
+
   return (
     <>
       <PageHeader title="Customers" subtitle="All registered customers and client accounts within the system" />
@@ -385,11 +400,52 @@ export default function CustomersPage() {
                   >
                     <Pencil size={13} />
                   </button>
+                  {isAdmin && (
+                    <button
+                      className="btn btn-outline btn-sm"
+                      style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#dc2626' }}
+                      onClick={() => setConfirmDeactivate(r)}
+                      title="Deactivate customer"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               )
             }
           ]}
         />
+      )}
+
+      {/* Deactivate Confirm Modal */}
+      {confirmDeactivate && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '32px 28px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AlertTriangle size={20} color="#dc2626" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>Deactivate Customer?</div>
+                <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: 2 }}>This action will disable their login access.</div>
+              </div>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: '#475569', margin: '0 0 24px', lineHeight: 1.6 }}>
+              Are you sure you want to deactivate <strong>{confirmDeactivate.name}</strong>?
+              Their account will be disabled and they won't be able to log in. This does not delete their files.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline btn-sm" onClick={() => setConfirmDeactivate(null)}>Cancel</button>
+              <button
+                className="btn btn-sm"
+                style={{ background: '#dc2626', color: '#fff', border: 'none' }}
+                onClick={handleDeactivate}
+              >
+                Yes, Deactivate
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Registration Modal */}

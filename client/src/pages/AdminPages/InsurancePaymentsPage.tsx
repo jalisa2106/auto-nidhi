@@ -57,6 +57,7 @@ export default function InsurancePaymentsPage() {
   const [pageSize, setPageSize] = useState(5)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
+  const [confirmDeleteInsurance, setConfirmDeleteInsurance] = useState<any>(null)
 
   const [form, setForm] = useState<InsurancePaymentForm>({
     file_id: '', insurance_company_id: '', amount: '', mode: 'UPI',
@@ -320,15 +321,50 @@ export default function InsurancePaymentsPage() {
 
   const dispatchSoftDeletionMutation = async (targetId: string, event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
-    if (window.confirm("Perform irreversible system ledger soft-deletion?")) {
-      await insurancePaymentsApi.delete(targetId)
-      fetchPayments() 
-      message.info("Record soft-deleted.")
-    }
+    const row = rows.find(r => r.id === targetId)
+    setConfirmDeleteInsurance({ id: targetId, label: row?.file_number || targetId })
+  }
+
+  const executeInsuranceDelete = async () => {
+    if (!confirmDeleteInsurance) return
+    await insurancePaymentsApi.delete(confirmDeleteInsurance.id)
+    fetchPayments()
+    message.success('Insurance payment deleted.')
+    setConfirmDeleteInsurance(null)
   }
 
   return (
     <>
+      {/* Insurance Delete Confirm Modal */}
+      {confirmDeleteInsurance && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '32px 28px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AlertTriangle size={20} color="#dc2626" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>Delete Insurance Payment?</div>
+                <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: 2 }}>This will soft-delete the record from the ledger.</div>
+              </div>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: '#475569', margin: '0 0 24px', lineHeight: 1.6 }}>
+              Are you sure you want to delete the insurance payment for file <strong>{confirmDeleteInsurance.label}</strong>?
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline btn-sm" onClick={() => setConfirmDeleteInsurance(null)}>Cancel</button>
+              <button
+                className="btn btn-sm"
+                style={{ background: '#dc2626', color: '#fff', border: 'none' }}
+                onClick={executeInsuranceDelete}
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <PageHeader title="Insurance Payments" subtitle="Insurance premium payments and system coverage mapping" />
 
       {imminentRiskCount > 0 && (

@@ -125,6 +125,11 @@ export const customersApi = {
     const { data } = await api.put(`/customers/${id}`, payload, skipAuthRedirectConfig)
     return data
   },
+
+  deactivate: async (id: string) => {
+    const { data } = await api.patch(`/customers/${id}/deactivate`, {}, skipAuthRedirectConfig)
+    return data
+  },
 }
 
 export const brokersApi = {

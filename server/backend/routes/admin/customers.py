@@ -212,3 +212,35 @@ def update_customer(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/{customer_id}/deactivate", status_code=200)
+def deactivate_customer(
+    customer_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Also deactivate the linked system user account
+    linked_user = db.query(SystemUser).filter(SystemUser.email == customer.email).first()
+    if linked_user:
+        linked_user.is_active = False
+
+    try:
+        record_dashboard_event(
+            db, current_admin,
+            action="deactivated customer",
+            table_name="customer",
+            record_id=customer.id,
+            message=f"Customer {customer.full_name} was deactivated",
+            preference_key="deleted",
+            old_values={"full_name": customer.full_name, "mobile_1": customer.mobile_1},
+        )
+        db.commit()
+        return {"status": "success", "message": f"Customer {customer.full_name} deactivated"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))

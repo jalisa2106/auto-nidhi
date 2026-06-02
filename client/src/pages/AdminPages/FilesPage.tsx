@@ -9,7 +9,7 @@ import { message } from "antd";
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { Pencil } from 'lucide-react'
+import { Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { SelectiveExportModal } from "../../components/app/SelectiveExportModal";
 import { exportDetailPDFsAsZip } from "../../utils/zipExportUtils";
 
@@ -50,6 +50,7 @@ export default function FilesPage() {
   const [form, setForm] = useState({ customer_id: '', bank_id: '', file_type: '', status: '', remarks: '' });
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf');
+  const [confirmDelete, setConfirmDelete] = useState<any>(null);
 
   const exportExcel = (itemsToExport?: any[]) => {
     const list = itemsToExport || filteredRows
@@ -186,6 +187,21 @@ export default function FilesPage() {
     }
   };
 
+  const handleDeleteFile = async () => {
+    if (!confirmDelete) return;
+    try {
+      setLoading(true);
+      await filesApi.remove(confirmDelete.id);
+      message.success(`File ${confirmDelete.file_number} deleted`);
+      setConfirmDelete(null);
+      loadFiles();
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || 'Failed to delete file');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const statusBadge = (s: string) => {
     const rawStatus = s?.toLowerCase().replace(' ', '_') || "draft";
     const sc = STATUS_COLOR[rawStatus] || STATUS_COLOR.draft;
@@ -305,14 +321,24 @@ export default function FilesPage() {
             key: "actions",
             label: "Actions",
             render: (r) => isAdmin ? (
-              <button
-                className="btn btn-outline btn-sm"
-                style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
-                onClick={() => openEditFile(r)}
-                title="Edit file"
-              >
-                <Pencil size={13} />
-              </button>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
+                  onClick={() => openEditFile(r)}
+                  title="Edit file"
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#dc2626' }}
+                  onClick={() => setConfirmDelete(r)}
+                  title="Delete file"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             ) : null
           },
         ]}
@@ -373,6 +399,36 @@ export default function FilesPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Confirm Delete Modal */}
+      {confirmDelete && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '32px 28px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AlertTriangle size={20} color="#dc2626" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>Delete File?</div>
+                <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: 2 }}>This action cannot be undone.</div>
+              </div>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: '#475569', margin: '0 0 24px', lineHeight: 1.6 }}>
+              Are you sure you want to delete file <strong>{confirmDelete.file_number}</strong> for customer <strong>{confirmDelete.customer}</strong>?
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline btn-sm" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button
+                className="btn btn-sm"
+                style={{ background: '#dc2626', color: '#fff', border: 'none' }}
+                onClick={handleDeleteFile}
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit File Modal */}
       <Modal open={!!editFile} title={`Edit File — ${editFile?.file_number || ''}`} onClose={() => setEditFile(null)} onSubmit={handleUpdateFile} maxWidth="480px">
