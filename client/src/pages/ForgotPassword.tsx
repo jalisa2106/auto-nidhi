@@ -67,9 +67,11 @@ const ForgotPassword: React.FC = () => {
       }
 
       setSubmitted(true)
-      // Show debug token for testing (remove this in production)
-      if (data.debug_token) {
+
+      if (import.meta.env.DEV && data.debug_token) {
         setDebugToken(data.debug_token)
+      } else {
+        setDebugToken(null)
       }
 
     } catch {
@@ -108,7 +110,7 @@ const ForgotPassword: React.FC = () => {
             </div>
 
             {/* Debug token — only for testing, remove in production */}
-            {debugToken && (
+            {import.meta.env.DEV && debugToken && (
               <div style={{
                 background: '#f8fafc',
                 border: '1px dashed #cbd5e1',
@@ -130,11 +132,11 @@ const ForgotPassword: React.FC = () => {
             )}
 
             <Link
-              to={debugToken ? `/reset-password?token=${debugToken}` : '/login'}
+              to={import.meta.env.DEV && debugToken ? `/reset-password?token=${debugToken}` : '/login'}
               className="auth-btn"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', marginBottom: '0' }}
             >
-              {debugToken ? 'Reset Password Now' : 'Back to Sign In'}
+              {import.meta.env.DEV && debugToken ? 'Reset Password Now' : 'Back to Sign In'}
             </Link>
           </>
         ) : (

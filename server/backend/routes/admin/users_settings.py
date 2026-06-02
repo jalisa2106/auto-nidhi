@@ -1,7 +1,9 @@
+import os
 import re
 from typing import Optional
 from uuid import UUID
 
+from backend.email_utils import send_email
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, validator
 from sqlalchemy.orm import Session
@@ -170,8 +172,38 @@ def create_user(
         )
         db.commit()
         db.refresh(user)
+
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+        login_url = f"{frontend_url}/login"
+
+        email_body = f"""Hello {user.first_name},
+
+        Your Auto Nidhi account has been created.
+
+        You can sign in using the details below:
+
+        Login URL: {login_url}
+        Email: {user.email}
+        Password: {payload.password}
+
+        For security, please change your password after your first login.
+
+        Regards,
+        Auto Nidhi Team
+        """
+
+        try:
+            send_email(
+                to_email=user.email,
+                subject="Your Auto Nidhi account has been created",
+                body=email_body,
+            )
+        except Exception as exc:
+            print(f"Failed to send new user credentials email: {exc}")
+
         role_name = db.query(MasterRole).filter(MasterRole.id == user.role_id).first()
         return _serialize(user, role_name.role_name if role_name else None)
+
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))
@@ -302,8 +334,37 @@ def admin_reset_password(
             message=f"Password was reset for {user.email}",
             preference_key="updated",
         )
+        
         db.commit()
+
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+        login_url = f"{frontend_url}/login"
+
+        email_body = f"""Hello {user.first_name},
+
+        Your Auto Nidhi password has been reset by an administrator.
+
+        Login URL: {login_url}
+        Email: {user.email}
+        New Password: {payload.new_password}
+
+        For security, please change your password after signing in.
+
+        Regards,
+        Auto Nidhi Team
+        """
+
+        try:
+            send_email(
+                to_email=user.email,
+                subject="Your Auto Nidhi password has been reset",
+                body=email_body,
+            )
+        except Exception as exc:
+            print(f"Failed to send password reset credentials email: {exc}")
+
         return {"message": f"Password reset successfully for {user.email}"}
+
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))
