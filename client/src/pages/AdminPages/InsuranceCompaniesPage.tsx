@@ -5,6 +5,7 @@ import PageHeader from '../../components/app/PageHeader'
 import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
 import { insuranceCompaniesApi } from '../../api/services'
+import { FilterExportOptionsModal } from '../../components/app/FilterExportOptionsModal'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -33,10 +34,24 @@ export default function InsuranceCompaniesPage() {
   const [form, setForm]       = useState({ ...EMPTY_FORM })
   const [saving, setSaving]   = useState(false)
   const [search, setSearch]   = useState('')
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
 
   // ── Export Excel
-  const exportExcel = () => {
-    const data = filteredRows.map((r) => ({
+  const exportExcel = async (scope: 'filtered' | 'all') => {
+    let items = filteredRows
+    if (scope === 'all') {
+      try {
+        message.loading({ content: 'Fetching all records...', key: 'export' })
+        const res = await insuranceCompaniesApi.list('')
+        items = Array.isArray(res) ? res : res.data ?? []
+        message.success({ content: 'Exporting...', key: 'export' })
+      } catch {
+        message.error({ content: 'Failed to fetch all records', key: 'export' })
+        return
+      }
+    }
+    const data = items.map((r) => ({
       'Company Name': r.company_name,
       'Contact Person': r.contact_person || '—',
       'Mobile No.': r.mobile_no || '—',
@@ -49,7 +64,19 @@ export default function InsuranceCompaniesPage() {
   }
 
   // ── Export PDF
-  const exportPDF = () => {
+  const exportPDF = async (scope: 'filtered' | 'all') => {
+    let items = filteredRows
+    if (scope === 'all') {
+      try {
+        message.loading({ content: 'Fetching all records...', key: 'export' })
+        const res = await insuranceCompaniesApi.list('')
+        items = Array.isArray(res) ? res : res.data ?? []
+        message.success({ content: 'Exporting...', key: 'export' })
+      } catch {
+        message.error({ content: 'Failed to fetch all records', key: 'export' })
+        return
+      }
+    }
     const doc = new jsPDF()
     const today = new Date().toLocaleDateString('en-IN')
 
@@ -57,7 +84,7 @@ export default function InsuranceCompaniesPage() {
     doc.text('Insurance Companies Report', 14, 15)
     doc.setFontSize(10)
     doc.setTextColor(120)
-    doc.text(`Generated on: ${today}`, 14, 22)
+    doc.text(`Generated on: ${today} | Total records: ${items.length}`, 14, 22)
     doc.setTextColor(0)
 
     autoTable(doc, {
@@ -65,7 +92,7 @@ export default function InsuranceCompaniesPage() {
       head: [
         ['Company Name', 'Contact Person', 'Mobile No.', 'Phone No.'],
       ],
-      body: filteredRows.map((r) => [
+      body: items.map((r) => [
         r.company_name,
         r.contact_person || '—',
         r.mobile_no || '—',
@@ -178,7 +205,7 @@ export default function InsuranceCompaniesPage() {
         onFilteredChange={setFilteredRows}
         rightSlot={
           <>
-            <button className="btn btn-outline btn-sm" onClick={exportExcel} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <button className="btn btn-outline btn-sm" onClick={() => { setExportMode('excel'); setExportModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
@@ -187,7 +214,7 @@ export default function InsuranceCompaniesPage() {
               </svg>
               Export Excel
             </button>
-            <button className="btn btn-outline btn-sm" onClick={exportPDF} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <button className="btn btn-outline btn-sm" onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
@@ -306,6 +333,21 @@ export default function InsuranceCompaniesPage() {
 
         {saving && <p style={{ color: 'var(--gray-400)', fontSize: '.85rem', marginTop: 8 }}>Saving…</p>}
       </Modal>
+
+      <FilterExportOptionsModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Insurance Companies Export"
+        mode={exportMode}
+        onExportFiltered={() => {
+          if (exportMode === 'pdf') exportPDF('filtered')
+          else exportExcel('filtered')
+        }}
+        onExportAll={() => {
+          if (exportMode === 'pdf') exportPDF('all')
+          else exportExcel('all')
+        }}
+      />
     </>
   )
 }

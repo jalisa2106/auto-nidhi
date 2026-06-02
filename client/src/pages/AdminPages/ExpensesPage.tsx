@@ -7,9 +7,13 @@ import {
   FileText, Banknote, Calendar,
   Hash, AlignLeft, User, Tag, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye,
+  FileSpreadsheet, FileDown
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
 import { expenseCategoriesApi, expensesApi, filesApi } from '../../api/services'
+import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
+import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
+
 
 interface Expense {
   id: string
@@ -158,6 +162,8 @@ export default function ExpensesPage() {
   const [viewOpen, setViewOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
   const [form, setForm] = useState<Omit<Expense, 'id' | 'created_at'>>(() => emptyForm(''))
 
   const closeView = useCallback(() => {
@@ -234,8 +240,9 @@ export default function ExpensesPage() {
   const safePage = Math.min(page, totalPages)
   const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
-  const exportExcel = () => {
-    const data = filtered.map((e) => ({
+  const exportExcel = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filtered
+    const data = list.map((e) => ({
       ID: formatExpenseId(e.id),
       Category: e.expense_category_name,
       Amount: e.amount,
@@ -250,7 +257,7 @@ export default function ExpensesPage() {
     XLSX.writeFile(wb, `expenses_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
-  const exportPDF = () => {
+  const exportPDF = (itemsToExport?: any[]) => {
     const doc = new jsPDF({ orientation: 'portrait' })
     const today = new Date().toLocaleDateString('en-IN')
 
@@ -258,7 +265,8 @@ export default function ExpensesPage() {
     doc.text('Expenses Report', 14, 15)
     doc.setFontSize(10)
     doc.setTextColor(120)
-    doc.text(`Generated on: ${today}`, 14, 22)
+    const list = itemsToExport || filtered
+    doc.text(`Generated on: ${today} | Total records: ${list.length}`, 14, 22)
     doc.setTextColor(0)
 
     autoTable(doc, {
@@ -266,7 +274,7 @@ export default function ExpensesPage() {
       head: [
         ['Expense ID', 'Category', 'Amount', 'Date', 'File Linked', 'Recorded By'],
       ],
-      body: filtered.map((e) => [
+      body: list.map((e) => [
         formatExpenseId(e.id),
         e.expense_category_name,
         '₹' + e.amount.toLocaleString('en-IN'),
@@ -437,7 +445,7 @@ export default function ExpensesPage() {
               </div>
               <button
                 id="expense-export-excel-btn"
-                onClick={exportExcel}
+                onClick={() => { setExportMode('excel'); setExportModalOpen(true); }}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
                 onMouseEnter={e => {
                   const b = e.currentTarget as HTMLButtonElement
@@ -449,17 +457,12 @@ export default function ExpensesPage() {
                   b.style.background = '#fff'
                   b.style.borderColor = 'var(--gray-200)'
                 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="12" y1="18" x2="12" y2="12" />
-                  <line x1="9" y1="15" x2="15" y2="15" />
-                </svg>
+                <FileSpreadsheet size={14} />
                 Export Excel
               </button>
               <button
                 id="expense-export-pdf-btn"
-                onClick={exportPDF}
+                onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
                 onMouseEnter={e => {
                   const b = e.currentTarget as HTMLButtonElement
@@ -471,12 +474,7 @@ export default function ExpensesPage() {
                   b.style.background = '#fff'
                   b.style.borderColor = 'var(--gray-200)'
                 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="9" y1="13" x2="15" y2="13" />
-                  <line x1="9" y1="17" x2="15" y2="17" />
-                </svg>
+                <FileDown size={14} />
                 Export PDF
               </button>
               {isAdmin && (
@@ -642,6 +640,37 @@ export default function ExpensesPage() {
           <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize: 'vertical' }} /></FormField>
         </div>
       </Modal>
+
+      <SelectiveExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Select Expenses to Export"
+        rows={filtered}
+        getRecordName={(r) => `${r.expense_category_name} (Amount: ₹${r.amount.toLocaleString('en-IN')})`}
+        getRecordIdentifier={(r) => formatExpenseId(r.id)}
+        mode={exportMode}
+        onExportExcel={exportExcel}
+        onExportTable={exportPDF}
+        onExportZip={async (selected) => {
+          await exportDetailPDFsAsZip(
+            `expense_details_${new Date().toISOString().slice(0, 10)}`,
+            selected,
+            (r) => [
+              { label: 'Expense ID', value: formatExpenseId(r.id) },
+              { label: 'Category', value: r.expense_category_name },
+              { label: 'Amount', value: '₹' + Number(r.amount || 0).toLocaleString('en-IN') },
+              { label: 'Expense Date', value: r.expense_date || '—' },
+              { label: 'Linked File Number', value: r.file_number || '—' },
+              { label: 'Recorded By', value: r.created_by_name || '—' },
+              { label: 'Created At Timestamp', value: r.created_at || '—' },
+              { label: 'Remarks', value: r.remarks || '—' }
+            ],
+            (r) => `expense_${formatExpenseId(r.id)}_${r.expense_category_name}`,
+            'Expense Voucher',
+            'Voucher'
+          )
+        }}
+      />
     </div>
   )
 }

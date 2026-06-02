@@ -6,10 +6,13 @@ import {
   Phone, MapPin, Banknote, Clock, Hash,
   Pencil, Trash2, AlignLeft,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye,
+  FileSpreadsheet, FileDown
 } from 'lucide-react'
 import { loansApi } from '../../api/services'
 import Modal from '../../components/app/Modal'
 import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
+import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
+import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND INTEGRATION NOTES
@@ -171,6 +174,8 @@ export default function LoansPage() {
   const [viewOpen, setViewOpen] = useState(false)
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(5)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
   const closeView = useCallback(() => { setViewOpen(false); setSelected(null) }, [])
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeView() }
@@ -241,22 +246,30 @@ export default function LoansPage() {
   }
 
   // ── Export Excel
-  const exportExcel = () => {
+  const exportExcel = (itemsToExport?: any[]) => {
     exportToExcel({
       filename: `loans_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Loans',
       columns: exportExcelColumns,
-      data: getExportData()
+      data: itemsToExport ? itemsToExport.map(l => ({
+        ...l,
+        status_label: dbStatusToUI[l.status as LoanRecord['status']] || l.status,
+        tenure: `${l.no_of_months} mo`
+      })) : getExportData()
     })
   }
 
   // ── Export PDF
-  const exportPDF = () => {
+  const exportPDF = (itemsToExport?: any[]) => {
     exportToPDF({
       filename: `loans_${new Date().toISOString().slice(0, 10)}`,
       title: 'Loans Report',
       columns: exportPDFColumns,
-      data: getExportData(),
+      data: itemsToExport ? itemsToExport.map(l => ({
+        ...l,
+        status_label: dbStatusToUI[l.status as LoanRecord['status']] || l.status,
+        tenure: `${l.no_of_months} mo`
+      })) : getExportData(),
       orientation: 'landscape'
     })
   }
@@ -359,22 +372,12 @@ export default function LoansPage() {
                   onFocus={e => (e.target.style.borderColor='var(--brand-500)')}
                   onBlur={e  => (e.target.style.borderColor='var(--gray-200)')} />
               </div>
-              <button className="btn btn-outline btn-sm" onClick={exportExcel} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="12" y1="18" x2="12" y2="12" />
-                  <line x1="9" y1="15" x2="15" y2="15" />
-                </svg>
+              <button className="btn btn-outline btn-sm" onClick={() => { setExportMode('excel'); setExportModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <FileSpreadsheet size={14} />
                 Export Excel
               </button>
-              <button className="btn btn-outline btn-sm" onClick={exportPDF} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="9" y1="13" x2="15" y2="13" />
-                  <line x1="9" y1="17" x2="15" y2="17" />
-                </svg>
+              <button className="btn btn-outline btn-sm" onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <FileDown size={14} />
                 Export PDF
               </button>
             </div>
@@ -535,6 +538,43 @@ export default function LoansPage() {
           </div>
         </div>
       </Modal>
+
+      <SelectiveExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Select Loans to Export"
+        rows={filtered}
+        getRecordName={(r) => `${r.full_name} (File: ${r.file_number})`}
+        getRecordIdentifier={(r) => r.lan_number}
+        mode={exportMode}
+        onExportExcel={exportExcel}
+        onExportTable={exportPDF}
+        onExportZip={async (selected) => {
+          await exportDetailPDFsAsZip(
+            `loan_details_${new Date().toISOString().slice(0, 10)}`,
+            selected,
+            (r) => [
+              { label: 'File Number', value: r.file_number },
+              { label: 'LAN Number', value: r.lan_number || '—' },
+              { label: 'Customer Name', value: r.full_name },
+              { label: 'Mobile Number', value: r.mobile_1 || '—' },
+              { label: 'City', value: r.city || '—' },
+              { label: 'Bank Name', value: r.bank_name },
+              { label: 'Loan Amount', value: '₹' + Number(r.loan_amount || 0).toLocaleString('en-IN') },
+              { label: 'EMI Amount', value: '₹' + Number(r.emi_amount || 0).toLocaleString('en-IN') },
+              { label: 'Tenure (Months)', value: `${r.no_of_months} months` },
+              { label: 'IRR Percentage', value: `${r.irr_percentage}%` },
+              { label: 'Loan Status', value: dbStatusToUI[r.status as LoanRecord['status']] || r.status },
+              { label: 'Docket Date', value: r.docket_date || '—' },
+              { label: 'Created By Staff', value: r.created_by_name || '—' },
+              { label: 'Remarks', value: r.remarks || '—' }
+            ],
+            (r) => `loan_${r.file_number}_${r.full_name}`,
+            'Loan Detail Record',
+            'Statement'
+          )
+        }}
+      />
     </div>
   )
 }

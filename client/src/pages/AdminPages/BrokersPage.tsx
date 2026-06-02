@@ -5,6 +5,7 @@ import { Phone, MapPin, Search, Plus, Pencil, Trash2, Handshake, TrendingDown, C
 import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
 import Modal from '../../components/app/Modal'
 import { brokersApi } from '../../api/services'
+import { FilterExportOptionsModal } from '../../components/app/FilterExportOptionsModal'
 
 // ─── TYPES & CONTRACT BOUNDARIES ──────────────────────────────────────────
 interface Broker {
@@ -126,6 +127,8 @@ export default function BrokersPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(5)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
 
   const loadBrokers = async () => {
     try {
@@ -160,8 +163,8 @@ export default function BrokersPage() {
     { header: 'Status', dataKey: 'status' }
   ]
 
-  const getExportData = () => {
-    return filtered.map((row) => ({
+  const getExportData = (items: Broker[]) => {
+    return items.map((row) => ({
       ...row,
       formattedId: formatBrokerId(row.id),
       broker_name: row.broker_name || 'Unnamed Broker',
@@ -172,21 +175,23 @@ export default function BrokersPage() {
     }))
   }
 
-  const exportExcel = () => {
+  const exportExcel = (scope: 'filtered' | 'all') => {
+    const items = scope === 'filtered' ? filtered : rows
     exportToExcel({
       filename: `brokers_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Brokers',
       columns: exportColumns,
-      data: getExportData()
+      data: getExportData(items)
     })
   }
 
-  const exportPDF = () => {
+  const exportPDF = (scope: 'filtered' | 'all') => {
+    const items = scope === 'filtered' ? filtered : rows
     exportToPDF({
       filename: `brokers_${new Date().toISOString().slice(0, 10)}`,
       title: 'Brokers Report',
       columns: exportColumns,
-      data: getExportData(),
+      data: getExportData(items),
       orientation: 'portrait'
     })
   }
@@ -301,7 +306,7 @@ export default function BrokersPage() {
             <button
               id="broker-export-excel-btn"
               type="button"
-              onClick={exportExcel}
+              onClick={() => { setExportMode('excel'); setExportModalOpen(true); }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-1)')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
@@ -310,7 +315,7 @@ export default function BrokersPage() {
             <button
               id="broker-export-pdf-btn"
               type="button"
-              onClick={exportPDF}
+              onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-1)')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
@@ -446,6 +451,21 @@ export default function BrokersPage() {
           </FormField>
         </div>
       </Modal>
+
+      <FilterExportOptionsModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Broker Directory Export"
+        mode={exportMode}
+        onExportFiltered={() => {
+          if (exportMode === 'pdf') exportPDF('filtered')
+          else exportExcel('filtered')
+        }}
+        onExportAll={() => {
+          if (exportMode === 'pdf') exportPDF('all')
+          else exportExcel('all')
+        }}
+      />
     </div>
   )
 }

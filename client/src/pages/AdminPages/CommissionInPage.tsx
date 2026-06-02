@@ -10,6 +10,8 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
 import { commissionsInApi, filesApi, bankAccountsApi } from '../../api/services'
+import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
+import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 type CommissionIn = {
@@ -160,6 +162,8 @@ export default function CommissionInPage() {
   const [companyBanks, setCompanyBanks] = useState<{ id: string; label: string }[]>([])
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<CommissionIn | null>(null)
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf');
   const [editRow, setEditRow]   = useState<CommissionIn | null>(null)
   const [editForm, setEditForm] = useState({ ...EMPTY_FORM })
   const [form, setForm]         = useState({ ...EMPTY_FORM })
@@ -359,8 +363,9 @@ export default function CommissionInPage() {
     setFilterDateFrom(''); setFilterDateTo(''); setPage(1)
   }
 
-  const exportExcel = () => {
-    const data = filtered.map((r) => ({
+  const exportExcel = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filtered
+    const data = list.map((r) => ({
       'File No.': r.file_number,
       'Source Type': r.source_type,
       'Source Name': r.source_name,
@@ -384,7 +389,8 @@ export default function CommissionInPage() {
     XLSX.writeFile(wb, `CommissionIn_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
-  const exportPDF = () => {
+  const exportPDF = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filtered
     const doc = new jsPDF({ orientation: 'landscape' })
     const today = new Date().toLocaleDateString('en-IN')
 
@@ -392,7 +398,7 @@ export default function CommissionInPage() {
     doc.text('Commission IN Report', 14, 15)
     doc.setFontSize(10)
     doc.setTextColor(120)
-    doc.text(`Generated on: ${today} | Total records: ${filtered.length}`, 14, 22)
+    doc.text(`Generated on: ${today} | Total records: ${list.length}`, 14, 22)
     doc.setTextColor(0)
 
     autoTable(doc, {
@@ -400,7 +406,7 @@ export default function CommissionInPage() {
       head: [
         ['File No.', 'Source Type', 'Source Name', 'Amount (₹)', 'Status', 'TDS', 'Mode', 'Date', 'Cheque / UTR'],
       ],
-      body: filtered.map((r) => [
+      body: list.map((r) => [
         r.file_number,
         r.source_type,
         r.source_name,
@@ -469,18 +475,12 @@ export default function CommissionInPage() {
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
         </div>
-        <button
-          className="btn btn-outline btn-sm"
-          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
-          onClick={exportExcel}
-        >
+        <button className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => { setExportMode('excel'); setExportModalOpen(true); }}>
           <FileSpreadsheet size={14} /> Export Excel
         </button>
-        <button
-          className="btn btn-outline btn-sm"
-          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
-          onClick={exportPDF}
-        >
+        <button className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }}>
           <FileDown size={14} /> Export PDF
         </button>
         <div className="pay-filter-group">
@@ -1022,6 +1022,40 @@ export default function CommissionInPage() {
           </div>
         </div>
       )}
+
+      <SelectiveExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Select Inward Commissions to Export"
+        rows={filtered}
+        getRecordName={(r) => `${r.source_name} (${r.source_type}) — File: ${r.file_number}`}
+        getRecordIdentifier={(r) => r.id}
+        mode={exportMode}
+        onExportExcel={exportExcel}
+        onExportTable={exportPDF}
+        onExportZip={async (selected) => {
+          await exportDetailPDFsAsZip(
+            `commission_in_details_${new Date().toISOString().slice(0, 10)}`,
+            selected,
+            (r) => [
+              { label: 'File Number', value: r.file_number },
+              { label: 'Source Type', value: r.source_type },
+              { label: 'Source Name', value: r.source_name },
+              { label: 'Commission Amount', value: fmtINR(r.amount) },
+              { label: 'Payment Status', value: r.advance ? 'Advance Payment' : 'Final Payment' },
+              { label: 'TDS Tracked', value: r.tds_deducted ? 'Yes' : 'No' },
+              { label: 'Payment Mode', value: r.mode },
+              { label: 'Payment Date', value: r.payment_date },
+              { label: 'Company Bank Account', value: companyBanks.find(b => b.id === r.company_bank_id)?.label ?? r.company_bank_label ?? '—' },
+              { label: 'Cheque/Ref Number', value: r.cheque_no || r.utr_no || '—' },
+              { label: 'Remarks', value: r.remarks || '—' }
+            ],
+            (r) => `commission_in_${r.file_number || 'file'}_${r.source_name || ''}`,
+            'Commission IN Voucher',
+            'Voucher'
+          );
+        }}
+      />
     </>
   )
 }

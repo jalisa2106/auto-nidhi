@@ -10,6 +10,8 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
 import { paymentsOutApi, filesApi, bankAccountsApi, usersSettingsApi, customersApi, brokersApi, dealersApi } from '../../api/services'
+import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
+import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
 
 
 const PAYMENT_MODES  = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
@@ -135,6 +137,36 @@ export default function PaymentOutPage() {
   
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<any | null>(null)
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf');
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportRows, setExportRows] = useState<any[]>([]);
+
+  const handleOpenExport = async (mode: 'pdf' | 'excel') => {
+    setExportMode(mode);
+    setExportLoading(true);
+    try {
+      const res = await paymentsOutApi.list({
+        page: 1,
+        limit: 10000,
+        search: search || undefined,
+        payment_mode: filterMode || undefined,
+        payment_to: filterTo || undefined,
+        date_from: filterDateFrom || undefined,
+        date_to: filterDateTo || undefined,
+      });
+      if (res && Array.isArray(res.data)) {
+        setExportRows(res.data);
+        setExportModalOpen(true);
+      } else {
+        message.error("Failed to load export records");
+      }
+    } catch (err) {
+      message.error("Failed to load export records");
+    } finally {
+      setExportLoading(false);
+    }
+  };
   const [editRow, setEditRow]   = useState<any | null>(null)
   const [editForm, setEditForm] = useState({ ...EMPTY_FORM })
   const [form, setForm]         = useState({ ...EMPTY_FORM })
@@ -362,8 +394,9 @@ export default function PaymentOutPage() {
     setFilterDateFrom(''); setFilterDateTo(''); setPage(1)
   }
 
-  const exportExcel = () => {
-    const data = rows.map((r) => ({
+  const exportExcel = (itemsToExport?: any[]) => {
+    const list = itemsToExport || rows
+    const data = list.map((r) => ({
       'File No.': r.file_number,
       'Payment To': r.payment_to,
       'Payee Name': r.payee_name,
@@ -384,7 +417,8 @@ export default function PaymentOutPage() {
     XLSX.writeFile(wb, `PaymentOut_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
-  const exportPDF = () => {
+  const exportPDF = (itemsToExport?: any[]) => {
+    const list = itemsToExport || rows
     const doc = new jsPDF({ orientation: 'landscape' })
     const today = new Date().toLocaleDateString('en-IN')
 
@@ -392,7 +426,7 @@ export default function PaymentOutPage() {
     doc.text('Payment OUT Report', 14, 15)
     doc.setFontSize(10)
     doc.setTextColor(120)
-    doc.text(`Generated on: ${today} | Total records: ${rows.length}`, 14, 22)
+    doc.text(`Generated on: ${today} | Total records: ${list.length}`, 14, 22)
     doc.setTextColor(0)
 
     autoTable(doc, {
@@ -400,7 +434,7 @@ export default function PaymentOutPage() {
       head: [
         ['File No.', 'Payment To', 'Payee Name', 'Amount (₹)', 'Mode', 'Date', 'Cheque / UTR'],
       ],
-      body: rows.map((r) => [
+      body: list.map((r) => [
         r.file_number,
         r.payment_to,
         r.payee_name,
@@ -465,19 +499,13 @@ export default function PaymentOutPage() {
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
         </div>
-        <button
-          className="btn btn-outline btn-sm"
-          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
-          onClick={exportExcel}
-        >
-          <FileSpreadsheet size={14} /> Export Excel
+        <button className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => handleOpenExport('excel')} disabled={exportLoading}>
+          <FileSpreadsheet size={14} /> {exportLoading && exportMode === 'excel' ? 'Loading...' : 'Export Excel'}
         </button>
-        <button
-          className="btn btn-outline btn-sm"
-          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
-          onClick={exportPDF}
-        >
-          <FileDown size={14} /> Export PDF
+        <button className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => handleOpenExport('pdf')} disabled={exportLoading}>
+          <FileDown size={14} /> {exportLoading && exportMode === 'pdf' ? 'Loading...' : 'Export PDF'}
         </button>
         <div className="pay-filter-group">
           <span className="pay-filter-label">Mode</span>
@@ -979,6 +1007,42 @@ export default function PaymentOutPage() {
           </div>
         </div>
       )}
+
+      <SelectiveExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Select Outward Payments to Export"
+        rows={exportRows}
+        getRecordName={(r) => `${r.payee_name} (${r.payment_to}) — File: ${r.file_number}`}
+        getRecordIdentifier={(r) => r.id}
+        mode={exportMode}
+        onExportExcel={exportExcel}
+        onExportTable={exportPDF}
+        onExportZip={async (selected) => {
+          await exportDetailPDFsAsZip(
+            `payment_out_details_${new Date().toISOString().slice(0, 10)}`,
+            selected,
+            (r) => [
+              { label: 'File Number', value: r.file_number },
+              { label: 'Payment To', value: r.payment_to },
+              { label: 'Payee Name', value: r.payee_name },
+              { label: 'Amount Outward', value: fmtINR(r.amount) },
+              { label: 'Payment Mode', value: r.payment_mode },
+              { label: 'Payment Date', value: r.payment_date },
+              { label: 'Company Bank', value: companyBanks.find(b => b.id === r.company_bank_id)?.label ?? r.company_bank_label ?? '—' },
+              { label: 'Cheque Number', value: r.cheque_no || '—' },
+              { label: 'Cheque Date', value: r.cheque_date || '—' },
+              { label: 'Cheque Bank Name', value: r.cheque_bank_name || '—' },
+              { label: 'Branch Name', value: r.branch_name || '—' },
+              { label: 'UTR Number', value: r.utr_no || '—' },
+              { label: 'Remarks', value: r.remarks || '—' }
+            ],
+            (r) => `payment_out_${r.file_number || 'file'}_${r.payee_name || ''}`,
+            'Payment OUT Voucher',
+            'Voucher'
+          );
+        }}
+      />
     </>
   )
 }

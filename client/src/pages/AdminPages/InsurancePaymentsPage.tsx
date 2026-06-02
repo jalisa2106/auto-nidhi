@@ -4,11 +4,15 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import {
   ShieldAlert, IndianRupee, CalendarClock, Plus, X, Eye, Trash2, Pencil,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw, AlertTriangle
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw, AlertTriangle,
+  FileSpreadsheet, FileDown
 } from 'lucide-react'
 import { message } from 'antd' 
 import { insurancePaymentsApi, filesApi, bankAccountsApi, insuranceCompaniesApi } from '../../api/services'
 import PageHeader from '../../components/app/PageHeader'
+import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
+import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
+
 
 const SYSTEM_ANCHOR_DATE = "2026-05-26" 
 const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
@@ -51,6 +55,8 @@ export default function InsurancePaymentsPage() {
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
 
   const [form, setForm] = useState<InsurancePaymentForm>({
     file_id: '', insurance_company_id: '', amount: '', mode: 'UPI',
@@ -146,8 +152,8 @@ export default function InsurancePaymentsPage() {
   const activeCount = rows.filter(r => !r.is_deleted && evalPolicyStatus(r.valid_to) === 'Active').length
   const expiredCount = rows.filter(r => !r.is_deleted && evalPolicyStatus(r.valid_to) === 'Expired').length
 
-  const buildExportData = () =>
-    processedLedgerRows.map((r) => ({
+  const buildExportData = (itemsToExport?: any[]) =>
+    (itemsToExport || processedLedgerRows).map((r) => ({
       ID: r.id || r.insurance_payment_id || '—',
       'File No.': r.file_number,
       'Insurance Company': r.payee_name || r.insurance_company_name || '—',
@@ -159,15 +165,15 @@ export default function InsurancePaymentsPage() {
       Remarks: r.remarks ?? '',
     }))
 
-  const handleExportExcel = () => {
-    const data = buildExportData()
+  const handleExportExcel = (itemsToExport?: any[]) => {
+    const data = buildExportData(itemsToExport)
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Insurance Payments')
     XLSX.writeFile(wb, `insurance_payments_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = (itemsToExport?: any[]) => {
     const doc = new jsPDF({ orientation: 'landscape' })
     const today = new Date().toLocaleDateString('en-IN')
 
@@ -175,10 +181,11 @@ export default function InsurancePaymentsPage() {
     doc.text('Insurance Payments Report', 14, 15)
     doc.setFontSize(10)
     doc.setTextColor(120)
-    doc.text(`Generated on: ${today}`, 14, 22)
+    const list = itemsToExport || processedLedgerRows
+    doc.text(`Generated on: ${today} | Total records: ${list.length}`, 14, 22)
     doc.setTextColor(0)
 
-    const data = buildExportData()
+    const data = buildExportData(itemsToExport)
     autoTable(doc, {
       startY: 28,
       head: [['ID', 'File No.', 'Insurance Company', 'Amount (₹)', 'Mode', 'Payment Date', 'Valid Until', 'Policy Status']],
@@ -401,7 +408,7 @@ export default function InsurancePaymentsPage() {
         )}
         <button
           className="btn btn-outline btn-sm"
-          onClick={handleExportExcel}
+          onClick={() => { setExportMode('excel'); setExportModalOpen(true); }}
           style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
           onMouseEnter={e => {
             const b = e.currentTarget as HTMLButtonElement
@@ -413,18 +420,13 @@ export default function InsurancePaymentsPage() {
             b.style.background = '#fff'
             b.style.borderColor = 'var(--gray-200)'
           }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="12" y1="18" x2="12" y2="12" />
-            <line x1="9" y1="15" x2="15" y2="15" />
-          </svg>
+          <FileSpreadsheet size={14} />
           Export Excel
         </button>
 
         <button
           className="btn btn-outline btn-sm"
-          onClick={handleExportPDF}
+          onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }}
           style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
           onMouseEnter={e => {
             const b = e.currentTarget as HTMLButtonElement
@@ -436,12 +438,7 @@ export default function InsurancePaymentsPage() {
             b.style.background = '#fff'
             b.style.borderColor = 'var(--gray-200)'
           }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="9" y1="13" x2="15" y2="13" />
-            <line x1="9" y1="17" x2="15" y2="17" />
-          </svg>
+          <FileDown size={14} />
           Export PDF
         </button>
         {isAdmin && (
@@ -930,6 +927,44 @@ export default function InsurancePaymentsPage() {
           </div>
         </div>
       )}
+
+      <SelectiveExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Select Insurance Payments to Export"
+        rows={processedLedgerRows}
+        getRecordName={(r) => `${r.payee_name || r.insurance_company_name || '—'} (File: ${r.file_number || '—'})`}
+        getRecordIdentifier={(r) => r.id || r.insurance_payment_id || ''}
+        mode={exportMode}
+        onExportExcel={handleExportExcel}
+        onExportTable={handleExportPDF}
+        onExportZip={async (selected) => {
+          await exportDetailPDFsAsZip(
+            `insurance_payments_details_${new Date().toISOString().slice(0, 10)}`,
+            selected,
+            (r) => [
+              { label: 'Payment ID', value: r.id || r.insurance_payment_id || '—' },
+              { label: 'File Number', value: r.file_number || '—' },
+              { label: 'Insurance Company', value: r.payee_name || r.insurance_company_name || '—' },
+              { label: 'Premium Amount', value: '₹' + Number(r.amount || 0).toLocaleString('en-IN') },
+              { label: 'Payment Mode', value: r.mode },
+              { label: 'Payment Date', value: r.payment_date || '—' },
+              { label: 'Policy Expiry (Valid To)', value: r.valid_to || '—' },
+              { label: 'Policy Status', value: evalPolicyStatus(r.valid_to).toUpperCase() },
+              { label: 'Company Bank Account', value: companyBanks.find(b => b.id === r.company_bank_id)?.bank_name || '—' },
+              { label: 'Cheque/DD No.', value: r.cheque_no || '—' },
+              { label: 'Cheque/DD Date', value: r.cheque_date || '—' },
+              { label: 'Cheque Bank Name', value: r.cheque_bank_name || '—' },
+              { label: 'Branch Name', value: r.branch_name || '—' },
+              { label: 'UTR / Reference No.', value: r.utr_no || '—' },
+              { label: 'Remarks', value: r.remarks || '—' }
+            ],
+            (r) => `insurance_${r.file_number || 'file'}_${r.payee_name || r.insurance_company_name || ''}`,
+            'Insurance Payment Voucher',
+            'Voucher'
+          )
+        }}
+      />
     </>
   )
 }

@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  TrendingDown, IndianRupee, CalendarClock, Plus, X, Eye, Pencil, Trash2,
+  TrendingDown, IndianRupee, Plus, X, Eye, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
-  FileSpreadsheet, FileDown,
+  FileSpreadsheet, FileDown, CalendarClock,
 } from 'lucide-react'
 import { message, Select } from 'antd'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
-import { commissionsOutApi, filesApi, bankAccountsApi, usersSettingsApi, brokersApi, dealersApi } from '../../api/services'
+import { filesApi, bankAccountsApi, usersSettingsApi, brokersApi, dealersApi, commissionsOutApi } from '../../api/services'
+import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
+import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 type CommissionOut = {
@@ -159,6 +161,8 @@ export default function CommissionOutPage() {
   const [companyBanks, setCompanyBanks] = useState<{ id: string; label: string }[]>([])
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<CommissionOut | null>(null)
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf');
   const [editRow, setEditRow]   = useState<CommissionOut | null>(null)
   const [editForm, setEditForm] = useState({ ...EMPTY_FORM })
   const [form, setForm]         = useState({ ...EMPTY_FORM })
@@ -397,8 +401,9 @@ export default function CommissionOutPage() {
     setFilterDateFrom(''); setFilterDateTo(''); setPage(1)
   }
 
-  const exportExcel = () => {
-    const data = filtered.map((r) => ({
+  const exportExcel = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filtered
+    const data = list.map((r) => ({
       'File No.': r.file_number,
       'Payee Type': r.payee_type,
       'Payee Name': r.payee_name,
@@ -422,7 +427,8 @@ export default function CommissionOutPage() {
     XLSX.writeFile(wb, `CommissionOut_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
-  const exportPDF = () => {
+  const exportPDF = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filtered
     const doc = new jsPDF({ orientation: 'landscape' })
     const today = new Date().toLocaleDateString('en-IN')
 
@@ -430,7 +436,7 @@ export default function CommissionOutPage() {
     doc.text('Commission OUT Report', 14, 15)
     doc.setFontSize(10)
     doc.setTextColor(120)
-    doc.text(`Generated on: ${today} | Total records: ${filtered.length}`, 14, 22)
+    doc.text(`Generated on: ${today} | Total records: ${list.length}`, 14, 22)
     doc.setTextColor(0)
 
     autoTable(doc, {
@@ -438,7 +444,7 @@ export default function CommissionOutPage() {
       head: [
         ['File No.', 'Payee Type', 'Payee Name', 'Amount (₹)', 'Status', 'TDS', 'Mode', 'Date', 'Cheque / UTR'],
       ],
-      body: filtered.map((r) => [
+      body: list.map((r) => [
         r.file_number,
         r.payee_type,
         r.payee_name,
@@ -508,18 +514,12 @@ export default function CommissionOutPage() {
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
         </div>
-        <button
-          className="btn btn-outline btn-sm"
-          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
-          onClick={exportExcel}
-        >
+        <button className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => { setExportMode('excel'); setExportModalOpen(true); }}>
           <FileSpreadsheet size={14} /> Export Excel
         </button>
-        <button
-          className="btn btn-outline btn-sm"
-          style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
-          onClick={exportPDF}
-        >
+        <button className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }}>
           <FileDown size={14} /> Export PDF
         </button>
         <div className="pay-filter-group">
@@ -718,9 +718,9 @@ export default function CommissionOutPage() {
                       style={{ width: '100%', height: 42 }}
                       placeholder="Search or type payee name…"
                       value={form.payee_name || undefined}
-                      onChange={(val) => updateForm('payee_name', val)}
-                      onSearch={(val) => updateForm('payee_name', val)}
-                      filterOption={(input, option) =>
+                      onChange={(val: string) => updateForm('payee_name', val)}
+                      onSearch={(val: string) => updateForm('payee_name', val)}
+                      filterOption={(input: string, option: any) =>
                         (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                       }
                       status={errors.payee_name ? 'error' : undefined}
@@ -1090,6 +1090,40 @@ export default function CommissionOutPage() {
           </div>
         </div>
       )}
+
+      <SelectiveExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Select Outward Commissions to Export"
+        rows={filtered}
+        getRecordName={(r) => `${r.payee_name} (${r.payee_type}) — File: ${r.file_number}`}
+        getRecordIdentifier={(r) => r.id}
+        mode={exportMode}
+        onExportExcel={exportExcel}
+        onExportTable={exportPDF}
+        onExportZip={async (selected) => {
+          await exportDetailPDFsAsZip(
+            `commission_out_details_${new Date().toISOString().slice(0, 10)}`,
+            selected,
+            (r) => [
+              { label: 'File Number', value: r.file_number },
+              { label: 'Payee Type', value: r.payee_type },
+              { label: 'Payee Name', value: r.payee_name },
+              { label: 'Commission Amount', value: fmtINR(r.amount) },
+              { label: 'Payment Status', value: r.advance ? 'Advance Payment' : 'Final Payment' },
+              { label: 'TDS Deducted', value: r.tds_deducted ? 'Yes' : 'No' },
+              { label: 'Payment Mode', value: r.mode },
+              { label: 'Payment Date', value: r.payment_date },
+              { label: 'Company Bank Account', value: companyBanks.find(b => b.id === r.company_bank_id)?.label ?? r.company_bank_label ?? '—' },
+              { label: 'Cheque/Ref Number', value: r.cheque_no || r.utr_no || '—' },
+              { label: 'Remarks', value: r.remarks || '—' }
+            ],
+            (r) => `commission_out_${r.file_number || 'file'}_${r.payee_name || ''}`,
+            'Commission OUT Voucher',
+            'Voucher'
+          );
+        }}
+      />
     </>
   )
 }
