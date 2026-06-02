@@ -101,16 +101,16 @@ export default function Home() {
 
             <div className="hero-stats">
               <div className="hero-stat">
-                <div className="hero-stat-value">10K+</div>
-                <div className="hero-stat-label">Files Managed</div>
+                <div className="hero-stat-value">248</div>
+                <div className="hero-stat-label">Active Files</div>
               </div>
               <div className="hero-stat">
-                <div className="hero-stat-value">₹500Cr+</div>
-                <div className="hero-stat-label">Loans Processed</div>
+                <div className="hero-stat-value">₹42L</div>
+                <div className="hero-stat-label">Commission In</div>
               </div>
               <div className="hero-stat">
-                <div className="hero-stat-value">99.9%</div>
-                <div className="hero-stat-label">Uptime</div>
+                <div className="hero-stat-value">96</div>
+                <div className="hero-stat-label">Disbursed</div>
               </div>
             </div>
           </div>
