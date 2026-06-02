@@ -230,7 +230,7 @@ Remarks: ${remarks || 'None'}`,
               <input type="text" placeholder="Search by Policy No., Insurer..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} disabled={loading} style={{ background: 'none', border: 'none', outline: 'none', fontSize: 13, width: '100%' }} />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} disabled={loading} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 10px', fontSize: '0.8rem', fontWeight: 600 }}>
+              <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value as any); setPage(1); }} disabled={loading} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 10px', fontSize: '0.8rem', fontWeight: 600 }}>
                 <option value="all">All Items</option>
                 <option value="active">Active</option>
                 <option value="expiring">Expiring</option>

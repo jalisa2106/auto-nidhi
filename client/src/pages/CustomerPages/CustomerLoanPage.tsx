@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import {
   CheckCircle2, Clock, AlertTriangle,
-  PlusCircle, ClipboardList, TrendingUp, IndianRupee, Loader2
+  PlusCircle, ClipboardList, TrendingUp, IndianRupee, Loader2,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import { filesApi, notificationsApi } from '../../api/services'
@@ -37,6 +38,50 @@ function LoanStatusBadge({ status }: { status?: string }) {
   )
 }
 
+function Pagination({
+  total, page, pageSize, onPage, onPageSize,
+}: {
+  total: number; page: number; pageSize: number
+  onPage: (p: number) => void; onPageSize: (s: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const start = total === 0 ? 0 : Math.min((page - 1) * pageSize + 1, total)
+  const end = Math.min(page * pageSize, total)
+  const pages: (number | '...')[] = []
+
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (page > 3) pages.push('...')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
+    if (page < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+  }
+
+  return (
+    <div className="pagination-bar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="pagination-info">Showing {start}-{end} of {total} records</span>
+        <select className="page-size-select" value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}>
+          {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
+        </select>
+      </div>
+      <div className="pagination-controls">
+        <button className="page-btn" onClick={() => onPage(1)} disabled={page === 1} title="First"><ChevronsLeft size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} title="Prev"><ChevronLeft size={14} /></button>
+        {pages.map((p, i) => p === '...' ? (
+          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>...</span>
+        ) : (
+          <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => onPage(p as number)}>{p}</button>
+        ))}
+        <button className="page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages} title="Next"><ChevronRight size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(totalPages)} disabled={page === totalPages} title="Last"><ChevronsRight size={14} /></button>
+      </div>
+    </div>
+  )
+}
+
 export default function CustomerLoanPage() {
   // ─── 🔌 CORE BACKEND STATE ENGINES ───
   const [loanFiles, setLoanFiles] = useState<any[]>([])
@@ -46,6 +91,9 @@ export default function CustomerLoanPage() {
   // Search & Filter state
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
 
   // Request wizard states
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -99,6 +147,11 @@ export default function CustomerLoanPage() {
       return matchesSearch && matchesStatus
     })
   }, [loanFiles, search, statusFilter])
+
+  const safePage = Math.min(page, Math.max(1, Math.ceil(filteredRecords.length / pageSize)))
+  const pageRows = useMemo(() => {
+    return filteredRecords.slice((safePage - 1) * pageSize, safePage * pageSize)
+  }, [filteredRecords, safePage, pageSize])
 
   // Real-time server metrics computations
   const stats = useMemo(() => {
@@ -228,7 +281,7 @@ Customer Submissions Remarks: ${remarks || 'None'}`,
                 type="text"
                 placeholder="Search by File No. or Bank..."
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={e => { setSearch(e.target.value); setPage(1); }}
                 disabled={loading}
                 style={{ background: 'none', border: 'none', outline: 'none', fontSize: 13, width: '100%', color: 'var(--gray-800)' }}
               />
@@ -237,7 +290,7 @@ Customer Submissions Remarks: ${remarks || 'None'}`,
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <select 
                 value={statusFilter} 
-                onChange={e => setStatusFilter(e.target.value)}
+                onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
                 disabled={loading}
                 style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 10px', fontSize: '0.8rem', fontWeight: 600, outline: 'none', color: '#475569' }}
               >
@@ -277,42 +330,51 @@ Customer Submissions Remarks: ${remarks || 'None'}`,
             )}
 
             {!loading && !backendError && filteredRecords.length > 0 && (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>File Number</th>
-                      <th>Bank Name</th>
-                      <th>Loan Amount</th>
-                      <th>Status</th>
-                      <th style={{ textAlign: 'right' }}>Date Created</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRecords.map(rec => (
-                      <tr key={rec.id}>
-                        <td>
-                          <div style={{ fontWeight: 700, color: 'var(--brand-700)', fontFamily: 'monospace' }}>
-                            {rec.file_number}
-                          </div>
-                        </td>
-                        <td style={{ fontSize: '0.84rem', color: '#1e293b', fontWeight: 600 }}>
-                          {rec.finance_bank || '—'}
-                        </td>
-                        <td style={{ fontSize: '0.84rem', color: '#1e293b', fontWeight: 700 }}>
-                          ₹{(rec.finance_amount || 0).toLocaleString('en-IN')}
-                        </td>
-                        <td>
-                          <LoanStatusBadge status={rec.status} />
-                        </td>
-                        <td style={{ textAlign: 'right', fontSize: '0.8rem', color: '#64748b' }}>
-                          {rec.created_at ? new Date(rec.created_at).toLocaleDateString('en-IN') : '—'}
-                        </td>
+              <>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>File Number</th>
+                        <th>Bank Name</th>
+                        <th>Loan Amount</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: 'right' }}>Date Created</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {pageRows.map(rec => (
+                        <tr key={rec.id}>
+                          <td>
+                            <div style={{ fontWeight: 700, color: 'var(--brand-700)', fontFamily: 'monospace' }}>
+                              {rec.file_number}
+                            </div>
+                          </td>
+                          <td style={{ fontSize: '0.84rem', color: '#1e293b', fontWeight: 600 }}>
+                            {rec.finance_bank || '—'}
+                          </td>
+                          <td style={{ fontSize: '0.84rem', color: '#1e293b', fontWeight: 700 }}>
+                            ₹{(rec.finance_amount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td>
+                            <LoanStatusBadge status={rec.status} />
+                          </td>
+                          <td style={{ textAlign: 'right', fontSize: '0.8rem', color: '#64748b' }}>
+                            {rec.created_at ? new Date(rec.created_at).toLocaleDateString('en-IN') : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination
+                  total={filteredRecords.length}
+                  page={safePage}
+                  pageSize={pageSize}
+                  onPage={setPage}
+                  onPageSize={setPageSize}
+                />
+              </>
             )}
           </div>
         </div>

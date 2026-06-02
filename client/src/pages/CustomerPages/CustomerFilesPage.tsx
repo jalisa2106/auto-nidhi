@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import FileStatusBadge, { type FileStatus as BadgeFileStatus } from '../../components/CustomerPages/FileStatusBadge'
 import api from '../../api/axios'
@@ -21,6 +22,50 @@ type FileStatusFilter = BadgeFileStatus | 'all'
 type FileType = 'new_vehicle' | 'used_vehicle' | 'renewal' | 'all'
 type SortField = 'file_number' | 'created_at' | 'status' | 'assigned_to'
 
+function Pagination({
+  total, page, pageSize, onPage, onPageSize,
+}: {
+  total: number; page: number; pageSize: number
+  onPage: (p: number) => void; onPageSize: (s: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const start = total === 0 ? 0 : Math.min((page - 1) * pageSize + 1, total)
+  const end = Math.min(page * pageSize, total)
+  const pages: (number | '...')[] = []
+
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (page > 3) pages.push('...')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
+    if (page < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+  }
+
+  return (
+    <div className="pagination-bar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="pagination-info">Showing {start}-{end} of {total} records</span>
+        <select className="page-size-select" value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}>
+          {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
+        </select>
+      </div>
+      <div className="pagination-controls">
+        <button className="page-btn" onClick={() => onPage(1)} disabled={page === 1} title="First"><ChevronsLeft size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} title="Prev"><ChevronLeft size={14} /></button>
+        {pages.map((p, i) => p === '...' ? (
+          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>...</span>
+        ) : (
+          <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => onPage(p as number)}>{p}</button>
+        ))}
+        <button className="page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages} title="Next"><ChevronRight size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(totalPages)} disabled={page === totalPages} title="Last"><ChevronsRight size={14} /></button>
+      </div>
+    </div>
+  )
+}
+
 export default function CustomerFilesPage() {
   const navigate = useNavigate()
   const [files, setFiles] = useState<CustomerFile[]>([])
@@ -33,7 +78,7 @@ export default function CustomerFilesPage() {
   const [sortOrder] = useState<'asc' | 'desc'>('desc')
 
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const [pageSize, setPageSize] = useState(5)
 
   useEffect(() => {
     api.get<CustomerFile[]>('/portal/files')
@@ -68,9 +113,8 @@ export default function CustomerFilesPage() {
     return result
   }, [files, searchQuery, statusFilter, typeFilter, sortBy, sortOrder])
 
-  const totalPages = Math.ceil(filteredAndSortedFiles.length / itemsPerPage)
-  const startIdx = (currentPage - 1) * itemsPerPage
-  const paginatedFiles = filteredAndSortedFiles.slice(startIdx, startIdx + itemsPerPage)
+  const startIdx = (currentPage - 1) * pageSize
+  const paginatedFiles = filteredAndSortedFiles.slice(startIdx, startIdx + pageSize)
 
   useEffect(() => { setCurrentPage(1) }, [searchQuery, statusFilter, typeFilter])
 
@@ -111,7 +155,7 @@ export default function CustomerFilesPage() {
       ) : filteredAndSortedFiles.length === 0 ? (
         <div className="data-card"><div className="empty-state"><p className="empty-title">No workspace files mapped matches parameters.</p></div></div>
       ) : (
-        <div className="data-card">
+        <div className="data-card" style={{ padding: 0, overflow: 'hidden' }}>
           <table className="files-table">
             <thead>
               <tr>
@@ -149,11 +193,13 @@ export default function CustomerFilesPage() {
               ))}
             </tbody>
           </table>
-          {totalPages > 1 && (
-              <div className="pagination-bar" style={{ padding: '16px 24px', borderTop: '1px solid var(--gray-200)' }}>
-                <span className="pagination-info">Total pages: {totalPages} ({filteredAndSortedFiles.length} files found)</span>
-              </div>
-          )}
+          <Pagination
+            total={filteredAndSortedFiles.length}
+            page={currentPage}
+            pageSize={pageSize}
+            onPage={setCurrentPage}
+            onPageSize={setPageSize}
+          />
         </div>
       )}
     </>
