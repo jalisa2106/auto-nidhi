@@ -1,5 +1,6 @@
 import secrets
 import datetime
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional
@@ -15,7 +16,7 @@ router = APIRouter()
 reset_tokens: dict = {}
 
 TOKEN_EXPIRY_MINUTES = 60  # 1 hour
-
+IS_DEV = os.getenv("APP_ENV", "production").lower() in {"dev", "development", "local"}
 
 # ── Pydantic Models ──────────────────────────────────────────────────────────
 
@@ -53,11 +54,15 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
         # In production: send email with reset link here
         # For now: return the token directly for testing
-        return {
+        response = {
             "message": "If an account exists with this email, you will receive reset instructions.",
-            "debug_token": token,  # REMOVE this line in production
-            "debug_email": user.email,  # REMOVE this line in production
         }
+
+        if IS_DEV:
+            response["debug_token"] = token
+            response["debug_email"] = user.email
+
+        return response
 
     # User not found — still return 200 (don't reveal existence)
     return {
