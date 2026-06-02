@@ -8,6 +8,7 @@ import { message } from 'antd'
 import PageHeader from '../../components/app/PageHeader'
 import { financeBanksApi } from '../../api/services'
 import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
+import { FilterExportOptionsModal } from '../../components/app/FilterExportOptionsModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FinanceBank {
@@ -93,6 +94,9 @@ export default function FinanceBanksPage() {
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(5)
 
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
+
   const loadBanks = async () => {
     setLoading(true)
     try {
@@ -126,17 +130,17 @@ export default function FinanceBanksPage() {
   }
 
   // ── Export Excel
-  const exportExcel = async () => {
+  const exportExcel = async (scope: 'filtered' | 'all') => {
     try {
       message.loading({ content: 'Preparing Excel export...', key: 'export' })
-      const res = await financeBanksApi.list(1, 100000, search)
-      const allMatchingRows = res.data || []
+      const res = await financeBanksApi.list(1, 100000, scope === 'filtered' ? search : '')
+      const targetRows = res.data || []
       
       exportToExcel({
         filename: `finance_banks_${new Date().toISOString().slice(0, 10)}`,
         sheetName: 'Finance Banks',
         columns: exportColumns,
-        data: getExportData(allMatchingRows)
+        data: getExportData(targetRows)
       })
 
       message.success({ content: 'Excel exported successfully!', key: 'export' })
@@ -146,17 +150,17 @@ export default function FinanceBanksPage() {
   }
 
   // ── Export PDF
-  const exportPDF = async () => {
+  const exportPDF = async (scope: 'filtered' | 'all') => {
     try {
       message.loading({ content: 'Preparing PDF export...', key: 'export' })
-      const res = await financeBanksApi.list(1, 100000, search)
-      const allMatchingRows = res.data || []
+      const res = await financeBanksApi.list(1, 100000, scope === 'filtered' ? search : '')
+      const targetRows = res.data || []
       
       exportToPDF({
         filename: `finance_banks_${new Date().toISOString().slice(0, 10)}`,
         title: 'Finance Banks Report',
         columns: exportColumns,
-        data: getExportData(allMatchingRows),
+        data: getExportData(targetRows),
         orientation: 'portrait'
       })
 
@@ -288,7 +292,7 @@ export default function FinanceBanksPage() {
             <RotateCcw size={13} style={{ marginRight: 4 }} />Reset
           </button>
         )}
-        <button className="btn btn-outline btn-sm" onClick={exportExcel} style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px' }}>
+        <button className="btn btn-outline btn-sm" onClick={() => { setExportMode('excel'); setExportModalOpen(true); }} style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
@@ -297,7 +301,7 @@ export default function FinanceBanksPage() {
           </svg>
           Export Excel
         </button>
-        <button className="btn btn-outline btn-sm" onClick={exportPDF} style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px' }}>
+        <button className="btn btn-outline btn-sm" onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }} style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
@@ -565,6 +569,21 @@ export default function FinanceBanksPage() {
           </div>
         </div>
       )}
+
+      <FilterExportOptionsModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Finance Banks Export"
+        mode={exportMode}
+        onExportFiltered={() => {
+          if (exportMode === 'pdf') exportPDF('filtered')
+          else exportExcel('filtered')
+        }}
+        onExportAll={() => {
+          if (exportMode === 'pdf') exportPDF('all')
+          else exportExcel('all')
+        }}
+      />
     </>
   )
 }

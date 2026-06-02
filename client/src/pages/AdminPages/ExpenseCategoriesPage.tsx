@@ -5,6 +5,7 @@ import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
 import { expenseCategoriesApi } from '../../api/services'
 import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
+import { FilterExportOptionsModal } from '../../components/app/FilterExportOptionsModal'
 
 interface ExpenseCategory {
   id: string
@@ -31,6 +32,9 @@ export default function ExpenseCategoriesPage() {
   const [editCategoryName, setEditCategoryName] = useState('')
   
   const [error, setError] = useState<string | null>(null)
+  const [filteredRows, setFilteredRows] = useState<ExpenseCategory[]>([])
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
 
   const loadCategories = async () => {
     setLoading(true)
@@ -110,28 +114,30 @@ export default function ExpenseCategoriesPage() {
     { header: 'Category Name', dataKey: 'name' }
   ]
 
-  const getExportData = () => {
-    return categories.map((c) => ({
+  const getExportData = (items: ExpenseCategory[]) => {
+    return items.map((c) => ({
       ...c,
       formattedId: formatCategoryId(c.id)
     }))
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = (scope: 'filtered' | 'all') => {
+    const items = scope === 'filtered' ? filteredRows : categories
     exportToExcel({
       filename: `expense_categories_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Categories',
       columns: exportColumns,
-      data: getExportData()
+      data: getExportData(items)
     })
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = (scope: 'filtered' | 'all') => {
+    const items = scope === 'filtered' ? filteredRows : categories
     exportToPDF({
       filename: `expense_categories_${new Date().toISOString().slice(0, 10)}`,
       title: 'Expense Categories Report',
       columns: exportColumns,
-      data: getExportData(),
+      data: getExportData(items),
       orientation: 'portrait'
     })
   }
@@ -143,7 +149,7 @@ export default function ExpenseCategoriesPage() {
         <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
           <button
             type="button"
-            onClick={handleExportExcel}
+            onClick={() => { setExportMode('excel'); setExportModalOpen(true); }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-1)')}
             onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
@@ -151,7 +157,7 @@ export default function ExpenseCategoriesPage() {
           </button>
           <button
             type="button"
-            onClick={handleExportPDF}
+            onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: '#fff', color: 'var(--gray-700)', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-1)')}
             onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
@@ -202,6 +208,7 @@ export default function ExpenseCategoriesPage() {
           setAddOpen(true)
         }}
         addLabel="Add category"
+        onFilteredChange={setFilteredRows}
         columns={[
           {
             key: 'id',
@@ -336,6 +343,21 @@ export default function ExpenseCategoriesPage() {
           </div>
         </div>
       </Modal>
+
+      <FilterExportOptionsModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Expense Categories Export"
+        mode={exportMode}
+        onExportFiltered={() => {
+          if (exportMode === 'pdf') handleExportPDF('filtered')
+          else handleExportExcel('filtered')
+        }}
+        onExportAll={() => {
+          if (exportMode === 'pdf') handleExportPDF('all')
+          else handleExportExcel('all')
+        }}
+      />
     </div>
   )
 }

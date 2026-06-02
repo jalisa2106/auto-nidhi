@@ -6,6 +6,7 @@ import DataTable from '../../components/app/DataTable'
 import Modal from '../../components/app/Modal'
 import { insuranceTypesApi } from '../../api/services'
 import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
+import { FilterExportOptionsModal } from '../../components/app/FilterExportOptionsModal'
 
 interface InsuranceType {
   id: string
@@ -20,28 +21,32 @@ export default function InsuranceTypesPage() {
   const [editRow, setEditRow] = useState<InsuranceType | null>(null)
   const [typeName, setTypeName] = useState('')
   const [saving, setSaving]   = useState(false)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
 
   const exportColumns: ColumnDefinition[] = [
     { header: 'Insurance Type Name', dataKey: 'insurance_type_name' }
   ]
 
   // ── Export Excel
-  const exportExcel = () => {
+  const exportExcel = (scope: 'filtered' | 'all') => {
+    const items = scope === 'filtered' ? filteredRows : rows
     exportToExcel({
       filename: `insurance_types_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Insurance Types',
       columns: exportColumns,
-      data: filteredRows
+      data: items
     })
   }
 
   // ── Export PDF
-  const exportPDF = () => {
+  const exportPDF = (scope: 'filtered' | 'all') => {
+    const items = scope === 'filtered' ? filteredRows : rows
     exportToPDF({
       filename: `insurance_types_${new Date().toISOString().slice(0, 10)}`,
       title: 'Insurance Types Report',
       columns: exportColumns,
-      data: filteredRows,
+      data: items,
       orientation: 'portrait'
     })
   }
@@ -121,7 +126,7 @@ export default function InsuranceTypesPage() {
         onFilteredChange={setFilteredRows}
         rightSlot={
           <>
-            <button className="btn btn-outline btn-sm" onClick={exportExcel} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <button className="btn btn-outline btn-sm" onClick={() => { setExportMode('excel'); setExportModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
@@ -130,7 +135,7 @@ export default function InsuranceTypesPage() {
               </svg>
               Export Excel
             </button>
-            <button className="btn btn-outline btn-sm" onClick={exportPDF} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <button className="btn btn-outline btn-sm" onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
@@ -207,6 +212,21 @@ export default function InsuranceTypesPage() {
         </div>
         {saving && <p style={{ color: 'var(--gray-400)', fontSize: '.85rem', marginTop: 8 }}>Saving…</p>}
       </Modal>
+
+      <FilterExportOptionsModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Insurance Types Export"
+        mode={exportMode}
+        onExportFiltered={() => {
+          if (exportMode === 'pdf') exportPDF('filtered')
+          else exportExcel('filtered')
+        }}
+        onExportAll={() => {
+          if (exportMode === 'pdf') exportPDF('all')
+          else exportExcel('all')
+        }}
+      />
     </>
   )
 }

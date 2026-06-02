@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  X, Search, Plus,
-  FileText, Banknote, Calendar, CreditCard,
-  Hash, AlignLeft, Building2, Users,
-  TrendingUp, Landmark, Pencil, Trash2,
+  X, Search, Plus, FileText, Banknote, Calendar, CreditCard,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye,
+  Pencil, Trash2, Landmark, Building2, Hash, AlignLeft,
+  FileSpreadsheet, FileDown, Users, TrendingUp
 } from 'lucide-react'
 import Modal from '../../components/app/Modal'
 import { mockDealers, mockBrokers } from '../../lib/mockData'
@@ -13,6 +12,8 @@ import { message } from 'antd'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
+import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
 
 interface RTOPayment {
   id               : string
@@ -166,6 +167,8 @@ export default function RTOPaymentsPage() {
 
   // Modal / Pagination states
   const [viewOpen, setViewOpen] = useState(false)
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf');
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(5)
 
@@ -257,8 +260,9 @@ export default function RTOPaymentsPage() {
   })
 
   // ── Export Excel
-  const exportExcel = () => {
-    const data = filtered.map((r) => ({
+  const exportExcel = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filtered
+    const data = list.map((r) => ({
       'Payment ID': formatPaymentId(r.id),
       'File No.': r.file_number,
       'Payee Name': getPayeeName(r),
@@ -276,7 +280,8 @@ export default function RTOPaymentsPage() {
   }
 
   // ── Export PDF
-  const exportPDF = () => {
+  const exportPDF = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filtered
     const doc = new jsPDF({ orientation: 'landscape' })
     const today = new Date().toLocaleDateString('en-IN')
 
@@ -292,7 +297,7 @@ export default function RTOPaymentsPage() {
       head: [
         ['Payment ID', 'File No.', 'Payee Name', 'Payee Type', 'Amount', 'Mode', 'Date', 'Reference'],
       ],
-      body: filtered.map((r) => [
+      body: list.map((r) => [
         formatPaymentId(r.id),
         r.file_number,
         getPayeeName(r),
@@ -487,30 +492,20 @@ export default function RTOPaymentsPage() {
                   onFocus={e => (e.target.style.borderColor='var(--brand-500)')}
                   onBlur={e  => (e.target.style.borderColor='var(--gray-200)')} />
               </div>
-              <button onClick={exportExcel}
-                style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--gray-200)', background:'#fff', color:'var(--gray-700)', fontSize:'.85rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='var(--gray-550)'; (e.currentTarget as HTMLButtonElement).style.borderColor='var(--gray-300)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='#fff'; (e.currentTarget as HTMLButtonElement).style.borderColor='var(--gray-200)' }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 2 }}>
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="12" y1="18" x2="12" y2="12" />
-                  <line x1="9" y1="15" x2="15" y2="15" />
-                </svg>
-                Export Excel
-              </button>
-              <button onClick={exportPDF}
-                style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--gray-200)', background:'#fff', color:'var(--gray-700)', fontSize:'.85rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='var(--gray-50)'; (e.currentTarget as HTMLButtonElement).style.borderColor='var(--gray-300)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='#fff'; (e.currentTarget as HTMLButtonElement).style.borderColor='var(--gray-200)' }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 2 }}>
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="9" y1="13" x2="15" y2="13" />
-                  <line x1="9" y1="17" x2="15" y2="17" />
-                </svg>
-                Export PDF
-              </button>
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={() => { setExportMode('excel'); setExportModalOpen(true); }}
+                  style={{ display:'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: 'transparent', color: 'var(--gray-700)', fontSize: '.84rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--gray-300)')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--gray-200)')}>
+                  <FileSpreadsheet size={15} /> Export Excel
+                </button>
+                <button onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }}
+                  style={{ display:'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray-200)', background: 'transparent', color: 'var(--gray-700)', fontSize: '.84rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--gray-300)')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--gray-200)')}>
+                  <FileDown size={15} /> Export PDF
+                </button>
+              </div>
               {isAdmin && (
                 <button id="rto-add-btn" onClick={() => { setForm(emptyForm()); setAddOpen(true) }}
                   style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:'var(--radius-sm)', background:'var(--brand-600)', color:'#fff', fontSize:'.85rem', fontWeight:600, cursor:'pointer', border:'none', transition:'background .15s' }}
@@ -774,6 +769,43 @@ export default function RTOPaymentsPage() {
           <FormField label="Remarks"><textarea className="form-input" rows={2} value={form.remarks} onChange={f('remarks')} style={{ resize:'vertical' }} /></FormField>
         </div>
       </Modal>
+
+      <SelectiveExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Select RTO Payments to Export"
+        rows={filtered}
+        getRecordName={(r) => `${getPayeeName(r)} (${getPayeeType(r)}) — File: ${r.file_number}`}
+        getRecordIdentifier={(r) => r.id}
+        mode={exportMode}
+        onExportExcel={exportExcel}
+        onExportTable={exportPDF}
+        onExportZip={async (selected) => {
+          await exportDetailPDFsAsZip(
+            `rto_payments_details_${new Date().toISOString().slice(0, 10)}`,
+            selected,
+            (r) => [
+              { label: 'Payment ID', value: formatPaymentId(r.id) },
+              { label: 'File Number', value: r.file_number },
+              { label: 'Payment Date', value: r.payment_date },
+              { label: 'Payment Mode', value: r.payment_mode.toUpperCase() },
+              { label: 'Amount', value: `₹${r.amount.toLocaleString('en-IN')}` },
+              { label: 'Bank Account No.', value: r.bank_account_no || '—' },
+              { label: 'IFSC Code', value: r.ifsc_code || '—' },
+              { label: 'Branch', value: r.branch_name || '—' },
+              { label: 'Cheque Bank', value: r.cheque_bank_name || '—' },
+              { label: 'Cheque No.', value: r.cheque_no || '—' },
+              { label: 'Cheque Date', value: r.cheque_date || '—' },
+              { label: 'Cheque Amount', value: r.cheque_amount ? `₹${r.cheque_amount.toLocaleString('en-IN')}` : '—' },
+              { label: 'UTR / Ref No.', value: r.utr_no || '—' },
+              { label: 'Remarks', value: r.remarks || '—' }
+            ],
+            (r) => `rto_payment_${r.file_number || 'file'}_${getPayeeName(r) || ''}`,
+            'RTO Payment Details',
+            'Payment'
+          );
+        }}
+      />
     </div>
   )
 }

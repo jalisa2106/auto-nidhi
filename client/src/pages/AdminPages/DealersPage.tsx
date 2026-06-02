@@ -8,6 +8,7 @@ import {
 import { exportToExcel, exportToPDF, type ColumnDefinition } from '../../utils/exportUtils'
 import PageHeader from '../../components/app/PageHeader'
 import { dealersApi } from '../../api/services'
+import { FilterExportOptionsModal } from '../../components/app/FilterExportOptionsModal'
 
 // ─── TYPES & CONTRACT BOUNDARIES ──────────────────────────────────────────
 interface Dealer {
@@ -54,6 +55,9 @@ export default function DealersPage() {
   // Pagination Registers
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
+
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
 
   // ─── DATA FETCHING ───
   const loadDealers = async () => {
@@ -102,8 +106,8 @@ export default function DealersPage() {
     { header: 'Status', dataKey: 'status' }
   ]
 
-  const getExportData = () => {
-    return processedRows.map((r) => ({
+  const getExportData = (items: Dealer[]) => {
+    return items.map((r) => ({
       ...r,
       formattedId: formatDealerId(r.id),
       showroom_name: r.showroom_name || '—',
@@ -115,21 +119,23 @@ export default function DealersPage() {
     }))
   }
 
-  const exportExcel = () => {
+  const exportExcel = (scope: 'filtered' | 'all') => {
+    const items = scope === 'filtered' ? processedRows : rows.filter(r => !r.is_deleted)
     exportToExcel({
       filename: `dealers_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Dealers',
       columns: exportColumns,
-      data: getExportData()
+      data: getExportData(items)
     })
   }
 
-  const exportPDF = () => {
+  const exportPDF = (scope: 'filtered' | 'all') => {
+    const items = scope === 'filtered' ? processedRows : rows.filter(r => !r.is_deleted)
     exportToPDF({
       filename: `dealers_${new Date().toISOString().slice(0, 10)}`,
       title: 'Dealers Report',
       columns: exportColumns,
-      data: getExportData(),
+      data: getExportData(items),
       orientation: 'landscape'
     })
   }
@@ -274,10 +280,10 @@ export default function DealersPage() {
             <RotateCcw size={13} style={{ marginRight: 4 }} />Reset
           </button>
         )}
-        <button className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6 }} onClick={exportExcel}>
+        <button className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => { setExportMode('excel'); setExportModalOpen(true); }}>
           <FileSpreadsheet size={14} /> Export Excel
         </button>
-        <button className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6 }} onClick={exportPDF}>
+        <button className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }}>
           <FileDown size={14} /> Export PDF
         </button>
         <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }} onClick={() => { setForm(INITIAL_FORM_STATE); setErrors({}); setShowAdd(true); }}>
@@ -498,6 +504,21 @@ export default function DealersPage() {
           </div>
         </div>
       )}
+
+      <FilterExportOptionsModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Dealer Directory Export"
+        mode={exportMode}
+        onExportFiltered={() => {
+          if (exportMode === 'pdf') exportPDF('filtered')
+          else exportExcel('filtered')
+        }}
+        onExportAll={() => {
+          if (exportMode === 'pdf') exportPDF('all')
+          else exportExcel('all')
+        }}
+      />
     </>
   )
 }

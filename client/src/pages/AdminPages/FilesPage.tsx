@@ -10,6 +10,8 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { Pencil } from 'lucide-react'
+import { SelectiveExportModal } from "../../components/app/SelectiveExportModal";
+import { exportDetailPDFsAsZip } from "../../utils/zipExportUtils";
 
 const STATUS_COLOR: Record<string, { bg: string; text: string; dot: string }> = {
   draft: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
@@ -46,9 +48,12 @@ export default function FilesPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [banks, setBanks] = useState<any[]>([]);
   const [form, setForm] = useState({ customer_id: '', bank_id: '', file_type: '', status: '', remarks: '' });
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf');
 
-  const exportExcel = () => {
-    const data = filteredRows.map((r) => ({
+  const exportExcel = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filteredRows
+    const data = list.map((r) => ({
       'File #': r.file_number,
       'Customer': r.customer,
       'Type': r.type ? r.type.split('_').map((part: string) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') : '',
@@ -63,7 +68,8 @@ export default function FilesPage() {
     XLSX.writeFile(wb, `files_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
-  const exportPDF = () => {
+  const exportPDF = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filteredRows
     const doc = new jsPDF({ orientation: 'landscape' })
     const today = new Date().toLocaleDateString('en-IN')
 
@@ -79,7 +85,7 @@ export default function FilesPage() {
       head: [
         ['File #', 'Customer', 'Type', 'Status', 'Bank', 'Assigned', 'Created'],
       ],
-      body: filteredRows.map((r) => [
+      body: list.map((r) => [
         r.file_number,
         r.customer,
         r.type ? r.type.split('_').map((part: string) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') : '',
@@ -251,7 +257,7 @@ export default function FilesPage() {
         onFilteredChange={setFilteredRows}
         rightSlot={
           <>
-            <button className="btn btn-outline btn-sm" onClick={exportExcel} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <button className="btn btn-outline btn-sm" onClick={() => { setExportMode('excel'); setExportModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
@@ -260,7 +266,7 @@ export default function FilesPage() {
               </svg>
               Export Excel
             </button>
-            <button className="btn btn-outline btn-sm" onClick={exportPDF} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <button className="btn btn-outline btn-sm" onClick={() => { setExportMode('pdf'); setExportModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
@@ -401,6 +407,37 @@ export default function FilesPage() {
           </div>
         </div>
       </Modal>
+
+      <SelectiveExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Select Files to Export"
+        rows={filteredRows}
+        getRecordName={(r) => r.file_number || 'File'}
+        getRecordIdentifier={(r) => r.id}
+        mode={exportMode}
+        onExportExcel={exportExcel}
+        onExportTable={exportPDF}
+        onExportZip={async (selected) => {
+          await exportDetailPDFsAsZip(
+            `files_details_${new Date().toISOString().slice(0, 10)}`,
+            selected,
+            (r) => [
+              { label: 'File Sequence Number', value: r.file_number },
+              { label: 'Customer Name', value: r.customer },
+              { label: 'File Type', value: r.type ? r.type.split('_').map((part: string) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') : '' },
+              { label: 'Status', value: formatStatus(r.status) },
+              { label: 'Bank Name', value: r.bank },
+              { label: 'Assigned User', value: r.assigned || '—' },
+              { label: 'Created Date', value: r.created },
+              { label: 'Remarks', value: r.remarks || '—' }
+            ],
+            (r) => `${r.file_number || 'File'}_${r.customer || ''}`,
+            'File Profile',
+            'File'
+          );
+        }}
+      />
     </>
   );
 }

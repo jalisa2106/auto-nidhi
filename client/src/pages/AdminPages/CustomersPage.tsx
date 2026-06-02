@@ -9,6 +9,8 @@ import DataTable from "../../components/app/DataTable";
 import Modal from "../../components/app/Modal";
 import { customersApi } from "../../api/services";
 import { message } from 'antd';
+import { SelectiveExportModal } from "../../components/app/SelectiveExportModal";
+import { exportDetailPDFsAsZip } from "../../utils/zipExportUtils";
 
 const normalizeCustomer = (customer: any) => ({
   id: customer.id,
@@ -55,6 +57,8 @@ export default function CustomersPage() {
   const [form, setForm] = useState(emptyForm());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf');
 
   const filteredRows = useMemo(() => {
     if (!search.trim()) return rows;
@@ -71,8 +75,9 @@ export default function CustomersPage() {
     });
   }, [rows, search]);
 
-  const exportExcel = () => {
-    const data = filteredRows.map((r, i) => ({
+  const exportExcel = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filteredRows;
+    const data = list.map((r, i) => ({
       '#': i + 1,
       ID: r.id ? `#${r.id.slice(0, 6)}` : '—',
       Name: r.name || '—',
@@ -92,7 +97,8 @@ export default function CustomersPage() {
     XLSX.writeFile(wb, `customers_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const exportPDF = () => {
+  const exportPDF = (itemsToExport?: any[]) => {
+    const list = itemsToExport || filteredRows;
     const doc = new jsPDF({ orientation: 'landscape' });
     const today = new Date().toLocaleDateString('en-IN');
 
@@ -101,7 +107,7 @@ export default function CustomersPage() {
     doc.text('Customers Report', 14, 15);
     doc.setFontSize(10);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Generated on: ${today} | Total Records: ${filteredRows.length}`, 14, 22);
+    doc.text(`Generated on: ${today} | Total Records: ${list.length}`, 14, 22);
     doc.setTextColor(0, 0, 0);
 
     autoTable(doc, {
@@ -109,7 +115,7 @@ export default function CustomersPage() {
       head: [
         ['#', 'ID', 'Customer Name', 'Type', 'Mobile', 'State', 'City', 'Aadhaar', 'Active Files'],
       ],
-      body: filteredRows.map((r, i) => [
+      body: list.map((r, i) => [
         i + 1,
         r.id ? `#${r.id.slice(0, 6)}` : '—',
         r.name || '—',
@@ -305,7 +311,10 @@ export default function CustomersPage() {
                 type="button"
                 className="btn btn-outline btn-sm"
                 style={{ display: "flex", alignItems: "center", gap: 6 }}
-                onClick={exportExcel}
+                onClick={() => {
+                  setExportMode('excel');
+                  setExportModalOpen(true);
+                }}
               >
                 <FileSpreadsheet size={14} /> Export Excel
               </button>
@@ -313,7 +322,10 @@ export default function CustomersPage() {
                 type="button"
                 className="btn btn-outline btn-sm"
                 style={{ display: "flex", alignItems: "center", gap: 6 }}
-                onClick={exportPDF}
+                onClick={() => {
+                  setExportMode('pdf');
+                  setExportModalOpen(true);
+                }}
               >
                 <FileDown size={14} /> Export PDF
               </button>
@@ -550,6 +562,44 @@ export default function CustomersPage() {
           </div>
         </Modal>
       )}
+
+      <SelectiveExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Select Customers to Export"
+        rows={filteredRows}
+        getRecordName={(r) => r.name || 'Customer'}
+        getRecordIdentifier={(r) => r.id}
+        mode={exportMode}
+        onExportExcel={exportExcel}
+        onExportTable={exportPDF}
+        onExportZip={async (selected) => {
+          await exportDetailPDFsAsZip(
+            `customers_details_${new Date().toISOString().slice(0, 10)}`,
+            selected,
+            (c) => {
+              const raw = c.raw || c;
+              return [
+                { label: 'Full Name', value: raw.full_name },
+                { label: 'Customer Type', value: raw.customer_type },
+                { label: 'Mobile 1', value: raw.mobile_1 },
+                { label: 'Mobile 2', value: raw.mobile_2 },
+                { label: 'Email', value: raw.email },
+                { label: 'Date of Birth', value: raw.date_of_birth },
+                { label: 'Aadhaar Number', value: raw.aadhar_number },
+                { label: 'PAN Number', value: raw.pan_number },
+                { label: 'State', value: raw.state },
+                { label: 'City', value: raw.city },
+                { label: 'Pincode', value: raw.pincode },
+                { label: 'Full Address', value: raw.address },
+              ];
+            },
+            (r) => `${r.name || 'Customer'}_${r.id ? r.id.slice(0, 6) : ''}`,
+            'Customer',
+            'Customer File'
+          );
+        }}
+      />
     </>
   );
 }
