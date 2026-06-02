@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   FolderOpen, Clock, AlertCircle, CheckCircle2,
-  ArrowRight, Bell, FileText, Car, ShieldCheck,
-  ChevronRight, BellRing,
+  ArrowRight, FileText, Car, ShieldCheck,
+  ChevronRight,
 } from 'lucide-react'
 import { customerDashboardApi } from '../../api/services'
 import api from '../../api/axios'
@@ -140,18 +140,6 @@ export default function CustomerPortalPage() {
             <div className="db-kpi-value">{loading ? '…' : completed}</div>
             <div className="db-kpi-sub">
               <span className="db-kpi-tag green">All done</span>
-            </div>
-          </div>
-          <ChevronRight size={16} className="db-kpi-arrow" />
-        </div>
-
-        <div className="db-kpi-card db-kpi-gold" onClick={() => navigate('/portal/notifications')}>
-          <div className="db-kpi-icon"><Bell size={22} /></div>
-          <div className="db-kpi-body">
-            <div className="db-kpi-label">Unread Notifications</div>
-            <div className="db-kpi-value">{unread}</div>
-            <div className="db-kpi-sub">
-              <span className="db-kpi-tag gold">{unread > 0 ? 'Action needed' : 'All caught up'}</span>
             </div>
           </div>
           <ChevronRight size={16} className="db-kpi-arrow" />
