@@ -116,9 +116,6 @@ export default function CustomerPortalPage() {
           <Link to="/portal/files" className="btn btn-primary btn-sm">
             <FileText size={14} style={{ marginRight: 5 }} /> My Files
           </Link>
-          <Link to="/portal/notifications" className="btn btn-outline btn-sm">
-            <BellRing size={14} style={{ marginRight: 5 }} /> Notifications {unread > 0 && `(${unread})`}
-          </Link>
         </div>
       </div>
 
