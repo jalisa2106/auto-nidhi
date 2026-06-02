@@ -32,6 +32,7 @@ from backend.routes.customer.payments import router as customer_payments_router
 from backend.routes.customer.documents import router as customer_documents_router
 from backend.routes.customer.files import router as customer_files_router
 from backend.routes.customer.loans import router as customer_loans_router
+from backend.routes.customer.rto import router as customer_rto_router
 
 #Masters Routes
 from backend.routes.admin.brokers import router as brokers_router
@@ -100,6 +101,7 @@ app.include_router(customer_payments_router)
 app.include_router(customer_documents_router)
 app.include_router(customer_files_router)
 app.include_router(customer_loans_router)
+app.include_router(customer_rto_router)
 
 # Masters   
 app.include_router(brokers_router)

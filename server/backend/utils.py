@@ -211,3 +211,28 @@ def record_dashboard_event(
         ),
         {"user_id": str(user.id), "message": message},
     )
+    
+def send_targeted_notification(
+    db: Session,
+    target_user_id: UUID,
+    message: str,
+    notification_type: str = "general",
+    file_id: Optional[UUID] = None
+) -> None:
+    """
+    Sends a notification directly to a specific user.
+    """
+    db.execute(
+        text(
+            """
+            INSERT INTO notifications (user_id, notification_type, message, file_id)
+            VALUES (:user_id, :notification_type, :message, :file_id)
+            """
+        ),
+        {
+            "user_id": str(target_user_id),
+            "notification_type": notification_type,
+            "message": message,
+            "file_id": str(file_id) if file_id else None
+        },
+    )
