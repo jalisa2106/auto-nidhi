@@ -1,6 +1,8 @@
+// client/src/pages/CustomerPages/CustomerProfilePage.tsx
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  User, Mail, Phone, Shield, Edit3, Save, X,
+  User, Mail, Phone, Shield, Edit3, Save, X, ArrowLeft,
   Lock, Eye, EyeOff, Calendar, CheckCircle, Clock,
 } from 'lucide-react'
 import API_BASE from '../../lib/apiConfig'
@@ -68,6 +70,7 @@ function pwdStrength(p: string) {
 // ── Main ───────────────────────────────────────────────────────────────────
 
 export default function CustomerProfilePage() {
+  const navigate = useNavigate()
   const [profile,   setProfile]   = useState<UserProfile>(readCurrentUser)
   const [editing,   setEditing]   = useState(false)
   const [editForm,  setEditForm]  = useState<UserProfile>(readCurrentUser)
@@ -168,6 +171,14 @@ export default function CustomerProfilePage() {
 
   return (
     <div style={{ maxWidth: '720px', margin: '0 auto', paddingBottom: '32px' }}>
+      
+      {/* ── Back Button ── */}
+      <button 
+        onClick={() => navigate(-1)} 
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 16 }}
+      >
+        <ArrowLeft size={16} /> Back
+      </button>
 
       {/* ── Banner ── */}
       {banner && (

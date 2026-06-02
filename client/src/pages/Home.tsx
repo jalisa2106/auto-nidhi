@@ -1,6 +1,7 @@
+// client/src/pages/Home.tsx
 import { Link } from 'react-router-dom'
 import {
-  CheckCircle2, ArrowRight, Car, Shield, TrendingUp
+  CheckCircle2, ArrowRight, Car, Shield, TrendingUp, Users, Building, ShieldCheck
 } from 'lucide-react'
 import '../pages.css'
 
@@ -58,7 +59,7 @@ export default function Home() {
  
           <ul className="navbar-links">
             <li><a href="#features">Features</a></li>
-            <li><a href="#about">About</a></li>
+            <li><a href="#about">About Us</a></li>
             <li><a href="#contact">Contact</a></li>
           </ul>
  
@@ -192,6 +193,60 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── About Us ── */}
+      <section className="features" id="about" style={{ background: 'var(--surface-0)' }}>
+        <div className="container">
+          <div className="section-eyebrow">About AutoNidhi</div>
+          <h2 className="section-title">Empowering Auto Finance Consultants</h2>
+          <p className="section-desc">
+            AutoNidhi was founded to simplify and digitize the complex workflow of auto loan and insurance consultancies across India. We believe in providing robust tools that let you focus on growing your business while we handle the organization.
+          </p>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '32px', marginTop: '40px' }}>
+            <div className="feature-card">
+              <div className="feature-icon" style={{ background: '#f3e8ff', color: '#9333ea' }}><Users size={22} /></div>
+              <h3>Our Mission</h3>
+              <p>To eliminate paperwork bottlenecks and provide a centralized, highly secure digital space for agents, brokers, and dealers to manage their customer files seamlessly.</p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon" style={{ background: '#ecfeff', color: '#0891b2' }}><Building size={22} /></div>
+              <h3>Our Vision</h3>
+              <p>To become the leading digital backbone of India's auto finance ecosystem, effortlessly connecting banking protocols, insurer networks, and consultants on one unified grid.</p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon" style={{ background: '#fef3c7', color: '#d97706' }}><ShieldCheck size={22} /></div>
+              <h3>Trusted Reliability</h3>
+              <p>Leading auto finance agencies, top insurance brokers, and widespread DSA networks across major Indian cities rely on AutoNidhi's resilient infrastructure every single day.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Contact ── */}
+      <section className="features" id="contact" style={{ background: '#0f172a', color: '#fff' }}>
+        <div className="container">
+          <h2 className="section-title" style={{ color: '#fff', textAlign: 'center' }}>Get in Touch</h2>
+          <p className="section-desc" style={{ color: '#94a3b8', textAlign: 'center' }}>
+            Have questions about integrating AutoNidhi into your consultancy? Our dedicated support team is here to help you get started.
+          </p>
+          
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '40px', flexWrap: 'wrap' }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '24px', borderRadius: '14px', minWidth: '240px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Email Support</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>support@autonidhi.com</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '24px', borderRadius: '14px', minWidth: '240px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sales & Inquiries</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>+91 98765 43210</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '24px', borderRadius: '14px', minWidth: '240px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Head Office</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Vadodara, Gujarat</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA ── */}
       <section className="cta-section">
         <div className="container">
@@ -211,11 +266,12 @@ export default function Home() {
             <div className="footer-links">
               <a href="#features">Features</a>
               <a href="#about">About</a>
+              <a href="#contact">Contact</a>
               <Link to="/login">Login</Link>
               <Link to="/signup">Sign Up</Link>
             </div>
           </div>
-          <p className="footer-copy">© 2025 AutoNidhi. Built for India's auto finance consultants.</p>
+          <p className="footer-copy">© 2026 AutoNidhi. Built for India's auto finance consultants.</p>
         </div>
       </footer>
     </>

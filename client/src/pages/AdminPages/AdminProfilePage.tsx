@@ -1,6 +1,8 @@
+// client/src/pages/AdminPages/AdminProfilePage.tsx
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  User, Mail, Phone, Shield, Edit3, Save, X,
+  User, Mail, Phone, Shield, Edit3, Save, X, ArrowLeft,
   Lock, Eye, EyeOff, Calendar, CheckCircle, Clock,
 } from 'lucide-react'
 import API_BASE from '../../lib/apiConfig'
@@ -80,9 +82,10 @@ function fmt(iso: string) {
   try { return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return iso }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminProfilePage() {
+  const navigate = useNavigate()
   const [profile,    setProfile]    = useState<UserProfile>(readCurrentUser)
   const [editing,    setEditing]    = useState(false)
   const [editForm,   setEditForm]   = useState<UserProfile>(readCurrentUser)
@@ -149,7 +152,7 @@ export default function AdminProfilePage() {
         showBanner('ok', 'Profile updated successfully!')
       }
     } catch {
-      // API not yet wired â€” save locally
+      // API not yet wired — save locally
       writeCurrentUser(editForm)
       setProfile({ ...editForm })
       setEditing(false)
@@ -193,7 +196,15 @@ export default function AdminProfilePage() {
   return (
     <div style={{ maxWidth: '720px', margin: '0 auto', paddingBottom: '32px' }}>
 
-      {/* â”€â”€ Global Banner â”€â”€ */}
+      {/* ── Back Button ── */}
+      <button 
+        onClick={() => navigate(-1)} 
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 16 }}
+      >
+        <ArrowLeft size={16} /> Back
+      </button>
+
+      {/* ── Global Banner ── */}
       {banner && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: '10px',
@@ -209,7 +220,7 @@ export default function AdminProfilePage() {
         </div>
       )}
 
-      {/* â”€â”€ Hero Card â”€â”€ */}
+      {/* ── Hero Card ── */}
       <div style={{
         background: 'linear-gradient(135deg, #1e40af 0%, #4f46e5 55%, #7c3aed 100%)',
         borderRadius: '18px', padding: '22px 24px', marginBottom: '16px',
@@ -266,7 +277,7 @@ export default function AdminProfilePage() {
             </div>
           </div>
 
-          {/* Edit Profile button â€” always on the far right */}
+          {/* Edit Profile button — always on the far right */}
           {!editing && (
             <button
               onClick={() => { setEditing(true); setEditForm(profile); setBanner(null) }}
@@ -284,7 +295,7 @@ export default function AdminProfilePage() {
         </div>
       </div>
 
-      {/* â”€â”€ Profile Details Card â”€â”€ */}
+      {/* ── Profile Details Card ── */}
       <div className="card" style={{ marginBottom: '14px', padding: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ width: '3px', height: '16px', background: 'linear-gradient(#2563eb,#7c3aed)', borderRadius: '2px' }} />
@@ -339,14 +350,14 @@ export default function AdminProfilePage() {
                 onChange={v => setEditForm(p => ({ ...p, phone_number: v }))}
                 icon={<Phone size={14} color="#94a3b8"/>}
                 placeholder="+91 98765 43210"
-                hint="Optional â€” used for contact purposes"
+                hint="Optional — used for contact purposes"
               />
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
               <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Save size={14} /> {saving ? 'Savingâ€¦' : 'Save Changes'}
+                <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
               </button>
               <button className="btn btn-ghost btn-sm" onClick={() => { setEditing(false); setBanner(null) }}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -357,7 +368,7 @@ export default function AdminProfilePage() {
         )}
       </div>
 
-      {/* â”€â”€ Account Details Card â”€â”€ */}
+      {/* ── Account Details Card ── */}
       <div className="card" style={{ marginBottom: '14px', padding: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ width: '3px', height: '16px', background: 'linear-gradient(#22c55e,#16a34a)', borderRadius: '2px' }} />
@@ -381,7 +392,7 @@ export default function AdminProfilePage() {
         </div>
       </div>
 
-      {/* â”€â”€ Change Password Card â”€â”€ */}
+      {/* ── Change Password Card ── */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
 
         {/* Header row */}
@@ -471,7 +482,7 @@ export default function AdminProfilePage() {
                 onChange={setConfPwd} onToggle={() => setShowConf(p => !p)} />
               {confPwd && newPwd !== confPwd && (
                 <div style={{ marginTop: '6px', fontSize: '12px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  âš  Passwords do not match
+                  ⚠ Passwords do not match
                 </div>
               )}
             </div>
@@ -483,7 +494,7 @@ export default function AdminProfilePage() {
                 onClick={handlePwdChange}
                 disabled={pwdSaving}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#dc2626', borderColor: '#dc2626' }}>
-                <Lock size={14} /> {pwdSaving ? 'Updatingâ€¦' : 'Update Password'}
+                <Lock size={14} /> {pwdSaving ? 'Updating…' : 'Update Password'}
               </button>
               <button
                 className="btn btn-ghost btn-sm"
@@ -503,9 +514,9 @@ export default function AdminProfilePage() {
   )
 }
 
-// â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
-/** Clean row-style field â€” no individual card background, separated by parent grid borders */
+/** Clean row-style field — no individual card background, separated by parent grid borders */
 function RowField({ icon, label, value, border, valueColor, empty }: {
   icon: React.ReactNode; label: string; value: string;
   border?: boolean; valueColor?: string; empty?: boolean

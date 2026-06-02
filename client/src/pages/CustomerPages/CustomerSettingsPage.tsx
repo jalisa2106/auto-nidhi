@@ -1,6 +1,8 @@
+// client/src/pages/CustomerPages/CustomerSettingsPage.tsx
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  Bell, Monitor, Clock, Info, Shield, CheckCircle,
+  Bell, Monitor, Clock, Info, Shield, CheckCircle, ArrowLeft,
   ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { customerSettingsApi } from '../../api/services'
@@ -11,11 +13,11 @@ interface NotifPref { key: string; label: string; desc: string; enabled: boolean
 interface SecurityStatus { status: 'enabled' | 'disabled' | 'not_enabled'; note: string }
 
 const DEFAULT_PREFS: NotifPref[] = [
-  { key: 'file_update',  label: 'File Updates',       desc: 'When your file status changes (Under Process, Sanctioned, etc.)', color: '#2563eb', icon: '📁', enabled: true  },
-  { key: 'payment',      label: 'Payment Updates',    desc: 'When a payment is recorded or confirmed for your file',            color: '#16a34a', icon: '💳', enabled: true  },
-  { key: 'insurance',    label: 'Insurance Reminders', desc: 'Expiry alerts and renewal reminders for your policy',             color: '#7c3aed', icon: '🛡️', enabled: true  },
-  { key: 'document',     label: 'Document Status',    desc: 'When your documents are verified, rejected, or requested',        color: '#0891b2', icon: '📄', enabled: true  },
-  { key: 'general',      label: 'General Alerts',     desc: 'System messages and informational notifications',                  color: '#d97706', icon: 'ℹ',  enabled: true  },
+  { key: 'file_update',  label: 'File Updates',        desc: 'When your file status changes (Under Process, Sanctioned, etc.)', color: '#2563eb', icon: '📁', enabled: true  },
+  { key: 'payment',      label: 'Payment Updates',     desc: 'When a payment is recorded or confirmed for your file',            color: '#16a34a', icon: '💳', enabled: true  },
+  { key: 'insurance',    label: 'Insurance Reminders', desc: 'Expiry alerts and renewal reminders for your policy',              color: '#7c3aed', icon: '🛡️', enabled: true  },
+  { key: 'document',     label: 'Document Status',     desc: 'When your documents are verified, rejected, or requested',        color: '#0891b2', icon: '📄', enabled: true  },
+  { key: 'general',      label: 'General Alerts',      desc: 'System messages and informational notifications',                  color: '#d97706', icon: 'ℹ',  enabled: true  },
 ]
 
 // ── Helper: read/write prefs to localStorage ──────────────────────────────
@@ -40,10 +42,11 @@ function fmtTs(ts?: number) {
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function CustomerSettingsPage() {
-  const [prefs,       setPrefs]       = useState<NotifPref[]>(DEFAULT_PREFS)
-  const [prefSaved,   setPrefSaved]   = useState(false)
+  const navigate = useNavigate()
+  const [prefs,        setPrefs]        = useState<NotifPref[]>(DEFAULT_PREFS)
+  const [prefSaved,    setPrefSaved]    = useState(false)
 
-  const [notifOpen,   setNotifOpen]   = useState(true)
+  const [notifOpen,    setNotifOpen]    = useState(true)
   const [displayOpen, setDisplayOpen] = useState(false)
   const [sessionOpen, setSessionOpen] = useState(false)
   const [securityOpen,setSecurityOpen]= useState(false)
@@ -93,6 +96,14 @@ export default function CustomerSettingsPage() {
 
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto', paddingBottom: '32px' }}>
+      
+      {/* ── Back Button ── */}
+      <button 
+        onClick={() => navigate(-1)} 
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 16 }}
+      >
+        <ArrowLeft size={16} /> Back
+      </button>
 
       {/* ── Notification Preferences ── */}
       <SettingsCard
