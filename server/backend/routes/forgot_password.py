@@ -3,11 +3,11 @@ import datetime
 import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from typing import Optional
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import SystemUser
 from backend.utils import get_password_hash
+from backend.email_utils import send_email
 
 router = APIRouter()
 
@@ -53,6 +53,33 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
         }
 
         # In production: send email with reset link here
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+        reset_link = f"{frontend_url}/reset-password?token={token}"
+
+        email_body = f"""Hello,
+
+        We received a request to reset your Auto Nidhi password.
+
+        Click the link below to reset your password:
+        {reset_link}
+
+        This link will expire in {TOKEN_EXPIRY_MINUTES} minutes.
+
+        If you did not request this password reset, you can safely ignore this email.
+
+        Regards,
+        Auto Nidhi Team
+        """
+
+        try:
+            send_email(
+                to_email=user.email,
+                subject="Reset your Auto Nidhi password",
+                body=email_body,
+            )
+        except Exception as exc:
+            print(f"Failed to send password reset email: {exc}")
+        
         # For now: return the token directly for testing
         response = {
             "message": "If an account exists with this email, you will receive reset instructions.",
