@@ -143,3 +143,72 @@ def create_customer(payload: CustomerCreate, db: Session = Depends(get_db), curr
     res = new_customer.__dict__.copy()
     res["active_files_count"] = 0 
     return res
+
+
+class CustomerUpdate(BaseModel):
+    full_name: Optional[str] = None
+    mobile_1: Optional[str] = None
+    mobile_2: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    aadhar_number: Optional[str] = None
+    pan_number: Optional[str] = None
+    customer_type: Optional[str] = None
+
+    @validator("full_name")
+    def validate_full_name(cls, v):
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError("Full name cannot be empty")
+        return v
+
+    @validator("mobile_2", pre=True)
+    def validate_mobile_2(cls, v):
+        return None if v == "" else v
+
+
+@router.put("/{customer_id}")
+def update_customer(
+    customer_id: UUID,
+    payload: CustomerUpdate,
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_admin),
+):
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    old_values = {
+        "full_name": customer.full_name,
+        "mobile_1": customer.mobile_1,
+        "email": customer.email,
+    }
+
+    update_data = payload.dict(exclude_none=True)
+    for field, value in update_data.items():
+        setattr(customer, field, value)
+
+    try:
+        record_dashboard_event(
+            db, current_user,
+            action="updated customer",
+            table_name="customer",
+            record_id=customer.id,
+            message=f"Customer {customer.full_name} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values={"full_name": customer.full_name, "mobile_1": customer.mobile_1},
+        )
+        db.commit()
+        db.refresh(customer)
+        res = customer.__dict__.copy()
+        res["active_files_count"] = db.query(FileRecord).filter(FileRecord.customer_id == customer.id).count()
+        return res
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))

@@ -18,27 +18,15 @@ import CustomerFileDetailPage     from './pages/CustomerPages/CustomerFileDetail
 import CustomerDocumentsPage      from './pages/CustomerPages/CustomerDocumentsPage'
 import CustomerPaymentsPage       from './pages/CustomerPages/CustomerPaymentsPage'
 import CustomerInsurancePage      from './pages/CustomerPages/CustomerInsurancePage'
+import CustomerLoanPage           from './pages/CustomerPages/CustomerLoanPage'
 import CustomerProfilePage        from './pages/CustomerPages/CustomerProfilePage'
 import CustomerSettingsPage       from './pages/CustomerPages/CustomerSettingsPage'
-
-// ── Data Entry pages ─────────────────────────────────────────────────
-import DataEntryLayout             from './pages/DataEntryPages/DataEntryLayout'
-
-// ── Accountant pages ─────────────────────────────────────────────────
-import AccountantLayout            from './pages/AccountantPages/AccountantLayout'
-import AccountantDashboard         from './pages/AccountantPages/DashboardPage'
-import AccountantFiles             from './pages/AccountantPages/FilesPage'
-import AccountantPaymentIn         from './pages/AccountantPages/PaymentInPage'
-import AccountantPaymentOut        from './pages/AccountantPages/PaymentOutPage'
-import AccountantExpenses          from './pages/AccountantPages/ExpensesPage'
-import AccountantAdvances          from './pages/AccountantPages/AdvancesPage'
-import AccountantRTOPayments       from './pages/AccountantPages/RTOPaymentsPage'
-import AccountantInsurancePayments from './pages/AccountantPages/InsurancePaymentsPage'
+import CustomerRTOPage            from './pages/CustomerPages/CustomerRTOPage'
 
 // Admin layout (sidebar + topbar + Outlet)
 import AdminLayout from './pages/Dashboard/AdminDashboard'
 
-// ── Admin pages ─────────────────────────────────────────────────────
+// ── Admin / Shared Staff pages ──────────────────────────────────────
 import DashboardPage          from './pages/AdminPages/DashboardPage'
 import CustomersPage          from './pages/AdminPages/CustomersPage'
 import FilesPage              from './pages/AdminPages/FilesPage'
@@ -82,13 +70,14 @@ function App() {
           <Route path="/portal/documents"  element={<CustomerDocumentsPage />}  />
           <Route path="/portal/payments"   element={<CustomerPaymentsPage />}   />
           <Route path="/portal/insurance"  element={<CustomerInsurancePage />}  />
+          <Route path="/portal/loans"      element={<CustomerLoanPage />}       />
+          <Route path="/portal/rto"        element={<CustomerRTOPage />}        />
           <Route path="/portal/profile"    element={<CustomerProfilePage />}    />
           <Route path="/portal/settings"   element={<CustomerSettingsPage />}   />
         </Route>
 
         {/* ── Data Entry portal ── */}
-        <Route element={<DataEntryLayout />}>
-          {/* Swapped these to point to the full Admin components */}
+        <Route element={<AdminLayout />}>
           <Route path="/data-entry/dashboard"          element={<DashboardPage />}         />
           <Route path="/data-entry/customers"          element={<CustomersPage />}         />
           <Route path="/data-entry/files"              element={<FilesPage />}             />
@@ -97,33 +86,32 @@ function App() {
           <Route path="/data-entry/rto-payments"       element={<RTOPaymentsPage />}       />
           <Route path="/data-entry/insurance-payments" element={<InsurancePaymentsPage />} />
           <Route path="/data-entry/expenses"           element={<ExpensesPage />}          />
-          
-          {/* Kept Data Entry specific profile and settings pages */}
-          <Route path="/data-entry/profile"            element={<AdminProfilePage />}  />
-          <Route path="/data-entry/settings"           element={<AdminSettingsPage />} />
+          <Route path="/data-entry/profile"            element={<AdminProfilePage />}      />
+          <Route path="/data-entry/settings"           element={<AdminSettingsPage />}     />
         </Route>
 
         {/* ── Accountant portal ── */}
-        <Route element={<AccountantLayout />}>
-          <Route path="/accountant/dashboard"          element={<AccountantDashboard />}        />
-          <Route path="/accountant/files"              element={<AccountantFiles />}            />
-          <Route path="/accountant/payments/in"        element={<AccountantPaymentIn />}        />
-          <Route path="/accountant/payments/out"       element={<AccountantPaymentOut />}       />
-          <Route path="/accountant/rto-payments"       element={<AccountantRTOPayments />}      />
-          <Route path="/accountant/insurance-payments" element={<AccountantInsurancePayments />}/>
-          <Route path="/accountant/expenses"           element={<AccountantExpenses />}         />
-          <Route path="/accountant/advances"           element={<AccountantAdvances />}         />
+        <Route element={<AdminLayout />}>
+          <Route path="/accountant/dashboard"          element={<DashboardPage />}              />
+          <Route path="/accountant/files"              element={<FilesPage />}                  />
+          <Route path="/accountant/payments/in"        element={<PaymentInPage />}              />
+          <Route path="/accountant/payments/out"       element={<PaymentOutPage />}             />
+          <Route path="/accountant/rto-payments"       element={<RTOPaymentsPage />}            />
+          <Route path="/accountant/insurance-payments" element={<InsurancePaymentsPage />}      />
+          <Route path="/accountant/expenses"           element={<ExpensesPage />}               />
+          <Route path="/accountant/advances"           element={<AdvancesPage />}               />
+          <Route path="/accountant/profile"            element={<AdminProfilePage />}           />
+          <Route path="/accountant/settings"           element={<AdminSettingsPage />}          />
         </Route>
 
         {/* ── Role-based redirect ── */}
         <Route path="/dashboard-redirect" element={<RoleBasedRouter />} />
 
-        {/* ── Admin / Staff ── */}
+        {/* ── Admin ── */}
         <Route element={<AdminLayout />}>
           <Route path="/dashboard"                   element={<DashboardPage />}          />
           <Route path="/customers"                   element={<CustomersPage />}          />
           <Route path="/files"                       element={<FilesPage />}              />
-          {/* Finance */}
           <Route path="/payments/in"                 element={<PaymentInPage />}          />
           <Route path="/payments/out"                element={<PaymentOutPage />}         />
           <Route path="/commissions/in"              element={<CommissionInPage />}       />
@@ -133,18 +121,15 @@ function App() {
           <Route path="/expenses"                    element={<ExpensesPage />}           />
           <Route path="/advances"                    element={<AdvancesPage />}           />
           <Route path="/loans"                       element={<LoansPage />}              />
-          {/* Masters */}
           <Route path="/masters/dealers"             element={<DealersPage />}            />
           <Route path="/masters/brokers"             element={<BrokersPage />}            />
           <Route path="/masters/finance-banks"       element={<FinanceBanksPage />}       />
           <Route path="/masters/insurance-companies" element={<InsuranceCompaniesPage />} />
           <Route path="/masters/insurance-types"     element={<InsuranceTypesPage />}     />
           <Route path="/masters/expense-categories"  element={<ExpenseCategoriesPage />}  />
-          {/* Settings */}
           <Route path="/settings/company"            element={<CompanySettingsPage />}    />
           <Route path="/settings/banks"              element={<BankAccountsPage />}       />
           <Route path="/settings/users"              element={<UsersPage />}              />
-          {/* Profile & Account */}
           <Route path="/admin/profile"               element={<AdminProfilePage />}       />
           <Route path="/admin/settings"              element={<AdminSettingsPage />}      />
         </Route>

@@ -56,6 +56,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    email: Optional[str] = None
     phone_number: Optional[str] = None
     role_id: Optional[UUID] = None
     is_active: Optional[bool] = None
@@ -183,7 +184,7 @@ def update_user(
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_admin),
 ):
-    """Update user profile — name, phone, role, or active status."""
+    """Update user profile — name, email, phone, role, or active status."""
     user = db.query(SystemUser).filter(SystemUser.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -195,10 +196,21 @@ def update_user(
         if not role:
             raise HTTPException(status_code=400, detail="Invalid role ID")
 
+    # Validate unique email if changing
+    if payload.email and payload.email.lower() != user.email:
+        existing = db.query(SystemUser).filter(SystemUser.email == payload.email.lower()).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A user with this email already exists",
+            )
+
     update_data = payload.dict(exclude_none=True)
     for field, value in update_data.items():
         if field == "first_name" and value:
             value = value.strip()
+        if field == "email" and value:
+            value = value.strip().lower()
         setattr(user, field, value)
 
     try:
@@ -250,6 +262,48 @@ def toggle_user_active(
         db.refresh(user)
         role = db.query(MasterRole).filter(MasterRole.id == user.role_id).first()
         return _serialize(user, role.role_name if role else None)
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ── Admin Password Reset ────────────────────────────────────────────────────
+
+class AdminResetPassword(BaseModel):
+    new_password: str
+
+    @validator("new_password")
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 6:
+            raise ValueError("Password must be at least 6 characters")
+        return v
+
+
+@router.patch("/users/{user_id}/reset-password")
+def admin_reset_password(
+    user_id: UUID,
+    payload: AdminResetPassword,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    """Admin resets a user's password (no old password needed)."""
+    user = db.query(SystemUser).filter(SystemUser.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = get_password_hash(payload.new_password)
+    try:
+        record_dashboard_event(
+            db,
+            current_admin,
+            action="reset user password",
+            table_name="system_user",
+            record_id=user.id,
+            message=f"Password was reset for {user.email}",
+            preference_key="updated",
+        )
+        db.commit()
+        return {"message": f"Password reset successfully for {user.email}"}
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))

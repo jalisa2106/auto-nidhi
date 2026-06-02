@@ -138,7 +138,7 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
   )
 }
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="form-group">
       <label className="form-label">{label}</label>
@@ -511,12 +511,14 @@ export default function RTOPaymentsPage() {
                 </svg>
                 Export PDF
               </button>
-              <button id="rto-add-btn" onClick={() => { setForm(emptyForm()); setAddOpen(true) }}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:'var(--radius-sm)', background:'var(--brand-600)', color:'#fff', fontSize:'.85rem', fontWeight:600, cursor:'pointer', border:'none', transition:'background .15s' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-700)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-600)')}>
-                <Plus size={15} /> Add Payment
-              </button>
+              {isAdmin && (
+                <button id="rto-add-btn" onClick={() => { setForm(emptyForm()); setAddOpen(true) }}
+                  style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:'var(--radius-sm)', background:'var(--brand-600)', color:'#fff', fontSize:'.85rem', fontWeight:600, cursor:'pointer', border:'none', transition:'background .15s' }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-700)')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-600)')}>
+                  <Plus size={15} /> Add Payment
+                </button>
+              )}
             </div>
           </div>
 
@@ -583,26 +585,25 @@ export default function RTOPaymentsPage() {
                   <div style={{ fontSize:'.7rem', color:'var(--brand-600)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px' }}>Payment Amount</div>
                   <div style={{ fontSize:'1.5rem', fontWeight:800, color:'var(--brand-700)' }}>{fmt(selected.amount)}</div>
                 </div>
-                <div style={{ display:'flex', gap:8, marginTop:14 }}>
-                  <button id={`rto-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
-                    style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--brand-200)', background:'var(--brand-50)', color:'var(--brand-700)', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-100)')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-50)')}>
-                    <Pencil size={13} /> Edit
-                  </button>
-                  {/* Hide Delete for Non-Admins */}
-                  {isAdmin && (
+                {isAdmin && (
+                  <div style={{ display:'flex', gap:8, marginTop:14 }}>
+                    <button id={`rto-edit-${selected.id}`} onClick={() => { openEdit(selected); setViewOpen(false) }}
+                      style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid var(--brand-200)', background:'var(--brand-50)', color:'var(--brand-700)', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-100)')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='var(--brand-50)')}>
+                      <Pencil size={13} /> Edit
+                    </button>
                     <button id={`rto-delete-${selected.id}`} onClick={() => { handleDelete(selected.id); closeView() }}
                       style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-sm)', border:'1.5px solid #fee2e2', background:'#fff5f5', color:'#b91c1c', fontSize:'.8rem', fontWeight:600, cursor:'pointer', transition:'all .15s' }}
                       onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background='#fee2e2')}
                       onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background='#fff5f5')}>
                       <Trash2 size={13} /> Delete
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-                <DetailRow icon={<Hash       size={14}/>} label="Payment ID"       value={formatPaymentId(selected.id)} />
+                <DetailRow icon={<Hash      size={14}/>} label="Payment ID"       value={formatPaymentId(selected.id)} />
                 <DetailRow icon={<FileText   size={14}/>} label="File Number"      value={selected.file_number} />
                 <DetailRow icon={<Calendar   size={14}/>} label="Payment Date"     value={selected.payment_date} />
                 <DetailRow icon={<CreditCard size={14}/>} label="Payment Mode"     value={selected.payment_mode.toUpperCase()} />
@@ -622,10 +623,11 @@ export default function RTOPaymentsPage() {
         </div>
       )}
 
+      {/* ── Add Modal ── */}
       <Modal open={addOpen} title="Add RTO Payment" onClose={() => setAddOpen(false)} onSubmit={handleAdd} submitLabel="Add Payment" maxWidth="760px">
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            <FormField label="File Number *">
+            <FormField label={<span>File Number <span style={{color: 'red'}}>*</span></span>}>
               <select className="form-input" style={{ width:'100%' }} value={form.file_number}
                 onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))} required>
                 <option value="">Select file…</option>
@@ -634,13 +636,22 @@ export default function RTOPaymentsPage() {
                 ))}
               </select>
             </FormField>
-            <FormField label="Payment Date *"><input className="form-input" type="date" value={form.payment_date} onChange={f('payment_date')} required /></FormField>
-            <FormField label="Amount (₹) *"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required /></FormField>
-            <FormField label="Payment Mode *">
-              <select className="form-select" style={{ width:'100%' }} value={form.payment_mode} onChange={f('payment_mode')}>
+            <FormField label={<span>Payment Date <span style={{color: 'red'}}>*</span></span>}>
+              <input className="form-input" type="date" value={form.payment_date} onChange={f('payment_date')} required />
+            </FormField>
+            <FormField label={<span>Amount (₹) <span style={{color: 'red'}}>*</span></span>}>
+              <input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required />
+            </FormField>
+            <FormField label={<span>Payment Mode <span style={{color: 'red'}}>*</span></span>}>
+              <select className="form-select" style={{ width:'100%' }} value={form.payment_mode} onChange={f('payment_mode')} required>
                 {MODES.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
               </select>
             </FormField>
+
+            <div style={{ gridColumn: 'span 2', textAlign: 'center', color: 'red', fontSize: '.75rem', marginTop: 8, marginBottom: -4 }}>
+              (At least one must be selected: Payee Dealer or Payee Broker)
+            </div>
+
             <FormField label="Payee Dealer">
               <select className="form-input" style={{ width:'100%' }} value={form.payee_dealer_id}
                 onChange={e => setForm(prev => {
@@ -648,7 +659,7 @@ export default function RTOPaymentsPage() {
                   const dealerObj = activeDealers.find(d => d.id === selectedId);
                   const dealerName = dealerObj ? (dealerObj.dealer_name || dealerObj.name) : '';
                   return { ...prev, payee_dealer_id: selectedId, payee_broker_id: '', payee_dealer_name: dealerName, payee_broker_name: '' }
-                })}>
+                })} required={!form.payee_broker_id}>
                 <option value="">None / Select dealer…</option>
                 {activeDealers.map(d => <option key={d.id} value={d.id}>{d.dealer_name || d.name} — {d.city}</option>)}
               </select>
@@ -660,7 +671,7 @@ export default function RTOPaymentsPage() {
                   const brokerObj = activeBrokers.find(b => b.id === selectedId);
                   const brokerName = brokerObj ? (brokerObj.broker_name || brokerObj.name) : '';
                   return { ...prev, payee_broker_id: selectedId, payee_dealer_id: '', payee_broker_name: brokerName, payee_dealer_name: '' }
-                })}>
+                })} required={!form.payee_dealer_id}>
                 <option value="">None / Select broker…</option>
                 {activeBrokers.map(b => <option key={b.id} value={b.id}>{b.broker_name || b.name} — {b.district || b.area || '—'}</option>)}
               </select>
@@ -668,19 +679,19 @@ export default function RTOPaymentsPage() {
             
             {isCheque && (
               <>
-                <FormField label="Cheque No. *"><input className="form-input" value={form.cheque_no} onChange={f('cheque_no')} placeholder="Cheque number" required /></FormField>
-                <FormField label="Cheque Date"><input className="form-input" type="date" value={form.cheque_date} onChange={f('cheque_date')} /></FormField>
-                <FormField label="Cheque Bank Name"><input className="form-input" value={form.cheque_bank_name} onChange={f('cheque_bank_name')} placeholder="Bank name" /></FormField>
-                <FormField label="Branch Name"><input className="form-input" value={form.branch_name} onChange={f('branch_name')} placeholder="Branch name" /></FormField>
-                <FormField label="Cheque Amount (₹)"><input className="form-input" type="number" value={form.cheque_amount || ''} onChange={f('cheque_amount')} placeholder="Cheque amount" /></FormField>
+                <FormField label={<span>Cheque No. <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.cheque_no} onChange={f('cheque_no')} placeholder="Cheque number" required /></FormField>
+                <FormField label={<span>Cheque Date <span style={{color: 'red'}}>*</span></span>}><input className="form-input" type="date" value={form.cheque_date} onChange={f('cheque_date')} required /></FormField>
+                <FormField label={<span>Cheque Bank Name <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.cheque_bank_name} onChange={f('cheque_bank_name')} placeholder="Bank name" required /></FormField>
+                <FormField label={<span>Branch Name <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.branch_name} onChange={f('branch_name')} placeholder="Branch name" required /></FormField>
+                <FormField label={<span>Cheque Amount (₹) <span style={{color: 'red'}}>*</span></span>}><input className="form-input" type="number" value={form.cheque_amount || ''} onChange={f('cheque_amount')} placeholder="Cheque amount" required /></FormField>
               </>
             )}
 
             {isOnline && (
               <>
-                <FormField label="UTR / Ref No. *"><input className="form-input" value={form.utr_no} onChange={f('utr_no')} placeholder="UTR or reference number" required /></FormField>
-                <FormField label="Bank Account No."><input className="form-input" value={form.bank_account_no} onChange={f('bank_account_no')} placeholder="Account number" /></FormField>
-                <FormField label="IFSC Code"><input className="form-input" value={form.ifsc_code} onChange={f('ifsc_code')} placeholder="IFSC code" /></FormField>
+                <FormField label={<span>UTR / Ref No. <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.utr_no} onChange={f('utr_no')} placeholder="UTR or reference number" required /></FormField>
+                <FormField label={<span>Bank Account No. <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.bank_account_no} onChange={f('bank_account_no')} placeholder="Account number" required /></FormField>
+                <FormField label={<span>IFSC Code <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.ifsc_code} onChange={f('ifsc_code')} placeholder="IFSC code" required /></FormField>
               </>
             )}
           </div>
@@ -688,10 +699,11 @@ export default function RTOPaymentsPage() {
         </div>
       </Modal>
  
+      {/* ── Edit Modal ── */}
       <Modal open={editOpen} title={`Edit Payment — ${selected?.id ? formatPaymentId(selected.id) : ''}`} onClose={() => { setEditOpen(false); setSelected(null) }} onSubmit={handleEdit} submitLabel="Save Changes" maxWidth="760px">
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            <FormField label="File Number *">
+            <FormField label={<span>File Number <span style={{color: 'red'}}>*</span></span>}>
               <select className="form-input" style={{ width:'100%' }} value={form.file_number}
                 onChange={e => setForm(prev => ({ ...prev, file_number: e.target.value }))} required>
                 <option value="">Select file…</option>
@@ -700,13 +712,22 @@ export default function RTOPaymentsPage() {
                 ))}
               </select>
             </FormField>
-            <FormField label="Payment Date *"><input className="form-input" type="date" value={form.payment_date} onChange={f('payment_date')} required /></FormField>
-            <FormField label="Amount (₹) *"><input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required /></FormField>
-            <FormField label="Payment Mode *">
-              <select className="form-select" style={{ width:'100%' }} value={form.payment_mode} onChange={f('payment_mode')}>
+            <FormField label={<span>Payment Date <span style={{color: 'red'}}>*</span></span>}>
+              <input className="form-input" type="date" value={form.payment_date} onChange={f('payment_date')} required />
+            </FormField>
+            <FormField label={<span>Amount (₹) <span style={{color: 'red'}}>*</span></span>}>
+              <input className="form-input" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" required />
+            </FormField>
+            <FormField label={<span>Payment Mode <span style={{color: 'red'}}>*</span></span>}>
+              <select className="form-select" style={{ width:'100%' }} value={form.payment_mode} onChange={f('payment_mode')} required>
                 {MODES.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
               </select>
             </FormField>
+
+            <div style={{ gridColumn: 'span 2', textAlign: 'center', color: 'red', fontSize: '.75rem', marginTop: 8, marginBottom: -4 }}>
+              (At least one must be selected: Payee Dealer or Payee Broker)
+            </div>
+
             <FormField label="Payee Dealer">
               <select className="form-input" style={{ width:'100%' }} value={form.payee_dealer_id}
                 onChange={e => setForm(prev => {
@@ -714,7 +735,7 @@ export default function RTOPaymentsPage() {
                   const dealerObj = activeDealers.find(d => d.id === selectedId);
                   const dealerName = dealerObj ? (dealerObj.dealer_name || dealerObj.name) : '';
                   return { ...prev, payee_dealer_id: selectedId, payee_broker_id: '', payee_dealer_name: dealerName, payee_broker_name: '' }
-                })}>
+                })} required={!form.payee_broker_id}>
                 <option value="">None / Select dealer…</option>
                 {activeDealers.map(d => <option key={d.id} value={d.id}>{d.dealer_name || d.name} — {d.city}</option>)}
               </select>
@@ -726,7 +747,7 @@ export default function RTOPaymentsPage() {
                   const brokerObj = activeBrokers.find(b => b.id === selectedId);
                   const brokerName = brokerObj ? (brokerObj.broker_name || brokerObj.name) : '';
                   return { ...prev, payee_broker_id: selectedId, payee_dealer_id: '', payee_broker_name: brokerName, payee_dealer_name: '' }
-                })}>
+                })} required={!form.payee_dealer_id}>
                 <option value="">None / Select broker…</option>
                 {activeBrokers.map(b => <option key={b.id} value={b.id}>{b.broker_name || b.name} — {b.district || b.area || '—'}</option>)}
               </select>
@@ -734,19 +755,19 @@ export default function RTOPaymentsPage() {
             
             {isCheque && (
               <>
-                <FormField label="Cheque No. *"><input className="form-input" value={form.cheque_no} onChange={f('cheque_no')} placeholder="Cheque number" required /></FormField>
-                <FormField label="Cheque Date"><input className="form-input" type="date" value={form.cheque_date} onChange={f('cheque_date')} /></FormField>
-                <FormField label="Cheque Bank Name"><input className="form-input" value={form.cheque_bank_name} onChange={f('cheque_bank_name')} placeholder="Bank name" /></FormField>
-                <FormField label="Branch Name"><input className="form-input" value={form.branch_name} onChange={f('branch_name')} placeholder="Branch name" /></FormField>
-                <FormField label="Cheque Amount (₹)"><input className="form-input" type="number" value={form.cheque_amount || ''} onChange={f('cheque_amount')} placeholder="Cheque amount" /></FormField>
+                <FormField label={<span>Cheque No. <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.cheque_no} onChange={f('cheque_no')} placeholder="Cheque number" required /></FormField>
+                <FormField label={<span>Cheque Date <span style={{color: 'red'}}>*</span></span>}><input className="form-input" type="date" value={form.cheque_date} onChange={f('cheque_date')} required /></FormField>
+                <FormField label={<span>Cheque Bank Name <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.cheque_bank_name} onChange={f('cheque_bank_name')} placeholder="Bank name" required /></FormField>
+                <FormField label={<span>Branch Name <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.branch_name} onChange={f('branch_name')} placeholder="Branch name" required /></FormField>
+                <FormField label={<span>Cheque Amount (₹) <span style={{color: 'red'}}>*</span></span>}><input className="form-input" type="number" value={form.cheque_amount || ''} onChange={f('cheque_amount')} placeholder="Cheque amount" required /></FormField>
               </>
             )}
 
             {isOnline && (
               <>
-                <FormField label="UTR / Ref No. *"><input className="form-input" value={form.utr_no} onChange={f('utr_no')} placeholder="UTR or reference number" required /></FormField>
-                <FormField label="Bank Account No."><input className="form-input" value={form.bank_account_no} onChange={f('bank_account_no')} placeholder="Account number" /></FormField>
-                <FormField label="IFSC Code"><input className="form-input" value={form.ifsc_code} onChange={f('ifsc_code')} placeholder="IFSC code" /></FormField>
+                <FormField label={<span>UTR / Ref No. <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.utr_no} onChange={f('utr_no')} placeholder="UTR or reference number" required /></FormField>
+                <FormField label={<span>Bank Account No. <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.bank_account_no} onChange={f('bank_account_no')} placeholder="Account number" required /></FormField>
+                <FormField label={<span>IFSC Code <span style={{color: 'red'}}>*</span></span>}><input className="form-input" value={form.ifsc_code} onChange={f('ifsc_code')} placeholder="IFSC code" required /></FormField>
               </>
             )}
           </div>

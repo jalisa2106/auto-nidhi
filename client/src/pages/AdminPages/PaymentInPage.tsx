@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  TrendingUp, IndianRupee, Clock, Plus, X, Eye,
+  TrendingUp, IndianRupee, Clock, Plus, X, Eye, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
   FileSpreadsheet, FileDown,
 } from 'lucide-react'
@@ -116,12 +116,17 @@ function Pagination({
 }
 
 export default function PaymentInPage() {
+  const role = localStorage.getItem('user_role') || 'admin';
+  const isAdmin = role === 'admin';
+
   const [rows, setRows]           = useState<any[]>([])
   const [totalRows, setTotalRows] = useState(0)
   const [availableFiles, setAvailableFiles] = useState<any[]>([])
   const [companyBanks, setCompanyBanks] = useState<{ id: string; label: string }[]>([])
   const [showAdd, setShowAdd]     = useState(false)
   const [viewRow, setViewRow]     = useState<any | null>(null)
+  const [editRow, setEditRow]     = useState<any | null>(null)
+  const [editForm, setEditForm]   = useState({ ...EMPTY_FORM })
   const [form, setForm]           = useState({ ...EMPTY_FORM })
   const [errors, setErrors]       = useState<Record<string, string>>({})
 
@@ -158,7 +163,7 @@ export default function PaymentInPage() {
   // Fetch Files for dropdown
   const loadFilesDropdown = async () => {
     try {
-      const response = await filesApi.list(1, 1000) // fetch all for dropdown
+      const response = await filesApi.list(1, 1000)
       setAvailableFiles(response.data)
     } catch (err) { }
   }
@@ -168,7 +173,6 @@ export default function PaymentInPage() {
   }, [page, pageSize, search, filterMode, filterFrom, filterDateFrom, filterDateTo])
 
   useEffect(() => {
-    // Load company banks once on mount for the dropdown
     bankAccountsApi.list(1, 200).then(res => {
       setCompanyBanks((res.data || []).map((b: any) => ({
         id: b.id,
@@ -181,7 +185,7 @@ export default function PaymentInPage() {
     if (showAdd) loadFilesDropdown()
   }, [showAdd])
 
-  // KPIs (Calculated based on current page data)
+  // KPIs
   const kpiBilled    = rows.reduce((s, r) => s + Number(r.payment_amount), 0)
   const kpiReceived  = rows.reduce((s, r) => s + Number(r.paid_amount), 0)
   const kpiRemaining = rows.reduce((s, r) => s + Number(r.remaining_amount), 0)
@@ -220,7 +224,7 @@ export default function PaymentInPage() {
     if (!validate()) return
     
     const payload = {
-      file_id: form.file_number, // User selects the UUID from dropdown
+      file_id: form.file_number,
       payment_amount: Number(form.payment_amount),
       paid_amount: Number(form.paid_amount),
       remaining_amount: Number(form.remaining_amount),
@@ -247,6 +251,65 @@ export default function PaymentInPage() {
     } catch (err: any) {
       message.error(err.response?.data?.detail || "Failed to save payment")
       addNotification('general', 'Failed to record payment. Please try again.', 'Payment IN')
+    }
+  }
+
+  function openEdit(r: any) {
+    setEditRow(r)
+    setEditForm({
+      file_number: r.file_id || '',
+      payment_amount: String(r.payment_amount || ''),
+      paid_amount: String(r.paid_amount || ''),
+      remaining_amount: String(r.remaining_amount || ''),
+      round_up: r.round_up || false,
+      payment_mode: r.payment_mode ? r.payment_mode.charAt(0).toUpperCase() + r.payment_mode.slice(1) : 'UPI',
+      payment_date: r.payment_date || new Date().toISOString().slice(0, 10),
+      payment_from: r.payment_from ? r.payment_from.charAt(0).toUpperCase() + r.payment_from.slice(1) : 'Customer',
+      company_bank_id: r.company_bank_id || '',
+      cheque_bank_name: r.cheque_bank_name || '',
+      branch_name: r.branch_name || '',
+      cheque_no: r.cheque_no || '',
+      cheque_date: r.cheque_date || '',
+      utr_no: r.utr_no || '',
+      remarks: r.remarks || '',
+    })
+  }
+
+  async function handleEdit() {
+    if (!editRow) return
+    const payload: any = {}
+    if (editForm.payment_amount) payload.payment_amount = Number(editForm.payment_amount)
+    if (editForm.paid_amount) payload.paid_amount = Number(editForm.paid_amount)
+    if (editForm.remaining_amount !== '') payload.remaining_amount = Number(editForm.remaining_amount)
+    payload.round_up = editForm.round_up
+    payload.payment_mode = editForm.payment_mode
+    payload.payment_date = editForm.payment_date
+    payload.payment_from = editForm.payment_from
+    payload.cheque_bank_name = editForm.cheque_bank_name || null
+    payload.branch_name = editForm.branch_name || null
+    payload.cheque_no = editForm.cheque_no || null
+    payload.cheque_date = editForm.cheque_date || null
+    payload.utr_no = editForm.utr_no || null
+    payload.company_bank_id = editForm.company_bank_id || null
+    payload.remarks = editForm.remarks || null
+    try {
+      await paymentsInApi.update(editRow.id, payload)
+      message.success('Payment updated')
+      setEditRow(null)
+      loadPayments()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Failed to update payment')
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm('Delete this payment record? This action cannot be undone.')) return
+    try {
+      await paymentsInApi.remove(id)
+      message.success('Payment deleted')
+      loadPayments()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Failed to delete payment')
     }
   }
 
@@ -424,14 +487,16 @@ export default function PaymentInPage() {
             <RotateCcw size={13} style={{ marginRight: 4 }} />Reset
           </button>
         )}
-        <button
-          id="pay-in-add-btn"
-          className="btn btn-primary btn-sm"
-          style={{ alignSelf: 'flex-end' }}
-          onClick={() => setShowAdd(true)}
-        >
-          <Plus size={14} /> Add Payment IN
-        </button>
+        {isAdmin && (
+          <button
+            id="pay-in-add-btn"
+            className="btn btn-primary btn-sm"
+            style={{ alignSelf: 'flex-end' }}
+            onClick={() => setShowAdd(true)}
+          >
+            <Plus size={14} /> Add Payment IN
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -492,14 +557,36 @@ export default function PaymentInPage() {
                         {r.remarks || '—'}
                       </td>
                       <td>
-                        <button
-                          className="btn btn-outline btn-sm"
-                          style={{ padding: '5px 12px', fontSize: '.78rem' }}
-                          onClick={() => setViewRow(r)}
-                          title="View details"
-                        >
-                          <Eye size={13} />
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            style={{ padding: '5px 10px' }}
+                            onClick={() => setViewRow(r)}
+                            title="View details"
+                          >
+                            <Eye size={13} />
+                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                className="btn btn-outline btn-sm"
+                                style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
+                                onClick={() => { openEdit(r); if (!availableFiles.length) loadFilesDropdown() }}
+                                title="Edit"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                className="btn btn-outline btn-sm"
+                                style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }}
+                                onClick={() => handleDelete(r.id)}
+                                title="Delete"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -841,7 +928,80 @@ export default function PaymentInPage() {
               </div>
             </div>
             <div className="modal-footer">
+              {isAdmin && <button className="btn btn-outline btn-sm" onClick={() => { setViewRow(null); openEdit(viewRow); if (!availableFiles.length) loadFilesDropdown(); }}>Edit</button>}
               <button className="btn btn-primary btn-sm" onClick={() => setViewRow(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Modal (Rendered securely only for admin when available) ── */}
+      {editRow && isAdmin && (
+        <div className="modal-backdrop" onClick={() => setEditRow(null)}>
+          <div className="modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Payment IN</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditRow(null)}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-grid-2">
+                <div className="form-group">
+                  <label className="form-label">Total Amount (₹)</label>
+                  <input type="number" className="form-input" value={editForm.payment_amount}
+                    onChange={(e) => setEditForm(p => ({ ...p, payment_amount: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Paid Amount (₹)</label>
+                  <input type="number" className="form-input" value={editForm.paid_amount}
+                    onChange={(e) => setEditForm(p => ({ ...p, paid_amount: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment Mode</label>
+                  <select className="form-input" value={editForm.payment_mode}
+                    onChange={(e) => setEditForm(p => ({ ...p, payment_mode: e.target.value }))}>
+                    {PAYMENT_MODES.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment From</label>
+                  <select className="form-input" value={editForm.payment_from}
+                    onChange={(e) => setEditForm(p => ({ ...p, payment_from: e.target.value }))}>
+                    {PAYMENT_FROM.map(f => <option key={f}>{f}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment Date</label>
+                  <input type="date" className="form-input" value={editForm.payment_date}
+                    onChange={(e) => setEditForm(p => ({ ...p, payment_date: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Company Bank</label>
+                  <select className="form-input" value={editForm.company_bank_id}
+                    onChange={(e) => setEditForm(p => ({ ...p, company_bank_id: e.target.value }))}>
+                    <option value="">— None —</option>
+                    {companyBanks.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Cheque No.</label>
+                  <input className="form-input" value={editForm.cheque_no}
+                    onChange={(e) => setEditForm(p => ({ ...p, cheque_no: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">UTR No.</label>
+                  <input className="form-input" value={editForm.utr_no}
+                    onChange={(e) => setEditForm(p => ({ ...p, utr_no: e.target.value }))} />
+                </div>
+                <div className="form-group modal-full">
+                  <label className="form-label">Remarks</label>
+                  <textarea className="form-input" rows={2} value={editForm.remarks}
+                    onChange={(e) => setEditForm(p => ({ ...p, remarks: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => setEditRow(null)}>Cancel</button>
+              <button className="btn btn-primary btn-sm" onClick={handleEdit}>Save Changes</button>
             </div>
           </div>
         </div>

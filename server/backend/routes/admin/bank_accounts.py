@@ -1,4 +1,5 @@
 import re
+import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -101,7 +102,7 @@ def list_bank_accounts(
     db: Session = Depends(get_db),
 ):
     """List all company bank accounts (paginated)."""
-    query = db.query(MasterCompanyBank)
+    query = db.query(MasterCompanyBank).filter(MasterCompanyBank.is_deleted == False)
     total = query.count()
     banks = query.order_by(MasterCompanyBank.bank_name).offset((page - 1) * limit).limit(limit).all()
     return {
@@ -121,7 +122,8 @@ def create_bank_account(
     """Create a new company bank account."""
     # Check for duplicate account number
     existing = db.query(MasterCompanyBank).filter(
-        MasterCompanyBank.account_number == payload.account_number
+        MasterCompanyBank.account_number == payload.account_number,
+        MasterCompanyBank.is_deleted == False
     ).first()
     if existing:
         raise HTTPException(
@@ -164,7 +166,7 @@ def update_bank_account(
     current_admin: SystemUser = Depends(get_current_admin),
 ):
     """Update an existing bank account by UUID."""
-    bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == bank_id).first()
+    bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == bank_id, MasterCompanyBank.is_deleted == False).first()
     if not bank:
         raise HTTPException(status_code=404, detail="Bank account not found")
 
@@ -175,6 +177,7 @@ def update_bank_account(
         conflict = db.query(MasterCompanyBank).filter(
             MasterCompanyBank.account_number == payload.account_number,
             MasterCompanyBank.id != bank_id,
+            MasterCompanyBank.is_deleted == False
         ).first()
         if conflict:
             raise HTTPException(
@@ -214,13 +217,17 @@ def delete_bank_account(
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_admin),
 ):
-    """Delete a company bank account by UUID."""
-    bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == bank_id).first()
+    """Delete a company bank account by UUID (soft delete)."""
+    bank = db.query(MasterCompanyBank).filter(MasterCompanyBank.id == bank_id, MasterCompanyBank.is_deleted == False).first()
     if not bank:
         raise HTTPException(status_code=404, detail="Bank account not found")
 
     try:
         old_values = _serialize(bank)
+        
+        bank.is_deleted = True
+        bank.deleted_at = datetime.datetime.utcnow()
+
         record_dashboard_event(
             db,
             current_admin,
@@ -231,11 +238,10 @@ def delete_bank_account(
             preference_key="deleted",
             old_values=old_values,
         )
-        db.delete(bank)
         db.commit()
     except Exception as exc:
         db.rollback()
         raise HTTPException(
             status_code=400,
-            detail="Cannot delete: this bank account may be referenced by existing payment records",
+            detail="Cannot delete this bank account.",
         )

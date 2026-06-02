@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  TrendingDown, IndianRupee, CalendarClock, Plus, X, Eye,
+  TrendingDown, IndianRupee, CalendarClock, Plus, X, Eye, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw,
   FileSpreadsheet, FileDown,
 } from 'lucide-react'
@@ -9,7 +9,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import PageHeader from '../../components/app/PageHeader'
-import { commissionsOutApi, filesApi, bankAccountsApi, usersSettingsApi } from '../../api/services'
+import { commissionsOutApi, filesApi, bankAccountsApi, usersSettingsApi, brokersApi, dealersApi } from '../../api/services'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 type CommissionOut = {
@@ -34,7 +34,7 @@ type CommissionOut = {
 }
 
 const PAYMENT_MODES   = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
-const PAYEE_TYPES     = ['Dealer', 'Broker', 'Agent', 'Other'] as const
+const PAYEE_TYPES     = ['Dealer', 'Broker', 'Other'] as const
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 function fmtINR(n: number) {
@@ -59,7 +59,7 @@ function modeBadge(mode: string) {
 function payeeBadge(type: string) {
   const cls: Record<string, string> = {
     Dealer: 'from-dealer', Broker: 'from-broker',
-    Agent: 'from-agent', Other: 'from-other',
+    Other: 'from-other',
   }
   return <span className={`from-badge ${cls[type] ?? 'from-other'}`}>{type}</span>
 }
@@ -159,9 +159,13 @@ export default function CommissionOutPage() {
   const [companyBanks, setCompanyBanks] = useState<{ id: string; label: string }[]>([])
   const [showAdd, setShowAdd]   = useState(false)
   const [viewRow, setViewRow]   = useState<CommissionOut | null>(null)
+  const [editRow, setEditRow]   = useState<CommissionOut | null>(null)
+  const [editForm, setEditForm] = useState({ ...EMPTY_FORM })
   const [form, setForm]         = useState({ ...EMPTY_FORM })
   const [errors, setErrors]     = useState<Record<string, string>>({})
   const [staff, setStaff]       = useState<any[]>([])
+  const [brokers, setBrokers]   = useState<any[]>([])
+  const [dealers, setDealers]   = useState<any[]>([])
 
   // Filters
   const [search, setSearch]                   = useState('')
@@ -173,6 +177,12 @@ export default function CommissionOutPage() {
   // Pagination
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(10)
+
+  const payeeOptions = useMemo(() => {
+    if (form.payee_type === 'Broker') return brokers
+    if (form.payee_type === 'Dealer') return dealers
+    return staff
+  }, [form.payee_type, staff, brokers, dealers])
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -249,6 +259,22 @@ export default function CommissionOutPage() {
       }))
       setStaff(filtered)
     }).catch(() => {})
+
+    // Load brokers
+    brokersApi.list().then(res => {
+      setBrokers((res.data || []).map((b: any) => ({
+        label: b.broker_name,
+        value: b.broker_name
+      })))
+    }).catch(() => {})
+
+    // Load dealers
+    dealersApi.list().then(res => {
+      setDealers((res.data || []).map((d: any) => ({
+        label: `${d.showroom_name} (${d.name})`,
+        value: `${d.showroom_name} (${d.name})`
+      })))
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -277,7 +303,7 @@ export default function CommissionOutPage() {
   async function handleAdd() {
     if (!validate()) return
     const payload = {
-      file_id: form.file_number, // stores file UUID from dropdown
+      file_id: form.file_number,
       payee_type: form.payee_type,
       payee_name: form.payee_name.trim(),
       amount: Number(form.amount),
@@ -303,6 +329,66 @@ export default function CommissionOutPage() {
       loadCommissions()
     } catch (err: any) {
       message.error(err.response?.data?.detail || 'Failed to save commission')
+    }
+  }
+
+  function openEdit(r: CommissionOut) {
+    setEditRow(r)
+    setEditForm({
+      file_number: r.file_id || '',
+      payee_type: r.payee_type || 'Dealer',
+      payee_name: r.payee_name || '',
+      amount: String(r.amount || ''),
+      advance: r.advance || false,
+      tds_deducted: r.tds_deducted || false,
+      mode: r.mode || 'UPI',
+      payment_date: r.payment_date || new Date().toISOString().slice(0, 10),
+      company_bank_id: r.company_bank_id || '',
+      cheque_bank_name: r.cheque_bank_name || '',
+      branch_name: r.branch_name || '',
+      cheque_no: r.cheque_no || '',
+      cheque_date: r.cheque_date || '',
+      utr_no: r.utr_no || '',
+      remarks: r.remarks || '',
+    })
+  }
+
+  async function handleEdit() {
+    if (!editRow) return
+    const payload: any = {
+      payee_type: editForm.payee_type,
+      payee_name: editForm.payee_name,
+      amount: Number(editForm.amount),
+      advance: editForm.advance,
+      tds_deducted: editForm.tds_deducted,
+      mode: editForm.mode,
+      payment_date: editForm.payment_date,
+      company_bank_id: editForm.company_bank_id || null,
+      cheque_bank_name: editForm.cheque_bank_name || null,
+      branch_name: editForm.branch_name || null,
+      cheque_no: editForm.cheque_no || null,
+      cheque_date: editForm.cheque_date || null,
+      utr_no: editForm.utr_no || null,
+      remarks: editForm.remarks || null,
+    }
+    try {
+      await commissionsOutApi.update(editRow.id, payload)
+      message.success('Commission updated')
+      setEditRow(null)
+      loadCommissions()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Failed to update')
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm('Delete this commission? This cannot be undone.')) return
+    try {
+      await commissionsOutApi.remove(id)
+      message.success('Commission deleted')
+      loadCommissions()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Failed to delete')
     }
   }
 
@@ -549,14 +635,20 @@ export default function CommissionOutPage() {
                         {r.remarks || '—'}
                       </td>
                       <td>
-                        <button
-                          className="btn btn-outline btn-sm"
-                          style={{ padding: '5px 12px', fontSize: '.78rem' }}
-                          onClick={() => setViewRow(r)}
-                          title="View details"
-                        >
-                          <Eye size={13} />
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-outline btn-sm" style={{ padding: '5px 10px' }}
+                            onClick={() => setViewRow(r)} title="View"><Eye size={13} /></button>
+                          <button className="btn btn-outline btn-sm"
+                            style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
+                            onClick={() => { openEdit(r); if (!availableFiles.length) loadFilesDropdown() }} title="Edit">
+                            <Pencil size={13} />
+                          </button>
+                          <button className="btn btn-outline btn-sm"
+                            style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }}
+                            onClick={() => handleDelete(r.id)} title="Delete">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -632,7 +724,7 @@ export default function CommissionOutPage() {
                         (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                       }
                       status={errors.payee_name ? 'error' : undefined}
-                      options={staff}
+                      options={payeeOptions}
                     />
                     {errors.payee_name && <span className="form-error">{errors.payee_name}</span>}
                   </div>
@@ -908,7 +1000,92 @@ export default function CommissionOutPage() {
               </div>
             </div>
             <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => { setViewRow(null); openEdit(viewRow); if (!availableFiles.length) loadFilesDropdown(); }}>Edit</button>
               <button className="btn btn-primary btn-sm" onClick={() => setViewRow(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Modal ── */}
+      {editRow && (
+        <div className="modal-backdrop" onClick={() => setEditRow(null)}>
+          <div className="modal" style={{ maxWidth: 580 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Commission OUT</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditRow(null)}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-grid-2">
+                <div className="form-group">
+                  <label className="form-label">Payee Type</label>
+                  <select className="form-input" value={editForm.payee_type}
+                    onChange={(e) => setEditForm(p => ({ ...p, payee_type: e.target.value }))}>
+                    {PAYEE_TYPES.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payee Name</label>
+                  <input className="form-input" value={editForm.payee_name}
+                    onChange={(e) => setEditForm(p => ({ ...p, payee_name: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Amount (₹)</label>
+                  <input type="number" className="form-input" value={editForm.amount}
+                    onChange={(e) => setEditForm(p => ({ ...p, amount: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Mode</label>
+                  <select className="form-input" value={editForm.mode}
+                    onChange={(e) => setEditForm(p => ({ ...p, mode: e.target.value }))}>
+                    {PAYMENT_MODES.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment Date</label>
+                  <input type="date" className="form-input" value={editForm.payment_date}
+                    onChange={(e) => setEditForm(p => ({ ...p, payment_date: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Company Bank</label>
+                  <select className="form-input" value={editForm.company_bank_id}
+                    onChange={(e) => setEditForm(p => ({ ...p, company_bank_id: e.target.value }))}>
+                    <option value="">— None —</option>
+                    {companyBanks.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Cheque No.</label>
+                  <input className="form-input" value={editForm.cheque_no}
+                    onChange={(e) => setEditForm(p => ({ ...p, cheque_no: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">UTR No.</label>
+                  <input className="form-input" value={editForm.utr_no}
+                    onChange={(e) => setEditForm(p => ({ ...p, utr_no: e.target.value }))} />
+                </div>
+                <div style={{ display: 'flex', gap: 16, gridColumn: '1/-1' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={editForm.advance}
+                      onChange={(e) => setEditForm(p => ({ ...p, advance: e.target.checked }))} />
+                    Advance
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={editForm.tds_deducted}
+                      onChange={(e) => setEditForm(p => ({ ...p, tds_deducted: e.target.checked }))} />
+                    TDS Deducted
+                  </label>
+                </div>
+                <div className="form-group modal-full">
+                  <label className="form-label">Remarks</label>
+                  <textarea className="form-input" rows={2} value={editForm.remarks}
+                    onChange={(e) => setEditForm(p => ({ ...p, remarks: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => setEditRow(null)}>Cancel</button>
+              <button className="btn btn-primary btn-sm" onClick={handleEdit}>Save Changes</button>
             </div>
           </div>
         </div>

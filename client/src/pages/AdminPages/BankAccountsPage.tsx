@@ -202,12 +202,12 @@ export default function BankAccountsPage() {
     setDeleting(true)
     try {
       await bankAccountsApi.remove(deleteId)
-      message.success('Bank account deleted')
+      message.success('Bank account removed successfully')
       setDeleteId(null)
       loadBanks()
     } catch (err: any) {
       const detail = err?.response?.data?.detail
-      message.error(typeof detail === 'string' ? detail : 'Cannot delete — may be in use by payment records')
+      message.error(typeof detail === 'string' ? detail : 'Cannot remove this bank account.')
     } finally {
       setDeleting(false)
     }
@@ -307,7 +307,7 @@ export default function BankAccountsPage() {
                           <button
                             className="btn btn-sm"
                             style={{ padding: '5px 10px', background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5' }}
-                            title="Delete"
+                            title="Remove"
                             onClick={() => setDeleteId(b.id)}
                           >
                             <Trash2 size={13} />
@@ -414,19 +414,19 @@ export default function BankAccountsPage() {
         </div>
       )}
 
-      {/* ── Delete Confirmation Modal ── */}
+      {/* ── Remove Confirmation Modal (Soft Delete) ── */}
       {deleteId && (
         <div className="modal-backdrop" onClick={() => setDeleteId(null)}>
           <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Delete Bank Account</h3>
+              <h3>Remove Bank Account</h3>
               <button className="btn btn-ghost btn-sm" onClick={() => setDeleteId(null)}><X size={16} /></button>
             </div>
             <div className="modal-body">
               <p style={{ color: 'var(--gray-600)', lineHeight: 1.6, margin: 0 }}>
-                Are you sure you want to delete this bank account?
-                <br />
-                <strong style={{ color: '#b91c1c' }}>This cannot be undone.</strong> If this account is linked to existing payments, the delete will be blocked automatically.
+                Are you sure you want to remove this bank account?
+                <br /><br />
+                This will remove the record from active lists. Historical data and linked financial ledgers will remain intact in the archives.
               </p>
             </div>
             <div className="modal-footer">
@@ -434,12 +434,12 @@ export default function BankAccountsPage() {
               <button
                 id="bank-delete-confirm-btn"
                 className="btn btn-sm"
-                style={{ background: '#b91c1c', color: '#fff', border: 'none' }}
+                style={{ background: '#dc2626', color: '#fff', border: 'none' }}
                 disabled={deleting}
                 onClick={handleDelete}
               >
                 <Trash2 size={14} />
-                {deleting ? 'Deleting…' : 'Yes, Delete'}
+                {deleting ? 'Removing…' : 'Yes, Remove'}
               </button>
             </div>
           </div>

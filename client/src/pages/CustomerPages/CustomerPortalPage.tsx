@@ -6,6 +6,8 @@ import {
   ChevronRight, BellRing,
 } from 'lucide-react'
 import { customerDashboardApi } from '../../api/services'
+import api from '../../api/axios'
+import { unreadCount, fetchNotifications, subscribe } from '../../store/notificationStore'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -24,7 +26,7 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string; lab
   draft:         { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8', label: 'Draft',         next: 'Collecting documents' },
   login:         { bg: '#eff6ff', text: '#1d4ed8', dot: '#3b82f6', label: 'Login',         next: 'File submitted to bank' },
   under_process: { bg: '#fef3c7', text: '#b45309', dot: '#f59e0b', label: 'Under Process', next: 'Bank is reviewing your application' },
-  sanctioned:    { bg: '#f0fdfa', text: '#0f766e', dot: '#14b8a6', label: 'Sanctioned',    next: 'Awaiting disbursement' },
+  sanctioned:    { bg: '#f0fdf4', text: '#0f766e', dot: '#14b8a6', label: 'Sanctioned',    next: 'Awaiting disbursement' },
   disbursed:     { bg: '#f0fdf4', text: '#15803d', dot: '#22c55e', label: 'Disbursed',     next: 'Loan disbursed — RTO/Insurance in progress' },
   completed:     { bg: '#dcfce7', text: '#166534', dot: '#16a34a', label: 'Completed',     next: 'All done!' },
   cancelled:     { bg: '#fef2f2', text: '#b91c1c', dot: '#ef4444', label: 'Cancelled',     next: 'File was cancelled' },
@@ -55,32 +57,51 @@ const PIPELINE_STATUSES = ['draft', 'login', 'under_process', 'sanctioned', 'dis
 
 export default function CustomerPortalPage() {
   const navigate = useNavigate()
-  const [files, setFiles] = useState<FileRecord[]>([])
+  const [allFiles, setAllFiles] = useState<FileRecord[]>([])
+  const [insuranceCount, setInsuranceCount] = useState<number | null>(null)
+  const [unread, setUnread] = useState(unreadCount())
   const [loading, setLoading] = useState(true)
   const [firstName, setFirstName] = useState('Customer')
 
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'
 
   useEffect(() => {
-    customerDashboardApi.get()
+    // 1. Fetch dashboard welcome/greeting name
+    const p1 = customerDashboardApi.get()
       .then(res => {
-        setFiles(res.dashboard?.recent_files || [])
         setFirstName(res.user?.first_name || 'Customer')
       })
-      .catch(() => setFiles([]))
-      .finally(() => setLoading(false))
+      .catch(() => {})
+
+    // 2. Fetch all files for accurate KPI metrics and status pipeline
+    const p2 = api.get<FileRecord[]>('/portal/files')
+      .then(res => setAllFiles(res.data || []))
+      .catch(() => setAllFiles([]))
+
+    // 3. Fetch insurance policies count
+    const p3 = api.get('/portal/insurance')
+      .then(res => setInsuranceCount(res.data?.length ?? 0))
+      .catch(() => setInsuranceCount(0))
+
+    // 4. Fetch notifications
+    fetchNotifications()
+
+    Promise.all([p1, p2, p3]).finally(() => setLoading(false))
+
+    // 5. Subscribe to notifications unread updates
+    const unsub = subscribe(() => setUnread(unreadCount()))
+    return unsub
   }, [])
 
   // Derived stats
-  const active    = files.filter(f => !['completed', 'cancelled'].includes(normalizeStatus(f.status))).length
-  const completed = files.filter(f => normalizeStatus(f.status) === 'completed').length
-  const unread    = 0 // notifications count — see bell icon in topbar
+  const active    = allFiles.filter(f => !['completed', 'cancelled'].includes(normalizeStatus(f.status))).length
+  const completed = allFiles.filter(f => normalizeStatus(f.status) === 'completed').length
 
   // Pipeline counts
   const pipeline = PIPELINE_STATUSES.map(key => ({
     key,
     cfg: STATUS_CONFIG[key],
-    count: files.filter(f => normalizeStatus(f.status) === key).length,
+    count: allFiles.filter(f => normalizeStatus(f.status) === key).length,
   }))
 
   return (
@@ -143,7 +164,7 @@ export default function CustomerPortalPage() {
           <div className="db-kpi-icon"><ShieldCheck size={22} /></div>
           <div className="db-kpi-body">
             <div className="db-kpi-label">Insurance</div>
-            <div className="db-kpi-value">—</div>
+            <div className="db-kpi-value">{loading || insuranceCount === null ? '…' : insuranceCount}</div>
             <div className="db-kpi-sub">
               <span className="db-kpi-tag red">View policies</span>
             </div>
@@ -198,13 +219,13 @@ export default function CustomerPortalPage() {
             <div className="db-card-title"><FileText size={16} /> Quick Services</div>
           </div>
           {[
-            { icon: Car,        bg: '#2563eb', title: 'Vehicle Loan',      desc: 'New or used vehicle financing from banks/NBFCs' },
-            { icon: ShieldCheck, bg: '#7c3aed', title: 'Vehicle Insurance', desc: 'Fresh coverage or renewal — third-party & comprehensive' },
-            { icon: FileText,   bg: '#d97706', title: 'RTO Services',      desc: 'Transfer, NOC, and fitness certificate applications' },
-          ].map(({ icon: Icon, bg, title, desc }) => (
+            { icon: Car,        bg: '#2563eb', title: 'Vehicle Loan',      desc: 'New or used vehicle financing from banks/NBFCs', to: '/portal/loans' },
+            { icon: ShieldCheck, bg: '#7c3aed', title: 'Vehicle Insurance', desc: 'Fresh coverage or renewal — third-party & comprehensive', to: '/portal/insurance' },
+            { icon: FileText,   bg: '#d97706', title: 'RTO Services',      desc: 'Transfer, NOC, and fitness certificate applications', to: '/portal/rto' },
+          ].map(({ icon: Icon, bg, title, desc, to }) => (
             <div
               key={title}
-              onClick={() => navigate('/portal/files')}
+              onClick={() => navigate(to)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 14,
                 padding: '12px 0', borderBottom: '1px solid #f1f5f9',
@@ -248,10 +269,10 @@ export default function CustomerPortalPage() {
               {loading && (
                 <tr><td colSpan={4} style={{ color: 'var(--gray-400)' }}>Loading…</td></tr>
               )}
-              {!loading && files.length === 0 && (
+              {!loading && allFiles.length === 0 && (
                 <tr><td colSpan={4} style={{ color: 'var(--gray-400)' }}>No files yet. Contact AutoNidhi to start.</td></tr>
               )}
-              {!loading && files.slice(0, 5).map(f => (
+              {!loading && allFiles.slice(0, 5).map(f => (
                 <tr key={f.id} onClick={() => navigate(`/portal/files/${f.id}`)} style={{ cursor: 'pointer' }}>
                   <td><span className="db-file-id">{f.file_number || '—'}</span></td>
                   <td style={{ fontSize: '.78rem', color: '#64748b', fontWeight: 500 }}>

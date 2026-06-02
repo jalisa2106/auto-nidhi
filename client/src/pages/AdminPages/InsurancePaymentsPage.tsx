@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import {
-  ShieldAlert, IndianRupee, CalendarClock, Plus, X, Eye, Trash2,
+  ShieldAlert, IndianRupee, CalendarClock, Plus, X, Eye, Trash2, Pencil,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw, AlertTriangle
 } from 'lucide-react'
 import { message } from 'antd' 
@@ -40,6 +40,7 @@ export default function InsurancePaymentsPage() {
   
   const [showAdd, setShowAdd] = useState(false)
   const [viewRow, setViewRow] = useState<any | null>(null)
+  const [editRow, setEditRow] = useState<any | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   
   const [search, setSearch] = useState('')
@@ -57,10 +58,15 @@ export default function InsurancePaymentsPage() {
     cheque_bank_name: '', branch_name: '', cheque_no: '', cheque_date: '', utr_no: '', remarks: ''
   })
 
+  const [editForm, setEditForm] = useState<InsurancePaymentForm>({
+    file_id: '', insurance_company_id: '', amount: '', mode: 'UPI',
+    payment_date: SYSTEM_ANCHOR_DATE, valid_to: '', company_bank_id: '', 
+    cheque_bank_name: '', branch_name: '', cheque_no: '', cheque_date: '', utr_no: '', remarks: ''
+  })
+
   const fetchPayments = async () => {
     try {
       const paymentData = await insurancePaymentsApi.list()
-      // Fallback securely in case the array is wrapped inside a data property
       const dataArray = Array.isArray(paymentData) ? paymentData : (paymentData.data || [])
       setRows(dataArray)
     } catch (err) {
@@ -92,6 +98,9 @@ export default function InsurancePaymentsPage() {
 
   const isChequeLike = form.mode === 'Cheque' || form.mode === 'DD'
   const isTransfer   = form.mode === 'NEFT' || form.mode === 'RTGS'
+
+  const isEditChequeLike = editForm.mode === 'Cheque' || editForm.mode === 'DD'
+  const isEditTransfer   = editForm.mode === 'NEFT' || editForm.mode === 'RTGS'
 
   const evalPolicyStatus = (validToDateStr: string): 'Active' | 'Expiring' | 'Expired' => {
     if (!validToDateStr) return 'Active'
@@ -191,26 +200,31 @@ export default function InsurancePaymentsPage() {
     doc.save(`insurance_payments_${new Date().toISOString().slice(0, 10)}.pdf`)
   }
 
-  const validateFormPayload = () => {
+  const validateFormPayload = (isEdit: boolean = false) => {
     const errCollection: Record<string, string> = {}
-    if (!form.file_id.trim()) errCollection.file_id = 'File registration index required.'
-    if (!form.insurance_company_id.trim()) errCollection.insurance_company_id = 'Insurance provider is required.'
-    if (!form.amount || Number(form.amount) <= 0) errCollection.amount = 'Valid transaction premium costing metric mandatory.'
-    if (!form.valid_to) errCollection.valid_to = 'Plan protection duration limit boundary target required.'
+    const currentForm = isEdit ? editForm : form;
+
+    if (!currentForm.file_id.trim()) errCollection.file_id = 'File registration index required.'
+    if (!currentForm.insurance_company_id.trim()) errCollection.insurance_company_id = 'Insurance provider is required.'
+    if (!currentForm.amount || Number(currentForm.amount) <= 0) errCollection.amount = 'Valid transaction premium costing metric mandatory.'
+    if (!currentForm.valid_to) errCollection.valid_to = 'Plan protection duration limit boundary target required.'
     
-    if (isChequeLike && !form.cheque_no) errCollection.cheque_no = 'Cheque / DD number required'
-    if (isTransfer && !form.utr_no) errCollection.utr_no = 'UTR / reference number required'
+    const isCheque = currentForm.mode === 'Cheque' || currentForm.mode === 'DD'
+    const isTx = currentForm.mode === 'NEFT' || currentForm.mode === 'RTGS'
+
+    if (isCheque && !currentForm.cheque_no) errCollection.cheque_no = 'Cheque / DD number required'
+    if (isTx && !currentForm.utr_no) errCollection.utr_no = 'UTR / reference number required'
 
     setErrors(errCollection)
     return Object.keys(errCollection).length === 0
   }
 
-  const dispatchInsertionMutation = async () => {
-    if (!validateFormPayload()) return
-    
-    const isValidUUID = (str: string) => 
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+  const isValidUUID = (str: string) => 
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
 
+  const dispatchInsertionMutation = async () => {
+    if (!validateFormPayload(false)) return
+    
     const payload = {
       file_id: form.file_id,
       payment_date: form.payment_date,
@@ -244,6 +258,57 @@ export default function InsurancePaymentsPage() {
         : "Failed to save the record.";
       message.error(errorMsg)
     }
+  }
+
+  const dispatchUpdateMutation = async () => {
+    if (!validateFormPayload(true)) return
+
+    const payload = {
+      payment_date: editForm.payment_date,
+      payment_mode: editForm.mode.toLowerCase(),
+      amount: parseFloat(editForm.amount),
+      insurance_company_id: editForm.insurance_company_id,
+      valid_to: editForm.valid_to || null,
+      company_bank_id: editForm.company_bank_id && isValidUUID(editForm.company_bank_id) ? editForm.company_bank_id : null,
+      cheque_bank_name: editForm.cheque_bank_name.trim() || null,
+      branch_name: editForm.branch_name.trim() || null,
+      cheque_no: editForm.cheque_no.trim() || null,
+      cheque_date: editForm.cheque_date ? editForm.cheque_date : null,
+      utr_no: editForm.utr_no.trim() || null,
+      remarks: editForm.remarks.trim() || null
+    }
+
+    try {
+      await insurancePaymentsApi.update(editRow.id || editRow.insurance_payment_id, payload)
+      setEditRow(null)
+      fetchPayments()
+      message.success("Insurance payment updated successfully!")
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail 
+        ? (Array.isArray(error.response.data.detail) ? error.response.data.detail[0].msg : error.response.data.detail)
+        : "Failed to update the record.";
+      message.error(errorMsg)
+    }
+  }
+
+  const openEdit = (r: any) => {
+    setEditRow(r)
+    setEditForm({
+      file_id: r.file_id || '',
+      insurance_company_id: r.insurance_company_id || '',
+      amount: String(r.amount || ''),
+      mode: r.mode || r.payment_mode || 'UPI',
+      payment_date: r.payment_date || SYSTEM_ANCHOR_DATE,
+      valid_to: r.valid_to || '',
+      company_bank_id: r.company_bank_id || '',
+      cheque_bank_name: r.cheque_bank_name || '',
+      branch_name: r.branch_name || '',
+      cheque_no: r.cheque_no || '',
+      cheque_date: r.cheque_date || '',
+      utr_no: r.utr_no || '',
+      remarks: r.remarks || ''
+    })
+    setErrors({})
   }
 
   const dispatchSoftDeletionMutation = async (targetId: string, event: MouseEvent<HTMLButtonElement>) => {
@@ -356,6 +421,7 @@ export default function InsurancePaymentsPage() {
           </svg>
           Export Excel
         </button>
+
         <button
           className="btn btn-outline btn-sm"
           onClick={handleExportPDF}
@@ -378,9 +444,11 @@ export default function InsurancePaymentsPage() {
           </svg>
           Export PDF
         </button>
-        <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }} onClick={() => setShowAdd(true)}>
-          <Plus size={14} /> Add new
-        </button>
+        {isAdmin && (
+          <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }} onClick={() => setShowAdd(true)}>
+            <Plus size={14} /> Add new
+          </button>
+        )}
       </div>
 
       {/* ── Main Structured Ledger Layout View ── */}
@@ -431,11 +499,15 @@ export default function InsurancePaymentsPage() {
                             <button className="btn btn-outline btn-sm" style={{ padding: '5px 10px' }} onClick={() => setViewRow(r)}>
                               <Eye size={13} />
                             </button>
-                            {/* Hide Delete for Non-Admins */}
                             {isAdmin && (
-                              <button className="btn btn-outline btn-sm" style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }} onClick={(e) => { if(r.id) dispatchSoftDeletionMutation(r.id, e) }}>
-                                <Trash2 size={13} />
-                              </button>
+                              <>
+                                <button className="btn btn-outline btn-sm" style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }} onClick={() => openEdit(r)}>
+                                  <Pencil size={13} />
+                                </button>
+                                <button className="btn btn-outline btn-sm" style={{ padding: '5px 10px', borderColor: '#fca5a5', color: '#ef4444' }} onClick={(e) => { if(r.id) dispatchSoftDeletionMutation(r.id, e) }}>
+                                  <Trash2 size={13} />
+                                </button>
+                              </>
                             )}
                           </div>
                         </td>
@@ -612,6 +684,160 @@ export default function InsurancePaymentsPage() {
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowAdd(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary btn-sm">Save Insurance Payment</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Transaction Edit Modal ── */}
+      {editRow && (
+        <div className="modal-backdrop" onClick={() => setEditRow(null)}>
+          <div className="modal" style={{ maxWidth: 650 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Insurance Payment</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditRow(null)}><X size={16} /></button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); dispatchUpdateMutation(); }}>
+              <div className="modal-body">
+                <div className="modal-grid-2">
+                  
+                  <div className="modal-section-label">Coverage File & Provider Info</div>
+                  
+                  <div className="form-group">
+                    <label className="form-label">File Reference <span style={{ color: 'red' }}>*</span></label>
+                    <select className={`form-input ${errors.file_id ? 'error' : ''}`} value={editForm.file_id} disabled>
+                      <option value="">Select active file...</option>
+                      {files.map((f: any) => (
+                        <option key={f.id} value={f.id}>{f.file_number} - {f.customer || 'Unknown'}</option>
+                      ))}
+                    </select>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>File reference cannot be changed after creation.</span>
+                    {errors.file_id && <span className="form-error">{errors.file_id}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Insurer Provider Corporation <span style={{ color: 'red' }}>*</span></label>
+                    <select 
+                      className={`form-input ${errors.insurance_company_id ? 'error' : ''}`} 
+                      value={editForm.insurance_company_id} 
+                      onChange={(e) => setEditForm({...editForm, insurance_company_id: e.target.value})}
+                    >
+                      <option value="">Select Insurer Provider...</option>
+                      {insuranceCompanies.map((c: any) => (
+                        <option key={c.id} value={c.id}>{c.company_name}</option>
+                      ))}
+                    </select>
+                    {errors.insurance_company_id && <span className="form-error">{errors.insurance_company_id}</span>}
+                  </div>
+
+                  <div className="modal-section-label">Financial Parameters</div>
+
+                  <div className="form-group">
+                    <label className="form-label">Premium Amount (₹) <span style={{ color: 'red' }}>*</span></label>
+                    <input type="number" className={`form-input ${errors.amount ? 'error' : ''}`} placeholder="e.g. 9500" value={editForm.amount} onChange={(e) => setEditForm({...editForm, amount: e.target.value})} />
+                    {errors.amount && <span className="form-error">{errors.amount}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Payment Transaction Mode <span style={{ color: 'red' }}>*</span></label>
+                    <select className="form-input" value={editForm.mode} onChange={(e) => setEditForm({...editForm, mode: e.target.value as any})}>
+                      {PAYMENT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="form-group modal-full">
+                    <label className="form-label">Remittance Corporate Bank Account</label>
+                    <select className="form-input" value={editForm.company_bank_id} onChange={(e) => setEditForm({...editForm, company_bank_id: e.target.value})}>
+                      <option value="">— Select processing account —</option>
+                      {companyBanks.map((b: any) => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)}
+                    </select>
+                  </div>
+
+                  {isEditChequeLike && (
+                    <>
+                      <div className="modal-section-label">
+                        {editForm.mode === 'DD' ? 'Demand Draft Details' : 'Cheque Details'}
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Cheque / DD No. <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                          className={`form-input ${errors.cheque_no ? 'error' : ''}`}
+                          placeholder="e.g. CHQ001234"
+                          value={editForm.cheque_no}
+                          onChange={(e) => setEditForm({...editForm, cheque_no: e.target.value})}
+                        />
+                        {errors.cheque_no && <span className="form-error">{errors.cheque_no}</span>}
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Cheque Date</label>
+                        <input
+                          type="date" className="form-input"
+                          value={editForm.cheque_date}
+                          onChange={(e) => setEditForm({...editForm, cheque_date: e.target.value})}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Bank Name</label>
+                        <input
+                          className="form-input"
+                          placeholder="e.g. SBI"
+                          value={editForm.cheque_bank_name}
+                          onChange={(e) => setEditForm({...editForm, cheque_bank_name: e.target.value})}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Branch Name</label>
+                        <input
+                          className="form-input"
+                          placeholder="e.g. Shivaji Nagar"
+                          value={editForm.branch_name}
+                          onChange={(e) => setEditForm({...editForm, branch_name: e.target.value})}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {isEditTransfer && (
+                    <>
+                      <div className="modal-section-label">Transfer Details</div>
+                      <div className="form-group modal-full">
+                        <label className="form-label">UTR / Reference No. <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                          className={`form-input ${errors.utr_no ? 'error' : ''}`}
+                          placeholder="e.g. NFT202510220089"
+                          value={editForm.utr_no}
+                          onChange={(e) => setEditForm({...editForm, utr_no: e.target.value})}
+                        />
+                        {errors.utr_no && <span className="form-error">{errors.utr_no}</span>}
+                      </div>
+                    </>
+                  )}
+
+                  <div className="modal-section-label">Coverage Duration Lifecycle</div>
+
+                  <div className="form-group">
+                    <label className="form-label">Premium Payment Booked Date <span style={{ color: 'red' }}>*</span></label>
+                    <input type="date" className="form-input" value={editForm.payment_date} onChange={(e) => setEditForm({...editForm, payment_date: e.target.value})} />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Policy Expiration Target (Valid Until) <span style={{ color: 'red' }}>*</span></label>
+                    <input type="date" className={`form-input ${errors.valid_to ? 'error' : ''}`} value={editForm.valid_to} onChange={(e) => setEditForm({...editForm, valid_to: e.target.value})} />
+                    {errors.valid_to && <span className="form-error">{errors.valid_to}</span>}
+                  </div>
+
+                  <div className="modal-section-label">Metadata Records</div>
+                  <div className="form-group modal-full">
+                    <label className="form-label">Internal Audit Notes / Remarks</label>
+                    <textarea className="form-input" rows={2} placeholder="Add policy numbers or specific registration markers..." value={editForm.remarks} onChange={(e) => setEditForm({...editForm, remarks: e.target.value})} />
+                  </div>
+
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditRow(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm">Update Insurance Payment</button>
               </div>
             </form>
           </div>

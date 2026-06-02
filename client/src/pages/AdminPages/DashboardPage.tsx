@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom' // Fixed import!
 import {
   FolderOpen, TrendingUp, TrendingDown,
   BadgePercent, ShieldAlert, ArrowRight, Activity,
   Clock, CheckCircle2,
   Car, Banknote, ChevronRight, Users,
+  ReceiptText, MapPin, Wallet, CreditCard,
 } from 'lucide-react'
 import api from '../../api/axios'
 
@@ -51,7 +52,23 @@ type DashboardFinancials = {
   payment_out_transactions?: number
   commission_in?: number | string
   commission_in_transactions?: number
+  commission_out?: number | string
+  commission_out_transactions?: number
   net_position?: number | string
+}
+
+type DashboardExtended = {
+  expenses_mtd?: number | string
+  expenses_transactions?: number
+  rto_mtd?: number | string
+  rto_transactions?: number
+  advances_outstanding?: number | string
+  advances_pending_count?: number
+  total_loans?: number
+  total_loan_amount?: number | string
+  running_loans?: number
+  insurance_payments_mtd?: number | string
+  insurance_transactions?: number
 }
 
 type DashboardPipelineItem = {
@@ -99,6 +116,7 @@ type DashboardActivity = {
 type DashboardData = {
   stats: DashboardStats
   financials: DashboardFinancials
+  extended: DashboardExtended
   pipeline: DashboardPipelineItem[]
   recent_files: DashboardRecentFile[]
   insurance_expiring: DashboardInsuranceItem[]
@@ -111,6 +129,7 @@ type DashboardData = {
 const emptyDashboard: DashboardData = {
   stats: {},
   financials: {},
+  extended: {},
   pipeline: [],
   recent_files: [],
   insurance_expiring: [],
@@ -157,8 +176,11 @@ export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData>(emptyDashboard)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  
   const role = localStorage.getItem('user_role') || 'admin'
   const isAdmin = role === 'admin'
+  const isAccountant = role === 'accountant'
+  const canManageCustomers = !isAccountant // Data Entry and Admin can manage customers
 
   useEffect(() => {
     try {
@@ -185,6 +207,7 @@ export default function DashboardPage() {
           ...data,
           stats: data.stats || {},
           financials: data.financials || {},
+          extended: data.extended || {},
           pipeline: data.pipeline || [],
           recent_files: data.recent_files || [],
           insurance_expiring: data.insurance_expiring || [],
@@ -220,6 +243,7 @@ export default function DashboardPage() {
 
   const stats = dashboard.stats
   const financials = dashboard.financials
+  const extended = dashboard.extended
 
   const activeFiles = stats.active_files || 0
   const newFiles = stats.new_files || 0
@@ -231,6 +255,12 @@ export default function DashboardPage() {
   const totalCommIn = moneyValue(financials.commission_in)
   const netPosition = moneyValue(financials.net_position)
   const moneyInTotal = totalPayIn + totalCommIn
+
+  const expensesMtd = moneyValue(extended.expenses_mtd)
+  const rtoMtd = moneyValue(extended.rto_mtd)
+  const advancesOutstanding = moneyValue(extended.advances_outstanding)
+  const totalLoanAmount = moneyValue(extended.total_loan_amount)
+  const insuranceMtd = moneyValue(extended.insurance_payments_mtd)
 
   const pipelineStatuses = ['Draft', 'Login', 'Under Process', 'Sanctioned', 'Disbursed']
   const pipelineCounts = pipelineStatuses.map((status) => ({
@@ -262,7 +292,9 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <Link to="/files" className="btn btn-primary btn-sm">Manage Files</Link>
-              <Link to="/customers" className="btn btn-outline btn-sm">Manage Customers</Link>
+              {canManageCustomers && (
+                <Link to="/customers" className="btn btn-outline btn-sm">Manage Customers</Link>
+              )}
             </div>
           </div>
 
@@ -313,6 +345,59 @@ export default function DashboardPage() {
                 <div className="db-kpi-sub">
                   <span className="db-kpi-tag gold">From {financials.commission_in_transactions || 0} banks/insurers</span>
                 </div>
+              </div>
+              <ChevronRight size={16} className="db-kpi-arrow" />
+            </div>
+          </div>
+
+          {/* ── Extended KPI row ── */}
+          <div className="db-kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+            <div className="db-kpi-card" style={{ background: 'linear-gradient(135deg,#fdf4ff,#fae8ff)', cursor: 'pointer' }} onClick={() => navigate('/expenses')}>
+              <div className="db-kpi-icon" style={{ background: '#f3e8ff', color: '#7c3aed' }}><ReceiptText size={20} /></div>
+              <div className="db-kpi-body">
+                <div className="db-kpi-label">Expenses (MTD)</div>
+                <div className="db-kpi-value" style={{ fontSize: '1.4rem' }}>{fmt(expensesMtd)}</div>
+                <div className="db-kpi-sub"><span className="db-kpi-tag" style={{ color: '#7c3aed', background: '#ede9fe' }}>{extended.expenses_transactions || 0} entries</span></div>
+              </div>
+              <ChevronRight size={16} className="db-kpi-arrow" />
+            </div>
+
+            <div className="db-kpi-card" style={{ background: 'linear-gradient(135deg,#fff7ed,#ffedd5)', cursor: 'pointer' }} onClick={() => navigate('/rto-payments')}>
+              <div className="db-kpi-icon" style={{ background: '#fed7aa', color: '#c2410c' }}><MapPin size={20} /></div>
+              <div className="db-kpi-body">
+                <div className="db-kpi-label">RTO Payments (MTD)</div>
+                <div className="db-kpi-value" style={{ fontSize: '1.4rem' }}>{fmt(rtoMtd)}</div>
+                <div className="db-kpi-sub"><span className="db-kpi-tag" style={{ color: '#c2410c', background: '#ffedd5' }}>{extended.rto_transactions || 0} records</span></div>
+              </div>
+              <ChevronRight size={16} className="db-kpi-arrow" />
+            </div>
+
+            <div className="db-kpi-card" style={{ background: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', cursor: 'pointer' }} onClick={() => navigate('/advances')}>
+              <div className="db-kpi-icon" style={{ background: '#bae6fd', color: '#0369a1' }}><Wallet size={20} /></div>
+              <div className="db-kpi-body">
+                <div className="db-kpi-label">Advances Outstanding</div>
+                <div className="db-kpi-value" style={{ fontSize: '1.4rem' }}>{fmt(advancesOutstanding)}</div>
+                <div className="db-kpi-sub"><span className="db-kpi-tag" style={{ color: '#0369a1', background: '#e0f2fe' }}>{extended.advances_pending_count || 0} pending</span></div>
+              </div>
+              <ChevronRight size={16} className="db-kpi-arrow" />
+            </div>
+
+            <div className="db-kpi-card" style={{ background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', cursor: 'pointer' }} onClick={() => navigate('/loans')}>
+              <div className="db-kpi-icon" style={{ background: '#bbf7d0', color: '#15803d' }}><CreditCard size={20} /></div>
+              <div className="db-kpi-body">
+                <div className="db-kpi-label">Total Loan Book</div>
+                <div className="db-kpi-value" style={{ fontSize: '1.4rem' }}>{fmt(totalLoanAmount)}</div>
+                <div className="db-kpi-sub"><span className="db-kpi-tag" style={{ color: '#15803d', background: '#dcfce7' }}>{extended.running_loans || 0} running</span></div>
+              </div>
+              <ChevronRight size={16} className="db-kpi-arrow" />
+            </div>
+
+            <div className="db-kpi-card" style={{ background: 'linear-gradient(135deg,#fffbeb,#fef3c7)', cursor: 'pointer' }} onClick={() => navigate('/insurance-payments')}>
+              <div className="db-kpi-icon" style={{ background: '#fde68a', color: '#92400e' }}><ShieldAlert size={20} /></div>
+              <div className="db-kpi-body">
+                <div className="db-kpi-label">Insurance Paid (MTD)</div>
+                <div className="db-kpi-value" style={{ fontSize: '1.4rem' }}>{fmt(insuranceMtd)}</div>
+                <div className="db-kpi-sub"><span className="db-kpi-tag" style={{ color: '#92400e', background: '#fef3c7' }}>{extended.insurance_transactions || 0} payments</span></div>
               </div>
               <ChevronRight size={16} className="db-kpi-arrow" />
             </div>
@@ -509,10 +594,11 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-                <Link to="/customers" className="btn btn-outline btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
-                  Customers
-                </Link>
-                {/* Only Admins can see the Manage Users link */}
+                {canManageCustomers && (
+                  <Link to="/customers" className="btn btn-outline btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
+                    Customers
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link to="/settings/users" className="btn btn-outline btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
                     Manage Users

@@ -108,3 +108,52 @@ def soft_delete(
     )
     db.commit()
     return {"status": "success"}
+
+
+class InsurancePaymentUpdate(BaseModel):
+    payment_date: Optional[date] = None
+    payment_mode: Optional[str] = None
+    amount: Optional[float] = None
+    insurance_company_id: Optional[UUID] = None
+    valid_to: Optional[date] = None
+    company_bank_id: Optional[UUID] = None
+    cheque_bank_name: Optional[str] = None
+    branch_name: Optional[str] = None
+    cheque_no: Optional[str] = None
+    cheque_date: Optional[date] = None
+    utr_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+@router.put("/{payment_id}")
+def update_insurance_payment(
+    payment_id: UUID,
+    payload: InsurancePaymentUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    payment = db.query(InsurancePayment).filter(
+        InsurancePayment.id == payment_id,
+        InsurancePayment.is_deleted == False
+    ).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Insurance payment not found")
+
+    old_values = _serialize(payment)
+    update_data = payload.dict(exclude_none=True)
+    for field, value in update_data.items():
+        setattr(payment, field, value)
+
+    record_dashboard_event(
+        db, current_admin,
+        action="updated insurance payment",
+        table_name="insurance_payment",
+        record_id=payment.id,
+        message=f"Insurance payment {payment_id} was updated",
+        preference_key="updated",
+        old_values=old_values,
+        new_values=_serialize(payment),
+    )
+    db.commit()
+    db.refresh(payment)
+    return {"status": "success", "id": str(payment.id)}

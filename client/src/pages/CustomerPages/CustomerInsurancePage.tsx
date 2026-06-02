@@ -1,22 +1,26 @@
+// 📄 src/pages/CustomerPages/CustomerInsurancePage.tsx
 import { useEffect, useState, useMemo } from 'react'
-import { ShieldCheck, AlertTriangle, Calendar, Search, FileText, IndianRupee, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { 
+  ShieldCheck, AlertTriangle, Calendar, Search, 
+  IndianRupee, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  PlusCircle, Loader2
+} from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import api from '../../api/axios'
-
-// ── Types mapping to database columns ────────────────────────────────────────
+import { notificationsApi } from '../../api/services'
+import InsuranceCenter from '../../components/CustomerPages/InsuranceCenter'
 
 interface InsurancePolicy {
   file_number: string
   file_type: string
-  company_name: string // maps to master_insurance_company.company_name
-  policy_number: string // maps to insurance_info.policy_number
-  valid_from: string | null // maps to insurance_info.valid_from (YYYY-MM-DD)
-  valid_to: string | null // maps to insurance_info.valid_to (YYYY-MM-DD)
-  premium_amount: number // maps to insurance_info.premium_amount
-  idv_amount: number // maps to insurance_info.idv_amount
+  company_name: string 
+  policy_number: string 
+  valid_from: string | null 
+  valid_to: string | null 
+  premium_amount: number 
+  idv_amount: number 
 }
 
-// ── Pagination Sub-component matching Admin spec ─────────────────────────────
 function Pagination({
   total, page, pageSize, onPage, onPageSize,
 }: {
@@ -64,274 +68,266 @@ function Pagination({
 export default function CustomerInsurancePage() {
   const [policies, setPolicies] = useState<InsurancePolicy[]>([])
   const [loading, setLoading] = useState(true)
+  const [backendError, setBackendError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expiring' | 'expired'>('all')
 
-  // Pagination states
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
 
-  useEffect(() => {
-    // Attempt to load from portal API, fallback to database-structured mock data if not implemented
-    api.get('/portal/insurance')
-      .then(res => {
-        setPolicies(res.data || [])
-      })
-      .catch((err) => {
-        console.error('Failed to load insurance policies', err)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [regNo, setRegNo] = useState('')
+  const [insurerPreference, setInsurerPreference] = useState('')
+  const [policyType, setPolicyType] = useState('comprehensive')
+  const [remarks, setRemarks] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [toast, setToast] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
+
+const loadData = () => {
+  setLoading(true)
+  setBackendError(null)
+  
+  // 🔌 Let's fire the precise target path
+  api.get('/customer/insurance')
+    .then(res => {
+      // 🛡️ Bulletproof check: Look for data array wrappers across common API standards
+      if (res.data && Array.isArray(res.data)) {
+        setPolicies(res.data)
+      } else if (res.data && res.data.data && Array.isArray(res.data.data)) {
+        setPolicies(res.data.data)
+      } else {
+        // Fallback cleanly to prevent rendering engine breakdowns
         setPolicies([])
-      })
-      .finally(() => {
-        setLoading(false)
-      })
+      }
+    })
+    .catch((err) => {
+      console.error("Database connection fault tracking logs:", err)
+      
+      // If your API returns a clean 200/404 empty block, let's handle it silently 
+      // instead of locking out the customer dashboard layout interface
+      if (err.response && err.response.status === 404) {
+        setPolicies([])
+      } else {
+        setBackendError("Could not secure streaming channel with policy history clusters.")
+      }
+    })
+    .finally(() => setLoading(false))
+}
+
+  useEffect(() => {
+    loadData()
   }, [])
 
-  // Dynamic policy status calculator helper
   const getPolicyStatus = (validToDateStr: string | null) => {
     if (!validToDateStr) {
       return { label: 'No expiry date', color: '#64748b', bg: '#f1f5f9', type: 'expired' }
     }
+    const today = new Date(); today.setHours(0,0,0,0)
+    const validTo = new Date(validToDateStr); validTo.setHours(0,0,0,0)
+    const diffDays = Math.ceil((validTo.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const validTo = new Date(validToDateStr)
-    validTo.setHours(0, 0, 0, 0)
-
-    const diffTime = validTo.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return { label: 'Expired', color: '#b91c1c', bg: '#fef2f2', type: 'expired' }
-    } else if (diffDays <= 30) {
-      return { label: `Expiring in ${diffDays}d`, color: '#d97706', bg: '#fffbeb', type: 'expiring' }
-    } else {
-      return { label: 'Active', color: '#15803d', bg: '#f0fdf4', type: 'active' }
-    }
+    if (diffDays < 0) return { label: 'Expired', color: '#b91c1c', bg: '#fef2f2', type: 'expired' }
+    if (diffDays <= 30) return { label: `Expiring in ${diffDays}d`, color: '#d97706', bg: '#fffbeb', type: 'expiring' }
+    return { label: 'Active', color: '#15803d', bg: '#f0fdf4', type: 'active' }
   }
 
-  // Filter & Search logic
   const filteredPolicies = useMemo(() => {
     return policies.filter(p => {
       const status = getPolicyStatus(p.valid_to).type
-      const matchesSearch = 
-        p.policy_number.toLowerCase().includes(search.toLowerCase()) ||
-        p.company_name.toLowerCase().includes(search.toLowerCase()) ||
-        p.file_number.toLowerCase().includes(search.toLowerCase())
-      
-      const matchesStatus = statusFilter === 'all' || status === statusFilter
-
-      return matchesSearch && matchesStatus
+      const matchesSearch = p.policy_number.toLowerCase().includes(search.toLowerCase()) || 
+                            p.company_name.toLowerCase().includes(search.toLowerCase()) ||
+                            p.file_number.toLowerCase().includes(search.toLowerCase())
+      return matchesSearch && (statusFilter === 'all' || status === statusFilter)
     })
   }, [policies, search, statusFilter])
 
-  // Paginated Rows
-  const totalPages = Math.max(1, Math.ceil(filteredPolicies.length / pageSize))
-  const safePage = Math.min(page, totalPages)
-  const pageRows = useMemo(() => {
-    return filteredPolicies.slice((safePage - 1) * pageSize, safePage * pageSize)
-  }, [filteredPolicies, safePage, pageSize])
+  const safePage = Math.min(page, Math.max(1, Math.ceil(filteredPolicies.length / pageSize)))
+  const pageRows = filteredPolicies.slice((safePage - 1) * pageSize, safePage * pageSize)
 
-  // Key visual metrics calculated dynamically
   const metrics = useMemo(() => {
-    let activeCount = 0
-    let expiringCount = 0
-    let expiredCount = 0
-    let totalPremium = 0
-
+    let active = 0, expiring = 0, expired = 0, premium = 0
     policies.forEach(p => {
-      const status = getPolicyStatus(p.valid_to).type
-      if (status === 'active') activeCount++
-      if (status === 'expiring') expiringCount++
-      if (status === 'expired') expiredCount++
-      totalPremium += p.premium_amount
+      const s = getPolicyStatus(p.valid_to).type
+      if (s === 'active') active++; if (s === 'expiring') expiring++; if (s === 'expired') expired++
+      premium += Number(p.premium_amount || 0)
     })
-
-    return { activeCount, expiringCount, expiredCount, totalPremium }
+    return { active, expiring, expired, premium }
   }, [policies])
+
+  const triggerToast = (type: 'ok' | 'err', msg: string) => {
+    setToast({ type, msg })
+    setTimeout(() => setToast(null), 4000)
+  }
+
+  const handleWizardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!regNo) { triggerToast('err', 'Please enter Vehicle Registration Number.'); return }
+
+    setSubmitting(true)
+    try {
+      await notificationsApi.notifyAdmin({
+        subject: `New Insurance Request: ${regNo}`,
+        page_context: 'Quick Services - Insurance',
+        message: `Customer is requesting vehicle insurance coverage/renewal.
+
+Registration No: ${regNo}
+Policy Type: ${policyType.replace('_', ' ').toUpperCase()}
+Insurer Preference: ${insurerPreference || 'Any'}
+Remarks: ${remarks || 'None'}`,
+        include_summary: true
+      })
+      triggerToast('ok', 'Insurance request submitted to AutoNidhi team!')
+      setIsModalOpen(false); setRegNo(''); setRemarks(''); setInsurerPreference('')
+      loadData()
+    } catch {
+      triggerToast('err', 'Failed to send request.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <>
-      <PageHeader
-        title="Insurance Details"
-        subtitle="Manage and monitor active policies, renewals, and coverage amounts"
-      />
+      <PageHeader title="Insurance Details" subtitle="Manage active policies, renewals, and track coverage amounts." />
 
-      {loading ? (
-        <div className="card" style={{ textAlign: 'center', padding: '60px 24px', color: '#64748b' }}>
-          Loading your insurance details…
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 24, right: 24, zIndex: 10000,
+          background: toast.type === 'ok' ? '#f0fdf4' : '#fff1f2',
+          border: `1px solid ${toast.type === 'ok' ? '#bbf7d0' : '#fecdd3'}`,
+          borderLeft: `4px solid ${toast.type === 'ok' ? '#22c55e' : '#f43f5e'}`,
+          borderRadius: 12, padding: '14px 20px', color: toast.type === 'ok' ? '#166534' : '#be123c',
+          boxShadow: '0 10px 25px -5px rgba(0,0,0,0.08)', fontSize: '0.88rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10
+        }}>
+          {toast.type === 'ok' ? <ShieldCheck size={18} /> : <AlertTriangle size={18} />}
+          {toast.msg}
         </div>
-      ) : (
-        <>
-          {/* ── Key Metrics Cards ── */}
-          <div className="stats-grid" style={{ marginBottom: 24 }}>
-            <div className="data-card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#f0fdf4', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ShieldCheck size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--gray-900)' }}>
-                  {metrics.activeCount}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)', fontWeight: 600 }}>Active Policies</div>
-              </div>
-            </div>
+      )}
 
-            <div className="data-card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <AlertTriangle size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--gray-900)' }}>
-                  {metrics.expiringCount}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)', fontWeight: 600 }}>Expiring Soon (30d)</div>
-              </div>
-            </div>
-
-            <div className="data-card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fef2f2', color: '#b91c1c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Calendar size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--gray-900)' }}>
-                  {metrics.expiredCount}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)', fontWeight: 600 }}>Expired Policies</div>
-              </div>
-            </div>
-
-            <div className="data-card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--brand-50)', color: 'var(--brand-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <IndianRupee size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--gray-900)' }}>
-                  ₹{metrics.totalPremium.toLocaleString('en-IN')}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)', fontWeight: 600 }}>Total Premiums Paid</div>
-              </div>
+      {/* KPI Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        {[
+          { label: 'Active Policies', val: metrics.active, color: '#15803d', bg: '#f0fdf4', icon: ShieldCheck },
+          { label: 'Expiring Soon', val: metrics.expiring, color: '#d97706', bg: '#fffbeb', icon: AlertTriangle },
+          { label: 'Expired Policies', val: metrics.expired, color: '#b91c1c', bg: '#fef2f2', icon: Calendar },
+          { label: 'Total Premiums', val: `₹${metrics.premium.toLocaleString('en-IN')}`, color: 'var(--brand-600)', bg: 'var(--brand-50)', icon: IndianRupee },
+        ].map(m => (
+          <div key={m.label} style={{ background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 12, padding: 18, display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div style={{ background: m.bg, padding: 12, borderRadius: 8, color: m.color }}><m.icon size={22}/></div>
+            <div>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 700, textTransform: 'uppercase' }}>{m.label}</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '1.4rem', fontWeight: 800 }}>{loading ? '…' : m.val}</p>
             </div>
           </div>
+        ))}
+      </div>
 
-          {/* ── Search & Filter Panel ── */}
-          <div className="data-card" style={{ padding: '16px 20px', marginBottom: 20, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '7.5fr 4.5fr', gap: 20, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="data-card" style={{ padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px', minWidth: 260, flex: 1 }}>
               <Search size={16} color="#94a3b8" />
-              <input
-                type="text"
-                placeholder="Search by Policy No., Insurer, or File No…"
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(1) }}
-                style={{ background: 'none', border: 'none', outline: 'none', fontSize: 13, width: '100%', color: 'var(--gray-800)' }}
-              />
+              <input type="text" placeholder="Search by Policy No., Insurer..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} disabled={loading} style={{ background: 'none', border: 'none', outline: 'none', fontSize: 13, width: '100%' }} />
             </div>
-
-            <div style={{ display: 'flex', gap: 6 }}>
-              {(['all', 'active', 'expiring', 'expired'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => { setStatusFilter(tab); setPage(1) }}
-                  className={`btn btn-sm ${statusFilter === tab ? 'btn-primary' : 'btn-outline'}`}
-                  style={{ textTransform: 'capitalize', fontSize: 12 }}
-                >
-                  {tab === 'all' ? 'All Policies' : tab === 'expiring' ? 'Expiring Soon' : tab}
-                </button>
-              ))}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} disabled={loading} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 10px', fontSize: '0.8rem', fontWeight: 600 }}>
+                <option value="all">All Items</option>
+                <option value="active">Active</option>
+                <option value="expiring">Expiring</option>
+                <option value="expired">Expired</option>
+              </select>
+              <button className="btn btn-primary btn-sm" onClick={() => setIsModalOpen(true)}><PlusCircle size={14} /> Get Insurance</button>
             </div>
           </div>
 
-          {/* ── Policies Ledger Table ── */}
-          <div className="data-card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            {filteredPolicies.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '48px 24px', color: '#64748b' }}>
-                <ShieldCheck size={40} style={{ marginBottom: 12, opacity: 0.2 }} />
-                <h4 style={{ margin: '0 0 6px 0', fontWeight: 600, color: '#1e293b' }}>No policies match criteria</h4>
-                <p style={{ fontSize: 13, margin: 0 }}>Try adjusting your search terms or status filters.</p>
+          <div className="data-card" style={{ padding: 0, overflow: 'hidden', minHeight: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            {loading && (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                <Loader2 size={24} className="animate-spin" style={{ color: 'var(--brand-600)' }} />
+                <span>Streaming policy documents...</span>
               </div>
-            ) : (
-              <>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>File & Vehicle info</th>
-                        <th>Insurer & Policy Number</th>
-                        <th>Coverage Period</th>
-                        <th>IDV amount</th>
-                        <th>premium paid</th>
-                        <th style={{ textAlign: 'right' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pageRows.map(p => {
-                        const status = getPolicyStatus(p.valid_to)
-                        return (
-                          <tr key={p.policy_number} style={{ transition: 'background-color 0.15s' }}>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <FileText size={16} color="var(--brand-600)" />
-                                <div>
-                                  <span style={{ fontWeight: 700, fontFamily: 'monospace', color: 'var(--gray-800)' }}>
-                                    {p.file_number}
-                                  </span>
-                                  <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'capitalize' }}>
-                                    {p.file_type.replace('_', ' ')}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td>
-                              <div style={{ fontWeight: 600, color: '#0f172a' }}>{p.company_name}</div>
-                              <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'monospace' }}>
-                                No: {p.policy_number}
-                              </div>
-                            </td>
-                            <td>
-                              <div style={{ fontSize: 13, color: '#334155', fontWeight: 500 }}>
-                                {p.valid_from ? new Date(p.valid_from).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                                <span style={{ margin: '0 6px', color: '#94a3b8' }}>➔</span>
-                                {p.valid_to ? new Date(p.valid_to).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                              </div>
-                            </td>
-                            <td>
-                              <div style={{ fontWeight: 700, color: 'var(--gray-800)' }}>
-                                ₹{p.idv_amount.toLocaleString('en-IN')}
-                              </div>
-                            </td>
-                            <td>
-                              <div style={{ fontWeight: 700, color: 'var(--brand-700)' }}>
-                                ₹{p.premium_amount.toLocaleString('en-IN')}
-                              </div>
-                            </td>
-                            <td style={{ textAlign: 'right' }}>
-                              <span style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 4,
-                                background: status.bg, color: status.color,
-                                padding: '4px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700
-                              }}>
-                                {status.type === 'expiring' && <AlertTriangle size={12} />}
-                                {status.label}
-                              </span>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+            )}
 
-                {/* Pagination bar aligned at the bottom of the card */}
-                <Pagination
-                  total={filteredPolicies.length}
-                  page={safePage}
-                  pageSize={pageSize}
-                  onPage={setPage}
-                  onPageSize={setPageSize}
-                />
+            {!loading && backendError && (
+              <div style={{ padding: 40, textAlign: 'center', color: '#b91c1c' }}>
+                <AlertTriangle size={24} style={{ margin: '0 auto 8px auto' }} />
+                <span>{backendError}</span>
+              </div>
+            )}
+
+            {!loading && !backendError && pageRows.length === 0 && (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
+                No registered policies match the specified search queries.
+              </div>
+            )}
+
+            {!loading && !backendError && pageRows.length > 0 && (
+              <>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Vehicle Info</th>
+                      <th>Insurer & Policy</th>
+                      <th>Coverage Period</th>
+                      <th>Premium</th>
+                      <th style={{ textAlign: 'right' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageRows.map(p => {
+                      const s = getPolicyStatus(p.valid_to)
+                      return (
+                        <tr key={p.policy_number}>
+                          <td><div style={{ fontWeight: 700, color: 'var(--brand-700)' }}>{p.file_number}</div><div style={{ fontSize: 11, color: '#94a3b8' }}>{p.file_type ? p.file_type.replace('_',' ') : ''}</div></td>
+                          <td><div style={{ fontWeight: 600 }}>{p.company_name}</div><div style={{ fontSize: 12, fontFamily: 'monospace' }}>{p.policy_number}</div></td>
+                          <td style={{ fontSize: 12 }}>{p.valid_from} ➔ {p.valid_to}</td>
+                          <td style={{ fontWeight: 700 }}>₹{p.premium_amount.toLocaleString('en-IN')}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <span style={{ background: s.bg, color: s.color, padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700 }}>{s.label}</span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                <Pagination total={filteredPolicies.length} page={safePage} pageSize={pageSize} onPage={setPage} onPageSize={setPageSize} />
               </>
             )}
           </div>
-        </>
+        </div>
+
+        {/* Modular Sidebar Center Integration */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <InsuranceCenter />
+        </div>
+      </div>
+
+      {isModalOpen && (
+        <div className="modal-backdrop" onClick={() => !submitting && setIsModalOpen(false)}>
+          <div className="modal" style={{ maxWidth: 500, width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Apply for Vehicle Insurance</h3><button className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>✕</button></div>
+            <form onSubmit={handleWizardSubmit}>
+              <div className="modal-body" style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <label className="form-label">Registration Number <span style={{ color: '#ef4444' }}>*</span></label>
+                <input type="text" required placeholder="e.g. MH 12 AB 1234" value={regNo} onChange={e => setRegNo(e.target.value)} className="form-input" />
+                
+                <label className="form-label">Insurance Type</label>
+                <select value={policyType} onChange={e => setPolicyType(e.target.value)} className="form-input">
+                  <option value="comprehensive">Comprehensive Package</option>
+                  <option value="third_party">Third Party Only</option>
+                  <option value="zero_dep">Zero Depreciation</option>
+                </select>
+
+                <label className="form-label">Preferred Insurer</label>
+                <input type="text" placeholder="e.g. HDFC Ergo, ICICI Lombard" value={insurerPreference} onChange={e => setInsurerPreference(e.target.value)} className="form-input" />
+
+                <label className="form-label">Remarks</label>
+                <textarea rows={3} placeholder="Current expiry date or special requirements..." value={remarks} onChange={e => setRemarks(e.target.value)} className="form-input" />
+              </div>
+              <div className="modal-footer"><button type="button" className="btn btn-outline btn-sm" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>{submitting ? 'Submitting...' : 'Send Request'}</button></div>
+            </form>
+          </div>
+        </div>
       )}
     </>
   )

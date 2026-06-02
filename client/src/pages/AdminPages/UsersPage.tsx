@@ -3,7 +3,7 @@ import { message } from 'antd'
 import {
   Plus, X, Pencil, PowerOff, Power,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  RotateCcw, Eye, EyeOff,
+  RotateCcw, Eye, EyeOff, KeyRound,
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import { usersSettingsApi, rolesApi } from '../../api/services'
@@ -42,6 +42,7 @@ const EMPTY_CREATE = {
 const EMPTY_EDIT = {
   first_name: '',
   last_name: '',
+  email: '',
   phone_number: '',
   role_id: '',
   is_active: true,
@@ -147,6 +148,12 @@ export default function UsersPage() {
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
   const [savingEdit, setSavingEdit] = useState(false)
 
+  // Password reset
+  const [resetPw, setResetPw] = useState('')
+  const [resetPwConfirm, setResetPwConfirm] = useState('')
+  const [showResetPw, setShowResetPw] = useState(false)
+  const [savingReset, setSavingReset] = useState(false)
+
   // Toggle loading
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
@@ -228,11 +235,15 @@ export default function UsersPage() {
     setEditForm({
       first_name: u.first_name,
       last_name: u.last_name || '',
+      email: u.email,
       phone_number: u.phone_number || '',
       role_id: u.role_id || '',
       is_active: u.is_active,
     })
     setEditErrors({})
+    setShowResetPw(false)
+    setResetPw('')
+    setResetPwConfirm('')
   }
 
   function setEditField(key: keyof typeof EMPTY_EDIT, value: any) {
@@ -243,6 +254,8 @@ export default function UsersPage() {
   function validateEdit() {
     const e: Record<string, string> = {}
     if (!editForm.first_name.trim()) e.first_name = 'First name is required'
+    if (!editForm.email.trim()) e.email = 'Email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) e.email = 'Invalid email address'
     if (editForm.phone_number && !/^\d{10,15}$/.test(editForm.phone_number.replace(/\D/g, '')))
       e.phone_number = 'Enter a valid 10–15 digit phone number'
     setEditErrors(e)
@@ -256,6 +269,7 @@ export default function UsersPage() {
       await usersSettingsApi.update(editUser.id, {
         first_name: editForm.first_name.trim(),
         last_name: editForm.last_name.trim() || null,
+        email: editForm.email.trim().toLowerCase(),
         phone_number: editForm.phone_number.trim() || null,
         role_id: editForm.role_id || null,
         is_active: editForm.is_active,
@@ -269,6 +283,22 @@ export default function UsersPage() {
       else message.error('Failed to update user')
     } finally {
       setSavingEdit(false)
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!editUser) return
+    if (!resetPw || resetPw.length < 6) { message.error('Password must be at least 6 characters'); return }
+    if (resetPw !== resetPwConfirm) { message.error('Passwords do not match'); return }
+    setSavingReset(true)
+    try {
+      await usersSettingsApi.resetPassword(editUser.id, resetPw)
+      message.success(`Password reset for ${editUser.email}`)
+      setResetPw(''); setResetPwConfirm(''); setShowResetPw(false)
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || 'Failed to reset password')
+    } finally {
+      setSavingReset(false)
     }
   }
 
@@ -582,6 +612,17 @@ export default function UsersPage() {
 
                   <div className="modal-section-label">Contact & Role</div>
 
+                  <div className="form-group modal-full">
+                    <label className="form-label">Email Address <span style={{ color: 'var(--error)' }}>*</span></label>
+                    <input
+                      type="email"
+                      className={`form-input${editErrors.email ? ' error' : ''}`}
+                      value={editForm.email}
+                      onChange={e => setEditField('email', e.target.value)}
+                    />
+                    {editErrors.email && <span className="form-error">{editErrors.email}</span>}
+                  </div>
+
                   <div className="form-group">
                     <label className="form-label">Phone Number</label>
                     <input
@@ -618,6 +659,58 @@ export default function UsersPage() {
                       />
                       User is Active
                     </label>
+                  </div>
+
+                  {/* ── Password Reset Section ── */}
+                  <div className="modal-section-label">Password Reset</div>
+                  <div className="form-group modal-full">
+                    {!showResetPw ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, width: 'fit-content' }}
+                        onClick={() => setShowResetPw(true)}
+                      >
+                        <KeyRound size={14} /> Reset Password
+                      </button>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <input
+                            type="password"
+                            className="form-input"
+                            placeholder="New password (min 6 chars)"
+                            value={resetPw}
+                            onChange={e => setResetPw(e.target.value)}
+                          />
+                          <input
+                            type="password"
+                            className="form-input"
+                            placeholder="Confirm password"
+                            value={resetPwConfirm}
+                            onChange={e => setResetPwConfirm(e.target.value)}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            disabled={savingReset}
+                            onClick={handleResetPassword}
+                            style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                          >
+                            <KeyRound size={13} /> {savingReset ? 'Resetting…' : 'Confirm Reset'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => { setShowResetPw(false); setResetPw(''); setResetPwConfirm('') }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

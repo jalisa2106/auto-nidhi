@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, X, FileSpreadsheet, FileDown } from "lucide-react";
+import { Eye, X, FileSpreadsheet, FileDown, Pencil } from "lucide-react";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -8,6 +8,7 @@ import PageHeader from "../../components/app/PageHeader";
 import DataTable from "../../components/app/DataTable";
 import Modal from "../../components/app/Modal";
 import { customersApi } from "../../api/services";
+import { message } from 'antd';
 
 const normalizeCustomer = (customer: any) => ({
   id: customer.id,
@@ -46,6 +47,8 @@ export default function CustomersPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [viewCustomer, setViewCustomer] = useState<any>(null);
+  const [editCustomer, setEditCustomer] = useState<any>(null);
+  const [editForm, setEditForm] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
@@ -171,7 +174,7 @@ export default function CustomersPage() {
 
     if (!form.email.trim()) nextErrors.email = "Email is required";
     if (!form.date_of_birth) nextErrors.date_of_birth = "DOB is required";
-    if (!form.aadhar_number.trim()) nextErrors.aadhar_number = "Aadhar is required";
+    if (!form.aadhar_number.trim()) nextErrors.aadhar_number = "Aadhaar is required";
     if (!form.city.trim()) nextErrors.city = "City is required";
     if (!form.pincode.trim()) nextErrors.pincode = "Pincode is required";
     if (!form.address.trim()) nextErrors.address = "Address is required";
@@ -227,6 +230,54 @@ export default function CustomersPage() {
     }
     return String(detail);
   }
+
+  const openEdit = (raw: any) => {
+    setEditCustomer(raw);
+    setEditForm({
+      name: raw.full_name || "",
+      mobile: raw.mobile_1 || "",
+      mobile_2: raw.mobile_2 || "",
+      email: raw.email || "",
+      address: raw.address || "",
+      city: raw.city || "",
+      state: raw.state || "",
+      pincode: raw.pincode || "",
+      date_of_birth: raw.date_of_birth ? raw.date_of_birth.slice(0, 10) : "",
+      aadhar_number: raw.aadhar_number || "",
+      pan_number: raw.pan_number || "",
+      customer_type: raw.customer_type || "individual",
+    });
+  };
+
+  const handleEditSave = async () => {
+    if (!editCustomer) return;
+    setLoading(true);
+    try {
+      const payload: any = {
+        full_name: editForm.name.trim(),
+        mobile_1: editForm.mobile.replace(/\D/g, ""),
+        customer_type: editForm.customer_type,
+        email: editForm.email.trim(),
+        address: editForm.address.trim(),
+        city: editForm.city.trim(),
+        state: editForm.state.trim(),
+        pincode: editForm.pincode.trim(),
+        date_of_birth: editForm.date_of_birth,
+        aadhar_number: editForm.aadhar_number.trim(),
+      };
+      if (editForm.mobile_2) payload.mobile_2 = editForm.mobile_2.replace(/\D/g, "");
+      if (editForm.pan_number) payload.pan_number = editForm.pan_number.trim().toUpperCase();
+
+      const updated = await customersApi.update(editCustomer.id, payload);
+      setRows(rows.map(r => r.id === editCustomer.id ? normalizeCustomer(updated) : r));
+      message.success("Customer updated successfully");
+      setEditCustomer(null);
+    } catch (err: any) {
+      message.error(extractError(err) || "Failed to update customer");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
@@ -305,14 +356,24 @@ export default function CustomersPage() {
               key: "action",
               label: "Action",
               render: (r) => (
-                <button
-                  className="btn btn-outline btn-sm"
-                  style={{ padding: '5px 12px', fontSize: '.78rem' }}
-                  onClick={() => setViewCustomer(r.raw)}
-                  title="View details"
-                >
-                  <Eye size={13} />
-                </button>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    style={{ padding: '5px 10px' }}
+                    onClick={() => setViewCustomer(r.raw)}
+                    title="View details"
+                  >
+                    <Eye size={13} />
+                  </button>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    style={{ padding: '5px 10px', borderColor: '#a5b4fc', color: '#4f46e5' }}
+                    onClick={() => openEdit(r.raw)}
+                    title="Edit customer"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </div>
               )
             }
           ]}
@@ -418,10 +479,76 @@ export default function CustomersPage() {
               </div>
             </div>
             <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => { setViewCustomer(null); openEdit(viewCustomer); }}>Edit Customer</button>
               <button className="btn btn-primary btn-sm" onClick={() => setViewCustomer(null)}>Close</button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Customer Modal */}
+      {editCustomer && (
+        <Modal open={!!editCustomer} title={`Edit Customer — ${editCustomer.full_name}`} onClose={() => setEditCustomer(null)} onSubmit={handleEditSave} maxWidth="760px">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="form-group">
+                <label className="form-label">Full Name <span style={{ color: '#dc2626' }}>*</span></label>
+                <input className="form-input" value={editForm.name} onChange={(e) => setEditForm(p => ({ ...p, name: e.target.value }))} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mobile Number</label>
+                <input className="form-input" value={editForm.mobile} onChange={(e) => setEditForm(p => ({ ...p, mobile: e.target.value }))} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Alt Mobile</label>
+                <input className="form-input" value={editForm.mobile_2} onChange={(e) => setEditForm(p => ({ ...p, mobile_2: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input type="email" className="form-input" value={editForm.email} onChange={(e) => setEditForm(p => ({ ...p, email: e.target.value }))} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date of Birth</label>
+                <input type="date" className="form-input" value={editForm.date_of_birth} onChange={(e) => setEditForm(p => ({ ...p, date_of_birth: e.target.value }))} required />
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="form-group">
+                <label className="form-label">Customer Type</label>
+                <select className="form-select" value={editForm.customer_type} onChange={(e) => setEditForm(p => ({ ...p, customer_type: e.target.value }))}>
+                  <option value="individual">Individual</option>
+                  <option value="business">Business</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Aadhaar Number</label>
+                <input className="form-input" value={editForm.aadhar_number} onChange={(e) => setEditForm(p => ({ ...p, aadhar_number: e.target.value }))} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">PAN Number</label>
+                <input className="form-input" value={editForm.pan_number} onChange={(e) => setEditForm(p => ({ ...p, pan_number: e.target.value }))} style={{ textTransform: 'uppercase' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="form-group">
+                  <label className="form-label">State</label>
+                  <input className="form-input" value={editForm.state} onChange={(e) => setEditForm(p => ({ ...p, state: e.target.value }))} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">City</label>
+                  <input className="form-input" value={editForm.city} onChange={(e) => setEditForm(p => ({ ...p, city: e.target.value }))} required />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Pincode</label>
+                <input className="form-input" value={editForm.pincode} onChange={(e) => setEditForm(p => ({ ...p, pincode: e.target.value }))} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Address</label>
+                <textarea className="form-input" rows={2} value={editForm.address} onChange={(e) => setEditForm(p => ({ ...p, address: e.target.value }))} style={{ resize: 'vertical' }} required />
+              </div>
+            </div>
+          </div>
+        </Modal>
       )}
     </>
   );

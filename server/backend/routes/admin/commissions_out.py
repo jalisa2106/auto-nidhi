@@ -193,3 +193,115 @@ def create_commission_out(
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+class CommissionOutUpdate(BaseModel):
+    payee_type: Optional[str] = None
+    payee_name: Optional[str] = None
+    amount: Optional[float] = None
+    advance: Optional[bool] = None
+    tds_deducted: Optional[bool] = None
+    mode: Optional[str] = None
+    payment_date: Optional[date] = None
+    company_bank_id: Optional[UUID] = None
+    cheque_bank_name: Optional[str] = None
+    branch_name: Optional[str] = None
+    cheque_no: Optional[str] = None
+    cheque_date: Optional[date] = None
+    utr_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+@router.put("/{commission_id}")
+def update_commission_out(
+    commission_id: UUID,
+    payload: CommissionOutUpdate,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    row = db.query(CommissionOut).filter(CommissionOut.id == commission_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Commission OUT record not found")
+
+    old_values = {"amount": float(row.amount), "payee_type": row.payee_type}
+
+    # Merge extra JSON fields
+    extra = _unpack_extra(row.remarks)
+    if payload.payee_type is not None:
+        extra["payee_type_raw"] = payload.payee_type
+        row.payee_type = _normalize_payee_type(payload.payee_type)
+    if payload.payee_name is not None:
+        extra["payee_name"] = payload.payee_name
+    if payload.tds_deducted is not None:
+        extra["tds_deducted"] = payload.tds_deducted
+    if payload.remarks is not None:
+        extra["remarks"] = payload.remarks
+
+    if payload.amount is not None:
+        row.amount = payload.amount
+    if payload.advance is not None:
+        row.is_advance = payload.advance
+    if payload.mode is not None:
+        row.payment_mode = payload.mode.lower()
+    if payload.payment_date is not None:
+        row.payment_date = payload.payment_date
+    if payload.company_bank_id is not None:
+        row.company_bank_id = payload.company_bank_id
+    if payload.cheque_bank_name is not None:
+        row.cheque_bank_name = payload.cheque_bank_name
+    if payload.branch_name is not None:
+        row.branch_name = payload.branch_name
+    if payload.cheque_no is not None:
+        row.cheque_no = payload.cheque_no
+    if payload.cheque_date is not None:
+        row.cheque_date = payload.cheque_date
+    if payload.utr_no is not None:
+        row.utr_no = payload.utr_no
+
+    row.remarks = json.dumps(extra, ensure_ascii=False)
+
+    try:
+        record_dashboard_event(
+            db, current_admin,
+            action="updated commission out",
+            table_name="commission_out",
+            record_id=row.id,
+            message=f"Commission OUT {commission_id} was updated",
+            preference_key="updated",
+            old_values=old_values,
+            new_values={"amount": float(row.amount), "payee_type": row.payee_type},
+        )
+        db.commit()
+        db.refresh(row)
+        return {"status": "success", "id": str(row.id)}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/{commission_id}", status_code=200)
+def delete_commission_out(
+    commission_id: UUID,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    row = db.query(CommissionOut).filter(CommissionOut.id == commission_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Commission OUT record not found")
+
+    try:
+        record_dashboard_event(
+            db, current_admin,
+            action="deleted commission out",
+            table_name="commission_out",
+            record_id=row.id,
+            message=f"Commission OUT {commission_id} was deleted",
+            preference_key="deleted",
+            old_values={"amount": float(row.amount)},
+        )
+        db.delete(row)
+        db.commit()
+        return {"status": "success", "message": "Commission OUT deleted"}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))

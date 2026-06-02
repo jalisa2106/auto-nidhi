@@ -303,16 +303,94 @@ def _get_activity(db: Session, limit: int = 7):
     )
 
 
+def _get_extended_stats(db: Session):
+    """Expenses MTD, RTO MTD, Advances outstanding, Loans summary."""
+    return db.execute(
+        text(
+            """
+            WITH bounds AS (
+                SELECT
+                    DATE_TRUNC('month', CURRENT_DATE)::date AS month_start,
+                    (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')::date AS next_month_start
+            ),
+            expenses_mtd AS (
+                SELECT
+                    COALESCE(SUM(amount), 0) AS total,
+                    COUNT(*) AS transactions
+                FROM expense_ledger, bounds
+                WHERE expense_date >= bounds.month_start
+                AND expense_date < bounds.next_month_start
+                AND is_deleted = FALSE
+            ),
+            rto_mtd AS (
+                SELECT
+                    COALESCE(SUM(rp.amount), 0) AS total,
+                    COUNT(*) AS transactions
+                FROM rto_payment rp, bounds
+                WHERE rp.payment_date >= bounds.month_start
+                AND rp.payment_date < bounds.next_month_start
+                AND rp.is_deleted = FALSE
+            ),
+            advances_summary AS (
+                SELECT
+                    COALESCE(SUM(amount), 0) AS total_advanced,
+                    COALESCE(SUM(amount_recovered), 0) AS total_recovered,
+                    COALESCE(SUM(amount - amount_recovered), 0) AS outstanding,
+                    COUNT(*) FILTER (WHERE recovery_status = 'pending') AS pending_count
+                FROM advances
+                WHERE is_deleted = FALSE
+            ),
+            loans_summary AS (
+                SELECT
+                    COUNT(fi.id) AS total_loans,
+                    COALESCE(SUM(fi.loan_amount), 0) AS total_loan_amount,
+                    COUNT(fi.id) FILTER (WHERE fr.status = 'disbursed') AS running_loans
+                FROM finance_info fi
+                JOIN file_record fr ON fr.id = fi.file_id
+                WHERE fr.is_deleted = FALSE
+            ),
+            insurance_mtd AS (
+                SELECT
+                    COALESCE(SUM(amount), 0) AS total,
+                    COUNT(*) AS transactions
+                FROM insurance_payment, bounds
+                WHERE payment_date >= bounds.month_start
+                AND payment_date < bounds.next_month_start
+                AND is_deleted = FALSE
+            )
+            SELECT
+                expenses_mtd.total AS expenses_mtd,
+                expenses_mtd.transactions AS expenses_transactions,
+                rto_mtd.total AS rto_mtd,
+                rto_mtd.transactions AS rto_transactions,
+                advances_summary.total_advanced,
+                advances_summary.total_recovered,
+                advances_summary.outstanding AS advances_outstanding,
+                advances_summary.pending_count AS advances_pending_count,
+                loans_summary.total_loans,
+                loans_summary.total_loan_amount,
+                loans_summary.running_loans,
+                insurance_mtd.total AS insurance_payments_mtd,
+                insurance_mtd.transactions AS insurance_transactions
+            FROM expenses_mtd, rto_mtd, advances_summary, loans_summary, insurance_mtd
+            """
+        )
+    ).mappings().first()
+
+
 def _build_dashboard(db: Session, current_admin: SystemUser):
     stats = dict(_get_stats(db))
     financials = dict(_get_financials(db))
     notifications = _get_notifications(db, current_admin)
+    extended_raw = _get_extended_stats(db)
+    extended = dict(extended_raw) if extended_raw else {}
 
     return {
         "message": "Admin dashboard data fetched successfully",
         "admin": _admin_payload(current_admin),
         "stats": stats,
         "financials": financials,
+        "extended": extended,
         "pipeline": _get_pipeline(db),
         "recent_files": _get_recent_files(db),
         "insurance_expiring": _get_insurance_expiring(db),
