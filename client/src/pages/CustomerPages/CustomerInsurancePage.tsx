@@ -1,4 +1,3 @@
-// 📄 src/pages/CustomerPages/CustomerInsurancePage.tsx
 import { useEffect, useState, useMemo } from 'react'
 import { 
   ShieldCheck, AlertTriangle, Calendar, Search, 
@@ -87,8 +86,8 @@ const loadData = () => {
   setLoading(true)
   setBackendError(null)
   
-  // 🔌 Let's fire the precise target path
-  api.get('/customer/insurance')
+  // 🔌 CHANGED: Target the correct /portal/insurance backend route
+  api.get('/portal/insurance')
     .then(res => {
       // 🛡️ Bulletproof check: Look for data array wrappers across common API standards
       if (res.data && Array.isArray(res.data)) {

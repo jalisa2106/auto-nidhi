@@ -7,8 +7,8 @@ from uuid import UUID
 import datetime
 
 from backend.database import get_db
-from backend.models import FileRecord, SystemUser, FinanceInfo
-from backend.utils import get_current_staff, get_current_admin, record_dashboard_event
+from backend.models import FileRecord, SystemUser, FinanceInfo, CustomerDocument, Customer
+from backend.utils import get_current_staff, get_current_admin, record_dashboard_event, send_targeted_notification
 
 router = APIRouter(prefix="/api/v1/files", tags=["Admin Files"])
 
@@ -26,6 +26,10 @@ class FileUpdate(BaseModel):
     docket_date: Optional[str] = None
     remarks: Optional[str] = None
     assigned_to: Optional[UUID] = None
+
+class DocumentStatusUpdate(BaseModel):
+    status: str # 'verified', 'rejected', etc.
+    rejection_reason: Optional[str] = None
 
 def generate_file_number(db: Session) -> str:
     current_year = datetime.datetime.now().year
@@ -208,3 +212,51 @@ def delete_file(
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))
+
+@router.patch("/{file_id}/documents/{document_id}/status")
+def update_document_status(
+    file_id: UUID,
+    document_id: UUID,
+    payload: DocumentStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_staff)
+):
+    # 1. Fetch the document
+    doc = db.query(CustomerDocument).filter(
+        CustomerDocument.id == document_id,
+        CustomerDocument.file_id == file_id
+    ).first()
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # 2. Update status
+    doc.status = payload.status
+    if payload.status == 'rejected':
+        doc.rejection_reason = payload.rejection_reason
+    else:
+        doc.rejection_reason = None
+        
+    doc.updated_at = datetime.datetime.utcnow()
+
+    # 3. Find the customer's SystemUser ID to notify them
+    customer_user = db.query(SystemUser).join(
+        Customer, Customer.email == SystemUser.email
+    ).filter(Customer.id == doc.customer_id).first()
+
+    if customer_user:
+        # 4. Send targeted notification to the Customer
+        notif_msg = f"Your document '{doc.label}' has been {payload.status}."
+        if payload.status == 'rejected':
+            notif_msg += " Please re-upload."
+
+        send_targeted_notification(
+            db=db,
+            target_user_id=customer_user.id,
+            message=notif_msg,
+            notification_type="document_rejected" if payload.status == 'rejected' else "document_approved",
+            file_id=file_id
+        )
+
+    db.commit()
+    return {"status": "success", "message": "Document status updated and customer notified."}
