@@ -145,7 +145,7 @@ function Pagination({
           value={pageSize}
           onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}
         >
-          {[5, 10, 20, 50].map((s) => (
+          {[5, 10, 20].map((s) => (
             <option key={s} value={s}>{s} / page</option>
           ))}
         </select>

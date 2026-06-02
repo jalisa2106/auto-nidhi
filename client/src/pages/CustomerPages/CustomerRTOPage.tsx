@@ -2,9 +2,54 @@ import React, { useEffect, useState, useMemo } from 'react'
 import {
   FileText, CheckCircle2, Clock, AlertTriangle, Download,
   PlusCircle, Info, MapPin, ClipboardList,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import { customerRtoApi, type CustomerRtoRecord } from '../../api/services'
+
+function Pagination({
+  total, page, pageSize, onPage, onPageSize,
+}: {
+  total: number; page: number; pageSize: number
+  onPage: (p: number) => void; onPageSize: (s: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const start = total === 0 ? 0 : Math.min((page - 1) * pageSize + 1, total)
+  const end = Math.min(page * pageSize, total)
+  const pages: (number | '...')[] = []
+
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (page > 3) pages.push('...')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
+    if (page < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+  }
+
+  return (
+    <div className="pagination-bar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="pagination-info">Showing {start}-{end} of {total} records</span>
+        <select className="page-size-select" value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }}>
+          {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
+        </select>
+      </div>
+      <div className="pagination-controls">
+        <button className="page-btn" onClick={() => onPage(1)} disabled={page === 1} title="First"><ChevronsLeft size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} title="Prev"><ChevronLeft size={14} /></button>
+        {pages.map((p, i) => p === '...' ? (
+          <span key={`d${i}`} style={{ padding: '0 4px', color: 'var(--gray-400)', fontSize: '.84rem' }}>...</span>
+        ) : (
+          <button key={p} className={`page-btn${page === p ? ' active' : ''}`} onClick={() => onPage(p as number)}>{p}</button>
+        ))}
+        <button className="page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages} title="Next"><ChevronRight size={14} /></button>
+        <button className="page-btn" onClick={() => onPage(totalPages)} disabled={page === totalPages} title="Last"><ChevronsRight size={14} /></button>
+      </div>
+    </div>
+  )
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -35,15 +80,14 @@ function RtoStatusBadge({ status }: { status?: string }) {
   )
 }
 
+
 export default function CustomerRTOPage() {
   const [rtoFiles, setRtoFiles] = useState<CustomerRtoRecord[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // Search & Filter state
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'submitted' | 'in_process' | 'completed'>('all')
-
-  // Request wizard states
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedFileId, setSelectedFileId] = useState('')
   const [serviceType, setServiceType] = useState('hypothecation_removal')
@@ -86,6 +130,15 @@ export default function CustomerRTOPage() {
       return matchesSearch && matchesStatus
     })
   }, [rtoFiles, search, statusFilter])
+
+  const safePage = Math.min(page, Math.max(1, Math.ceil(filteredRecords.length / pageSize)))
+  const pageRows = useMemo(() => {
+    return filteredRecords.slice((safePage - 1) * pageSize, safePage * pageSize)
+  }, [filteredRecords, safePage, pageSize])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter])
 
   // Key stats
   const stats = useMemo(() => {
@@ -251,53 +304,62 @@ export default function CustomerRTOPage() {
                 No vehicle files matched filter specifications.
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>File Number</th>
-                      <th>Service Type</th>
-                      <th>Target District</th>
-                      <th>Permit Number</th>
-                      <th>Status</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRecords.map(rec => {
-                      return (
-                        <tr key={rec.file_id} style={{ cursor: 'pointer' }} onClick={() => setSelectedRecord(rec)}>
-                          <td>
-                            <div style={{ fontWeight: 700, color: 'var(--brand-700)', fontFamily: 'monospace' }}>
-                              {rec.file_number}
-                            </div>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--gray-400)', textTransform: 'uppercase' }}>
-                              {rec.file_type.replace('_', ' ')}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: '0.84rem', color: '#1e293b', fontWeight: 600 }}>
-                            {rec.file_type === 'new_vehicle' ? 'Hypothecation Addition' : rec.file_type === 'renewal' ? 'FC/Permit Renewal' : 'Ownership Transfer'}
-                          </td>
-                          <td style={{ fontSize: '0.84rem', color: '#475569' }}>
-                            {rec.rto_info?.rto_district || 'Not Assigned'}
-                          </td>
-                          <td style={{ fontSize: '0.84rem', color: '#475569', fontFamily: 'monospace' }}>
-                            {rec.rto_info?.permit_number || '—'}
-                          </td>
-                          <td>
-                            <RtoStatusBadge status={rec.rto_info?.rto_transfer_status} />
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button className="btn btn-outline btn-sm" style={{ background: '#fff' }} onClick={(e) => { e.stopPropagation(); setSelectedRecord(rec) }}>
-                              View Progress →
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>File Number</th>
+                        <th>Service Type</th>
+                        <th>Target District</th>
+                        <th>Permit Number</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageRows.map(rec => {
+                        return (
+                          <tr key={rec.file_id} style={{ cursor: 'pointer' }} onClick={() => setSelectedRecord(rec)}>
+                            <td>
+                              <div style={{ fontWeight: 700, color: 'var(--brand-700)', fontFamily: 'monospace' }}>
+                                {rec.file_number}
+                              </div>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--gray-400)', textTransform: 'uppercase' }}>
+                                {rec.file_type.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: '0.84rem', color: '#1e293b', fontWeight: 600 }}>
+                              {rec.file_type === 'new_vehicle' ? 'Hypothecation Addition' : rec.file_type === 'renewal' ? 'FC/Permit Renewal' : 'Ownership Transfer'}
+                            </td>
+                            <td style={{ fontSize: '0.84rem', color: '#475569' }}>
+                              {rec.rto_info?.rto_district || 'Not Assigned'}
+                            </td>
+                            <td style={{ fontSize: '0.84rem', color: '#475569', fontFamily: 'monospace' }}>
+                              {rec.rto_info?.permit_number || '—'}
+                            </td>
+                            <td>
+                              <RtoStatusBadge status={rec.rto_info?.rto_transfer_status} />
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button className="btn btn-outline btn-sm" style={{ background: '#fff' }} onClick={(e) => { e.stopPropagation(); setSelectedRecord(rec) }}>
+                                View Progress →
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination
+                  total={filteredRecords.length}
+                  page={safePage}
+                  pageSize={pageSize}
+                  onPage={setPage}
+                  onPageSize={setPageSize}
+                />
+              </>
             )}
           </div>
 

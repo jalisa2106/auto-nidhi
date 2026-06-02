@@ -50,7 +50,7 @@ export default function InsurancePaymentsPage() {
   const [filterDateTo, setFilterDateTo] = useState('')
 
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(5)
 
   const [form, setForm] = useState<InsurancePaymentForm>({
     file_id: '', insurance_company_id: '', amount: '', mode: 'UPI',
@@ -522,7 +522,7 @@ export default function InsurancePaymentsPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span className="pagination-info">Showing {Math.min((safePageIndex - 1) * pageSize + 1, processedLedgerRows.length)}–{Math.min(safePageIndex * pageSize, processedLedgerRows.length)} of {processedLedgerRows.length} records</span>
                 <select className="page-size-select" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
-                  {[10, 20, 50].map((s) => <option key={s} value={s}>{s} / page</option>)}
+                  {[5, 10, 20].map((s) => <option key={s} value={s}>{s} / page</option>)}
                 </select>
               </div>
               <div className="pagination-controls">
