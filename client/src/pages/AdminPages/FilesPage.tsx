@@ -31,7 +31,7 @@ function formatStatus(status: string) {
 
 export default function FilesPage() {
   const navigate = useNavigate();
-  const role = localStorage.getItem('user_role') || 'admin';
+  const role = localStorage.getItem('user_role') || 'guest';
   const isAdmin = role === 'admin';
   
   const [rows, setRows] = useState<any[]>([]);

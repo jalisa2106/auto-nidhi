@@ -177,7 +177,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  const role = localStorage.getItem('user_role') || 'admin'
+  const role = localStorage.getItem('user_role') || 'guest';
   const isAdmin = role === 'admin'
   const isAccountant = role === 'accountant'
   const canManageCustomers = !isAccountant // Data Entry and Admin can manage customers

@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from backend.utils import get_current_customer_profile
+from backend.utils import get_current_customer
 from backend.database import get_db
 from backend.models import (
     Customer,
@@ -10,15 +9,20 @@ from backend.models import (
     InsuranceInfo,
     InsurancePayment,
     MasterInsuranceCompany,
+    SystemUser,
 )
 
 router = APIRouter(prefix="/api/v1/portal", tags=["Customer Insurance"])
 
 @router.get("/insurance")
 def customer_insurance(
-    customer: Customer = Depends(get_current_customer_profile),
+    current_user: SystemUser = Depends(get_current_customer),
     db: Session = Depends(get_db),
 ):
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        return []
+
     policies = (
         db.query(InsuranceInfo)
         .join(FileRecord, FileRecord.id == InsuranceInfo.file_id)

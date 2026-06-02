@@ -105,7 +105,7 @@ export default function AdminLayout() {
   const profileRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const role = localStorage.getItem('user_role') || 'admin'
+    const role = localStorage.getItem('user_role') || 'guest';
     setUserRole(role)
     try {
       const lsRaw = localStorage.getItem('an_current_user')

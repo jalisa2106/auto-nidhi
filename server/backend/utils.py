@@ -92,15 +92,27 @@ def get_current_admin(
 ) -> SystemUser:
     role = db.query(MasterRole).filter(MasterRole.id == current_user.role_id).first()
 
-    # UPDATED: We now allow BOTH admin and data_entry to pass this security check
-    if not role or role.role_name.lower() not in ["admin", "data_entry", "accountant"]:
+    if not role or role.role_name.lower() != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin or Data Entry access required"
+            detail="Admin access required"
         )
 
     return current_user
 
+def get_current_staff(
+    current_user: SystemUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> SystemUser:
+    role = db.query(MasterRole).filter(MasterRole.id == current_user.role_id).first()
+
+    if not role or role.role_name.lower() not in ["admin", "data_entry", "accountant"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff access required"
+        )
+
+    return current_user
 
 def get_current_customer(
     current_user: SystemUser = Depends(get_current_user),

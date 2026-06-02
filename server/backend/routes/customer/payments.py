@@ -5,7 +5,7 @@ from backend.database import get_db
 from backend.models import PaymentIn, FileRecord, SystemUser
 from backend.utils import get_current_customer
 
-router = APIRouter(prefix="/portal", tags=["Customer Portal"])
+router = APIRouter(prefix="/api/v1/portal", tags=["Customer Portal"])
 
 
 @router.get("/payments")

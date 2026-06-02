@@ -199,7 +199,7 @@ function FormField({ label, children, error }: { label: string; children: React.
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdvancesPage() {
-  const role = localStorage.getItem('user_role') || 'admin';
+  const role = localStorage.getItem('user_role') || 'guest';
   const isAdmin = role === 'admin';
 
   const [rows, setRows] = useState<Advance[]>([])

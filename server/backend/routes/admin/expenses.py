@@ -12,7 +12,7 @@ from backend.models import (
     FileRecord,
     SystemUser
 )
-from backend.utils import get_current_admin, record_dashboard_event
+from backend.utils import get_current_admin, get_current_staff, record_dashboard_event
 
 router = APIRouter(tags=["Admin Expenses"])
 
@@ -26,7 +26,7 @@ class ExpenseCreate(BaseModel):
     remarks: Optional[str] = None
     expense_category_id: str
     file_id: Optional[str] = None
-    created_by: str
+    created_by: str 
 
 
 class ExpenseUpdate(BaseModel):
@@ -55,7 +55,10 @@ def _serialize_expense(expense: ExpenseLedger) -> dict:
 # GET ALL EXPENSES
 # ─────────────────────────────────────────────
 @router.get("/api/expenses")
-def get_expenses(db: Session = Depends(get_db)):
+def get_expenses(
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_staff),
+):
     expenses = (
         db.query(
             ExpenseLedger,
@@ -96,7 +99,7 @@ def get_expenses(db: Session = Depends(get_db)):
 def create_expense(
     payload: ExpenseCreate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_admin),
+    current_user: SystemUser = Depends(get_current_staff),
 ):
     try:
         # category
@@ -138,7 +141,7 @@ def create_expense(
         db.flush()
         record_dashboard_event(
             db,
-            current_admin,
+            current_user,
             action="created expense",
             table_name="expense_ledger",
             record_id=new_expense.id,
@@ -164,7 +167,7 @@ def update_expense(
     expense_id: str,
     payload: ExpenseUpdate,
     db: Session = Depends(get_db),
-    current_admin: SystemUser = Depends(get_current_admin),
+    current_user: SystemUser = Depends(get_current_staff),
 ):
     try:
         expense = db.query(ExpenseLedger).filter(
@@ -208,7 +211,7 @@ def update_expense(
 
         record_dashboard_event(
             db,
-            current_admin,
+            current_user,
             action="updated expense",
             table_name="expense_ledger",
             record_id=expense.id,
