@@ -2,9 +2,12 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   LayoutDashboard, FileText, FolderOpen, CreditCard, ShieldCheck, ClipboardList,
-  Car, LogOut, BellRing, UserCircle2, ChevronDown, Settings,
+  Car, LogOut, Bell, UserCircle2, ChevronDown, Settings,
 } from 'lucide-react'
 import NotificationPanel from '../../components/app/NotificationPanel'
+
+// Import the notification store methods
+import { unreadCount, subscribe, fetchNotifications } from '../../store/notificationStore'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
 interface NavGroup { title: string; items: NavItem[] }
@@ -34,10 +37,13 @@ export default function CustomerLayout() {
   const [userName, setUserName] = useState('Customer')
   const [userInitial, setUserInitial] = useState('C')
   const [profileOpen, setProfileOpen] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false) // Added missing state for the popup
+  const [notifOpen, setNotifOpen] = useState(false)
+  
+  // State for the unread badge count
+  const [notifCount, setNotifCount] = useState(0)
+  
   const profileRef = useRef<HTMLDivElement>(null)
 
-  // Centralized user loading logic
   const loadUserName = useCallback(() => {
     try {
       const stored = localStorage.getItem('an_current_user') || sessionStorage.getItem('an_current_user')
@@ -50,7 +56,6 @@ export default function CustomerLayout() {
     } catch { /* ignore */ }
   }, [])
 
-  // Initial load and Auth check
   useEffect(() => {
     loadUserName()
     const role = localStorage.getItem('user_role')
@@ -60,7 +65,6 @@ export default function CustomerLayout() {
     }
   }, [navigate, loadUserName])
 
-  // Listen to storage changes (e.g., when profile is updated on another tab or after save)
   useEffect(() => {
     window.addEventListener('storage', loadUserName)
     window.addEventListener('user-profile-updated', loadUserName)
@@ -70,7 +74,18 @@ export default function CustomerLayout() {
     }
   }, [loadUserName])
 
-  // Close dropdown when clicking outside
+  // Mount the notification subscriber
+  useEffect(() => {
+    fetchNotifications()
+    setNotifCount(unreadCount())
+    
+    const unsub = subscribe(() => {
+      setNotifCount(unreadCount())
+    })
+    
+    return unsub
+  }, [])
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -87,9 +102,11 @@ export default function CustomerLayout() {
     localStorage.removeItem('user_role')
     localStorage.removeItem('user_name')
     localStorage.removeItem('an_current_user')
-    sessionStorage.removeItem('an_current_user') // Also clean session storage
+    sessionStorage.removeItem('an_current_user')
     navigate('/', { replace: true })
   }
+
+  const closeNotifs = useCallback(() => setNotifOpen(false), [])
 
   return (
     <div className="app-shell">
@@ -128,27 +145,65 @@ export default function CustomerLayout() {
           <h1>Customer Portal</h1>
           <div className="app-user">
 
-            {/* Notification bell */}
+            {/* Notification bell - Mirrored from AdminLayout */}
             <div style={{ position: 'relative' }}>
               <button
-                className="btn btn-ghost btn-sm"
+                id="notif-bell-btn"
+                onClick={() => { setNotifOpen(p => !p); setProfileOpen(false) }}
+                style={{
+                  background: notifOpen ? '#eff6ff' : 'transparent',
+                  border: '1.5px solid',
+                  borderColor: notifOpen ? '#bfdbfe' : 'transparent',
+                  borderRadius: '10px',
+                  padding: '7px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all .15s',
+                  color: notifOpen ? '#2563eb' : '#64748b',
+                }}
                 title="Notifications"
-                onClick={() => setNotifOpen(prev => !prev)}
-                style={{ position: 'relative', padding: '6px 8px' }}
+                aria-label="Notifications"
               >
-                <BellRing size={18} color="#64748b" />
+                <Bell size={18} />
               </button>
+              
+              {/* Sibling badge positioned on the left side, slightly smaller */}
+              {notifCount > 0 && (
+                <span style={{
+                  position: 'absolute', 
+                  top: '-4px', 
+                  left: '-2px', 
+                  background: '#ef4444', 
+                  color: '#fff',
+                  fontSize: '9px', 
+                  fontWeight: 700,
+                  minWidth: '15px', 
+                  height: '15px',
+                  borderRadius: '10px', 
+                  display: 'flex',
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  padding: '0 4px', 
+                  lineHeight: 1,
+                  border: '2px solid #fff',
+                  pointerEvents: 'none',
+                }}>
+                  {notifCount > 99 ? '99+' : notifCount}
+                </span>
+              )}
             </div>
 
             {/* Notification Panel Popup */}
-            {notifOpen && <NotificationPanel onClose={() => setNotifOpen(false)} />}
+            {notifOpen && <NotificationPanel onClose={closeNotifs} />}
 
             {/* Profile dropdown */}
             <div ref={profileRef} style={{ position: 'relative' }}>
               <button
                 className="btn btn-ghost btn-sm"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px' }}
-                onClick={() => setProfileOpen(p => !p)}
+                onClick={() => { setProfileOpen(p => !p); setNotifOpen(false) }}
               >
                 <div className="app-avatar">{userInitial}</div>
                 <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gray-700)' }}>
