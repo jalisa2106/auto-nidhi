@@ -191,7 +191,7 @@ export default function FilesPage() {
     if (!confirmDelete) return;
     try {
       setLoading(true);
-      await filesApi.delete(confirmDelete.id);
+      await filesApi.remove(confirmDelete.id);
       message.success(`File ${confirmDelete.file_number} deleted`);
       setConfirmDelete(null);
       loadFiles();
