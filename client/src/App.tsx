@@ -105,7 +105,6 @@ function App() {
           <Route path="/accountant/insurance-payments" element={<InsurancePaymentsPage />}      />
           <Route path="/accountant/expenses"           element={<ExpensesPage />}               />
           <Route path="/accountant/advances"           element={<AdvancesPage />}               />
-          <Route path="/accountant/requests"           element={<RequestsPage />}               />
           <Route path="/accountant/profile"            element={<AdminProfilePage />}           />
           <Route path="/accountant/settings"           element={<AdminSettingsPage />}          />
         </Route>
@@ -118,7 +117,6 @@ function App() {
           <Route path="/dashboard"                   element={<DashboardPage />}          />
           <Route path="/customers"                   element={<CustomersPage />}          />
           <Route path="/files"                       element={<FilesPage />}              />
-          <Route path="/requests"                    element={<RequestsPage />}           />
           <Route path="/payments/in"                 element={<PaymentInPage />}          />
           <Route path="/payments/out"                element={<PaymentOutPage />}         />
           <Route path="/commissions/in"              element={<CommissionInPage />}       />
