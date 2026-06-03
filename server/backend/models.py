@@ -22,7 +22,8 @@ class SystemUser(Base):
     password_hash = Column(String(255), nullable=False)
     phone_number = Column(String(15))
     is_active = Column(Boolean, default=True, nullable=False)
-    last_login = Column(DateTime(timezone=True), nullable=True)
+    must_change_password = Column(Boolean, default=False, nullable=False)
+    password_expires_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, nullable=False)
 
     role = relationship("MasterRole")

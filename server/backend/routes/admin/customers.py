@@ -1,3 +1,6 @@
+import re
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from pydantic import BaseModel, Field, validator
@@ -5,12 +8,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from uuid import UUID
 from datetime import date
-import re
+from backend.email_utils import send_email
 
 from backend.database import get_db
 from backend.models import Customer, FileRecord, SystemUser, MasterRole
 from backend.utils import get_current_staff, get_current_admin, record_dashboard_event, get_password_hash
-
 
 router = APIRouter(prefix="/api/v1/customers", tags=["Admin Customers"])
 
@@ -97,13 +99,14 @@ def create_customer(payload: CustomerCreate, db: Session = Depends(get_db), curr
     name_parts = payload.full_name.strip().split(" ", 1)
     first_name = name_parts[0]
     last_name = name_parts[1] if len(name_parts) > 1 else None
+    default_password = f"{first_name.lower()}_123"
 
     new_user = SystemUser(
         first_name=first_name,
         last_name=last_name,
         email=email,
         phone_number=payload.mobile_1,
-        password_hash=get_password_hash(payload.mobile_1),
+        password_hash=get_password_hash(default_password),
         role_id=customer_role.id,
         is_active=True,
     )
@@ -135,6 +138,38 @@ def create_customer(payload: CustomerCreate, db: Session = Depends(get_db), curr
             },
         )
         db.commit()
+
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+        login_url = f"{frontend_url}/login"
+
+        email_body = f"""Hello {first_name},
+
+        Your Auto Nidhi customer account has been created.
+
+        You can sign in using the login credentials given below:
+
+        Login URL: {login_url}
+        Email ID: {email}
+        Default Password: {default_password}
+        Role: Customer
+
+        Disclaimer:
+        For your security, please change your password after your first login.
+        Do not share your login credentials with anyone.
+
+        Regards,
+        Auto Nidhi Team
+        """
+
+        try:
+            send_email(
+                to_email=email,
+                subject="Your Auto Nidhi customer account has been created",
+                body=email_body,
+            )
+        except Exception as exc:
+            print(f"Failed to send customer account email: {exc}")
+
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -243,4 +278,4 @@ def deactivate_customer(
         return {"status": "success", "message": f"Customer {customer.full_name} deactivated"}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))

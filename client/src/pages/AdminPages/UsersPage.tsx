@@ -347,7 +347,7 @@ export default function UsersPage() {
           style={{ alignSelf: 'flex-end' }}
           onClick={() => { setShowCreate(true); setCreateErrors({}); setCreateForm({ ...EMPTY_CREATE }) }}
         >
-          <Plus size={14} /> Invite User
+          <Plus size={14} /> Create User
         </button>
       </div>
 
@@ -546,7 +546,9 @@ export default function UsersPage() {
                       onChange={e => setCreateField('role_id', e.target.value)}
                     >
                       <option value="">— Select role —</option>
-                      {roles.map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
+                      {roles
+                        .filter(r => r.role_name.toLowerCase() !== 'customer')
+                        .map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
                     </select>
                   </div>
 

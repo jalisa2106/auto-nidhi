@@ -1,5 +1,6 @@
 import os
 import re
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -156,6 +157,8 @@ def create_user(
         phone_number=payload.phone_number,
         role_id=payload.role_id,
         is_active=payload.is_active,
+        must_change_password=True,
+        password_expires_at=datetime.now(timezone.utc) + timedelta(days=7),
     )
     db.add(user)
     try:
@@ -176,6 +179,9 @@ def create_user(
         frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
         login_url = f"{frontend_url}/login"
 
+        role = db.query(MasterRole).filter(MasterRole.id == user.role_id).first()
+        role_label = role.role_name if role else "No Role"
+
         email_body = f"""Hello {user.first_name},
 
         Your Auto Nidhi account has been created.
@@ -183,10 +189,13 @@ def create_user(
         You can sign in using the details below:
 
         Login URL: {login_url}
-        Email: {user.email}
+        Email ID: {user.email}
         Password: {payload.password}
+        Role: {role_label}
 
-        For security, please change your password after your first login.
+        Disclaimer:
+        This is a temporary login password. You are requested to change it within 7 days.
+        *If you do not change it within 7 days, this password will expire.
 
         Regards,
         Auto Nidhi Team
@@ -227,6 +236,12 @@ def update_user(
         role = db.query(MasterRole).filter(MasterRole.id == payload.role_id).first()
         if not role:
             raise HTTPException(status_code=400, detail="Invalid role ID")
+
+    if role.role_name.lower() == "customer":
+        raise HTTPException(
+            status_code=400,
+            detail="Customer users must be created from the Customers page."
+        )
 
     # Validate unique email if changing
     if payload.email and payload.email.lower() != user.email:
@@ -324,6 +339,7 @@ def admin_reset_password(
         raise HTTPException(status_code=404, detail="User not found")
 
     user.password_hash = get_password_hash(payload.new_password)
+    user.password_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     try:
         record_dashboard_event(
             db,
@@ -345,10 +361,12 @@ def admin_reset_password(
         Your Auto Nidhi password has been reset by an administrator.
 
         Login URL: {login_url}
-        Email: {user.email}
+        Email ID: {user.email}
         New Password: {payload.new_password}
 
-        For security, please change your password after signing in.
+        Important:
+        This is a temporary password. Please change it within 7 days.
+        If you do not change it within 7 days, this password will expire and you will need to contact the administrator.
 
         Regards,
         Auto Nidhi Team
