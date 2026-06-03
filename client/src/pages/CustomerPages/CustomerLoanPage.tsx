@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
-import { filesApi, notificationsApi } from '../../api/services'
+import { filesApi, notificationsApi, serviceRequestsApi } from '../../api/services'
 import LoanResourceCenter from '../../components/CustomerPages/LoanResourceCenter'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -104,6 +104,11 @@ export default function CustomerLoanPage() {
   const [remarks, setRemarks] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
+  
+  // Consultant assignment states
+  const [consultants, setConsultants] = useState<any[]>([])
+  const [assignmentMode, setAssignmentMode] = useState<'company' | 'choose'>('company')
+  const [selectedConsultant, setSelectedConsultant] = useState('')
 
   // ─── 🔄 LIVE SERVER STREAM DESK ───
   const loadData = () => {
@@ -125,6 +130,10 @@ export default function CustomerLoanPage() {
 
   useEffect(() => {
     loadData()
+    serviceRequestsApi.listConsultants().then(res => {
+      setConsultants(res)
+      if (res.length > 0) setSelectedConsultant(res[0].id)
+    })
   }, [])
 
   const triggerToast = (type: 'ok' | 'err', msg: string) => {
@@ -181,18 +190,41 @@ export default function CustomerLoanPage() {
 
     setSubmitting(true)
     try {
-      // Notify Admin via backend communications endpoint
-      await notificationsApi.notifyAdmin({
-        subject: `New Vehicle Loan Request: ${vehicleMake} ${vehicleModel}`,
-        page_context: 'Quick Services - Loan',
-        message: `A customer has requested a new vehicle loan application.
-        
+      // 1. Create structured Service Request in database (localStorage fallback)
+      const userRaw = localStorage.getItem('an_current_user')
+      const user = userRaw ? JSON.parse(userRaw) : null
+      await serviceRequestsApi.create({
+        customer_id: user?.id || 'cust-direct',
+        customer_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Customer',
+        customer_email: user?.email || '',
+        customer_mobile: user?.phone_number || '9876543210',
+        request_type: 'loan',
+        details: {
+          vehicle_make: vehicleMake,
+          vehicle_model: vehicleModel,
+          loan_amount: Number(loanAmount),
+          tenure: Number(tenure)
+        },
+        remarks: remarks,
+        consultant_id: assignmentMode === 'choose' ? selectedConsultant : undefined
+      })
+
+      // 2. Notify Admin via backend communications endpoint (legacy)
+      try {
+        await notificationsApi.notifyAdmin({
+          subject: `New Vehicle Loan Request: ${vehicleMake} ${vehicleModel}`,
+          page_context: 'Quick Services - Loan',
+          message: `A customer has requested a new vehicle loan application.
+          
 Vehicle details: ${vehicleMake} ${vehicleModel}
 Requested Capital Amount: ₹${Number(loanAmount).toLocaleString('en-IN')}
 Desired Tenure Cycle: ${tenure} months
 Customer Submissions Remarks: ${remarks || 'None'}`,
-        include_summary: true 
-      })
+          include_summary: true 
+        })
+      } catch (err) {
+        console.warn("Legacy notifyAdmin failed, continuing as request was logged:", err)
+      }
       
       triggerToast('ok', 'Loan Application Request sent to AutoNidhi team!')
       setIsModalOpen(false)
@@ -462,6 +494,47 @@ Customer Submissions Remarks: ${remarks || 'None'}`,
                     className="form-input"
                     style={{ fontFamily: 'inherit' }}
                   />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                    Consultant Assignment <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="assignmentMode"
+                        value="company"
+                        checked={assignmentMode === 'company'}
+                        onChange={() => setAssignmentMode('company')}
+                      />
+                      Company will assign
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="assignmentMode"
+                        value="choose"
+                        checked={assignmentMode === 'choose'}
+                        onChange={() => setAssignmentMode('choose')}
+                      />
+                      Choose your consultant
+                    </label>
+                  </div>
+                  {assignmentMode === 'choose' && (
+                    <select
+                      value={selectedConsultant}
+                      onChange={e => setSelectedConsultant(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem' }}
+                      required
+                    >
+                      {consultants.map(c => (
+                        <option key={c.id} value={c.id}>{c.first_name} {c.last_name || ''} ({c.email})</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 

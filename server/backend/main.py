@@ -47,6 +47,7 @@ from backend.routes.admin.company_settings import router as company_settings_rou
 from backend.routes.admin.bank_accounts import router as bank_accounts_router
 from backend.routes.admin.users_settings import router as users_settings_router
 from backend.routes.admin.admin_settings import router as admin_settings_router
+from backend.routes.admin.user_profiles import router as user_profiles_router
 
 
 app = FastAPI(title="AutoNidhi API", version="1.0.0")
@@ -116,3 +117,4 @@ app.include_router(company_settings_router)
 app.include_router(bank_accounts_router)
 app.include_router(users_settings_router)
 app.include_router(admin_settings_router)
+app.include_router(user_profiles_router)
