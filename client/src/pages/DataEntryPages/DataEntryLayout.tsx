@@ -11,21 +11,21 @@ import { subscribe, unreadCount, fetchNotifications } from '../../store/notifica
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
 interface NavGroup { title: string; items: NavItem[] }
 
-const dataEntryNav: NavGroup[] = [
+const staffNav: NavGroup[] = [
   {
     title: 'Overview', items: [
-      { to: '/data-entry/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/data-entry/customers', label: 'Customers', icon: Users           },
-      { to: '/data-entry/files',     label: 'Files',     icon: FolderOpen      },
+      { to: '/staff/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/staff/customers', label: 'Customers', icon: Users           },
+      { to: '/staff/files',     label: 'Files',     icon: FolderOpen      },
     ],
   },
   {
     title: 'Finance', items: [
-      { to: '/data-entry/payments/in',         label: 'Payment IN',         icon: ArrowDownToLine },
-      { to: '/data-entry/payments/out',        label: 'Payment OUT',        icon: ArrowUpFromLine },
-      { to: '/data-entry/rto-payments',        label: 'RTO Payments',       icon: Receipt         },
-      { to: '/data-entry/insurance-payments',  label: 'Insurance Payments', icon: ShieldCheck     },
-      { to: '/data-entry/expenses',            label: 'Expenses',           icon: Wallet          },
+      { to: '/staff/payments/in',         label: 'Payment IN',         icon: ArrowDownToLine },
+      { to: '/staff/payments/out',        label: 'Payment OUT',        icon: ArrowUpFromLine },
+      { to: '/staff/rto-payments',        label: 'RTO Payments',       icon: Receipt         },
+      { to: '/staff/insurance-payments',  label: 'Insurance Payments', icon: ShieldCheck     },
+      { to: '/staff/expenses',            label: 'Expenses',           icon: Wallet          },
     ],
   },
 ]
@@ -55,7 +55,7 @@ function DropdownItem({ icon, label, onClick, danger }: {
 
 export default function DataEntryLayout() {
   const navigate = useNavigate()
-  const [userName, setUserName] = useState('Data Entry')
+  const [userName, setUserName] = useState('Staff')
   const [badgeCount, setBadgeCount] = useState(0)
   const [showNotifs, setShowNotifs] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -69,7 +69,7 @@ export default function DataEntryLayout() {
       const stored = localStorage.getItem('an_current_user')
       if (stored) {
         const u = JSON.parse(stored)
-        setUserName(u.first_name || u.name || u.email?.split('@')[0] || 'Data Entry')
+        setUserName(u.first_name || u.name || u.email?.split('@')[0] || 'Staff')
       }
     } catch { /* ignore */ }
 
@@ -122,14 +122,14 @@ export default function DataEntryLayout() {
           <div className="sb-brand">Auto<span>Nidhi</span></div>
         </div>
 
-        {dataEntryNav.map((group) => (
+        {staffNav.map((group) => (
           <div key={group.title}>
             <div className="sb-section">{group.title}</div>
             {group.items.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === '/data-entry/dashboard'}
+                end={item.to === '/staff/dashboard'}
                 className={({ isActive }) => (isActive ? 'active-link' : '')}
               >
                 <item.icon size={16} /> {item.label}
@@ -140,13 +140,13 @@ export default function DataEntryLayout() {
 
         <div className="sb-foot">
           Signed in as <strong style={{ color: '#fff' }}>{userName}</strong><br />
-          <span>Data Entry</span>
+          <span>Staff</span>
         </div>
       </aside>
 
       <div className="app-main">
         <header className="app-topbar">
-          <h1>Data Entry Portal</h1>
+          <h1>Staff Portal</h1>
 
           <div className="app-user" style={{ position: 'relative' }}>
             <div style={{ position: 'relative' }}>
@@ -224,17 +224,17 @@ export default function DataEntryLayout() {
                 }}>
                   <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{userName}</div>
-                    <div style={{ fontSize: 11.5, color: '#94a3b8' }}>Data Entry</div>
+                    <div style={{ fontSize: 11.5, color: '#94a3b8' }}>Staff</div>
                   </div>
                   <DropdownItem
                     icon={<User size={14} />}
                     label="My Profile"
-                    onClick={() => { navigate('/data-entry/profile'); setShowProfile(false) }}
+                    onClick={() => { navigate('/staff/profile'); setShowProfile(false) }}
                   />
                   <DropdownItem
                     icon={<Settings size={14} />}
                     label="Account Settings"
-                    onClick={() => { navigate('/data-entry/settings'); setShowProfile(false) }}
+                    onClick={() => { navigate('/staff/settings'); setShowProfile(false) }}
                   />
                   <div style={{ height: 1, background: '#f1f5f9', margin: '4px 0' }} />
                   <DropdownItem

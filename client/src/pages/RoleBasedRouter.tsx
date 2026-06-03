@@ -21,7 +21,7 @@ export default function RoleBasedRouter() {
     case 'accountant':
       return <Navigate to="/accountant/dashboard" replace />
     case 'data_entry':
-      return <Navigate to="/data-entry/dashboard" replace />
+      return <Navigate to="/staff/dashboard" replace />
     case 'customer':
       return <Navigate to="/portal" replace />
     default:

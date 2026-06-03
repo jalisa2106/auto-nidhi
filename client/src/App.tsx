@@ -76,18 +76,18 @@ function App() {
           <Route path="/portal/settings"   element={<CustomerSettingsPage />}   />
         </Route>
 
-        {/* ── Data Entry portal ── */}
+        {/* ── Staff portal ── */}
         <Route element={<AdminLayout />}>
-          <Route path="/data-entry/dashboard"          element={<DashboardPage />}         />
-          <Route path="/data-entry/customers"          element={<CustomersPage />}         />
-          <Route path="/data-entry/files"              element={<FilesPage />}             />
-          <Route path="/data-entry/payments/in"        element={<PaymentInPage />}         />
-          <Route path="/data-entry/payments/out"       element={<PaymentOutPage />}        />
-          <Route path="/data-entry/rto-payments"       element={<RTOPaymentsPage />}       />
-          <Route path="/data-entry/insurance-payments" element={<InsurancePaymentsPage />} />
-          <Route path="/data-entry/expenses"           element={<ExpensesPage />}          />
-          <Route path="/data-entry/profile"            element={<AdminProfilePage />}      />
-          <Route path="/data-entry/settings"           element={<AdminSettingsPage />}     />
+          <Route path="/staff/dashboard"          element={<DashboardPage />}         />
+          <Route path="/staff/customers"          element={<CustomersPage />}         />
+          <Route path="/staff/files"              element={<FilesPage />}             />
+          <Route path="/staff/payments/in"        element={<PaymentInPage />}         />
+          <Route path="/staff/payments/out"       element={<PaymentOutPage />}        />
+          <Route path="/staff/rto-payments"       element={<RTOPaymentsPage />}       />
+          <Route path="/staff/insurance-payments" element={<InsurancePaymentsPage />} />
+          <Route path="/staff/expenses"           element={<ExpensesPage />}          />
+          <Route path="/staff/profile"            element={<AdminProfilePage />}      />
+          <Route path="/staff/settings"           element={<AdminSettingsPage />}     />
         </Route>
 
         {/* ── Accountant portal ── */}
