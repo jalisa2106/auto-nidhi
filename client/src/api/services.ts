@@ -829,3 +829,13 @@ export const customerRtoApi = {
   }
 }
 
+export const userProfilesApi = {
+  list: async (role: 'staff' | 'accountant') => {
+    const { data } = await api.get('/admin/user-profiles/', { params: { role } })
+    return data
+  },
+  detail: async (userId: string) => {
+    const { data } = await api.get(`/admin/user-profiles/${userId}`)
+    return data
+  },
+}

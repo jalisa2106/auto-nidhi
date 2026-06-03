@@ -47,9 +47,11 @@ const adminNav: NavGroup[] = [
   },
   {
     title: 'Settings', items: [
-      { to: '/settings/company', label: 'Company',       icon: Settings },
-      { to: '/settings/banks',   label: 'Bank Accounts', icon: Settings },
-      { to: '/settings/users',   label: 'Users',         icon: Users    },
+      { to: '/settings/company',      label: 'Company',       icon: Settings },
+      { to: '/settings/banks',        label: 'Bank Accounts', icon: Settings },
+      { to: '/settings/users',        label: 'Users',         icon: Users    },
+      { to: '/settings/staff',        label: 'Staff Members', icon: Users    },
+      { to: '/settings/accountants',  label: 'Accountants',   icon: Users    },
     ],
   },
 ]
@@ -57,18 +59,18 @@ const adminNav: NavGroup[] = [
 const dataEntryNav: NavGroup[] = [
   {
     title: 'Overview', items: [
-      { to: '/data-entry/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/data-entry/customers',  label: 'Customers', icon: Users },
-      { to: '/data-entry/files',      label: 'Files',     icon: FolderOpen },
+      { to: '/staff/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/staff/customers',  label: 'Customers', icon: Users },
+      { to: '/staff/files',      label: 'Files',     icon: FolderOpen },
     ],
   },
   {
     title: 'Finance', items: [
-      { to: '/data-entry/payments/in',          label: 'Payment IN',          icon: ArrowDownToLine  },
-      { to: '/data-entry/payments/out',         label: 'Payment OUT',         icon: ArrowUpFromLine  },
-      { to: '/data-entry/rto-payments',         label: 'RTO Payments',        icon: Receipt          },
-      { to: '/data-entry/insurance-payments',   label: 'Insurance Payments',  icon: ShieldCheck      },
-      { to: '/data-entry/expenses',             label: 'Expenses',            icon: Wallet           },
+      { to: '/staff/payments/in',         label: 'Payment IN',         icon: ArrowDownToLine  },
+      { to: '/staff/payments/out',        label: 'Payment OUT',        icon: ArrowUpFromLine  },
+      { to: '/staff/rto-payments',        label: 'RTO Payments',       icon: Receipt          },
+      { to: '/staff/insurance-payments',  label: 'Insurance Payments', icon: ShieldCheck      },
+      { to: '/staff/expenses',            label: 'Expenses',           icon: Wallet           },
     ],
   },
 ]
@@ -179,6 +181,8 @@ export default function AdminLayout() {
     '/settings/company': 'Company Settings',
     '/settings/banks': 'Bank Accounts',
     '/settings/users': 'User Management',
+    '/settings/staff': 'Staff Members',
+    '/settings/accountants': 'Accountants',
     '/profile': 'My Profile',
     '/settings': 'Account Settings',
   }
