@@ -50,6 +50,9 @@ import UsersPage              from './pages/AdminPages/UsersPage'
 import LoansPage              from './pages/AdminPages/LoansPage'
 import AdminProfilePage       from './pages/AdminPages/AdminProfilePage'
 import AdminSettingsPage      from './pages/AdminPages/AdminSettingsPage'
+import StaffPage              from './pages/AdminPages/StaffPage'
+import AccountantsPage        from './pages/AdminPages/AccountantsPage'
+import UserDetailPage         from './pages/AdminPages/UserDetailPage'
 import RequestsPage           from './pages/AdminPages/RequestsPage'
 
 function App() {
@@ -134,6 +137,10 @@ function App() {
           <Route path="/settings/company"            element={<CompanySettingsPage />}    />
           <Route path="/settings/banks"              element={<BankAccountsPage />}       />
           <Route path="/settings/users"              element={<UsersPage />}              />
+          <Route path="/settings/staff"              element={<StaffPage />}              />
+          <Route path="/settings/staff/:id"          element={<UserDetailPage />}         />
+          <Route path="/settings/accountants"        element={<AccountantsPage />}        />
+          <Route path="/settings/accountants/:id"    element={<UserDetailPage />}         />
           <Route path="/admin/profile"               element={<AdminProfilePage />}       />
           <Route path="/admin/settings"              element={<AdminSettingsPage />}      />
         </Route>
