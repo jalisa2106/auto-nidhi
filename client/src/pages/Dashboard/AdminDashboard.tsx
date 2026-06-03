@@ -47,9 +47,11 @@ const adminNav: NavGroup[] = [
   },
   {
     title: 'Settings', items: [
-      { to: '/settings/company', label: 'Company',       icon: Settings },
-      { to: '/settings/banks',   label: 'Bank Accounts', icon: Settings },
-      { to: '/settings/users',   label: 'Users',         icon: Users    },
+      { to: '/settings/company',      label: 'Company',       icon: Settings },
+      { to: '/settings/banks',        label: 'Bank Accounts', icon: Settings },
+      { to: '/settings/users',        label: 'Users',         icon: Users    },
+      { to: '/settings/staff',        label: 'Staff Members', icon: Users    },
+      { to: '/settings/accountants',  label: 'Accountants',   icon: Users    },
     ],
   },
 ]
@@ -65,11 +67,11 @@ const dataEntryNav: NavGroup[] = [
   },
   {
     title: 'Finance', items: [
-      { to: '/staff/payments/in',          label: 'Payment IN',          icon: ArrowDownToLine  },
-      { to: '/staff/payments/out',         label: 'Payment OUT',         icon: ArrowUpFromLine  },
-      { to: '/staff/rto-payments',         label: 'RTO Payments',        icon: Receipt          },
-      { to: '/staff/insurance-payments',   label: 'Insurance Payments',  icon: ShieldCheck      },
-      { to: '/staff/expenses',             label: 'Expenses',            icon: Wallet           },
+      { to: '/staff/payments/in',         label: 'Payment IN',         icon: ArrowDownToLine  },
+      { to: '/staff/payments/out',        label: 'Payment OUT',        icon: ArrowUpFromLine  },
+      { to: '/staff/rto-payments',        label: 'RTO Payments',       icon: Receipt          },
+      { to: '/staff/insurance-payments',  label: 'Insurance Payments', icon: ShieldCheck      },
+      { to: '/staff/expenses',            label: 'Expenses',           icon: Wallet           },
     ],
   },
 ]
@@ -217,6 +219,8 @@ export default function AdminLayout() {
     '/settings/company': 'Company Settings',
     '/settings/banks': 'Bank Accounts',
     '/settings/users': 'User Management',
+    '/settings/staff': 'Staff Members',
+    '/settings/accountants': 'Accountants',
     '/profile': 'My Profile',
     '/settings': 'Account Settings',
   }

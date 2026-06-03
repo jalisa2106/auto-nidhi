@@ -75,6 +75,8 @@ const ResetPassword: React.FC = () => {
   const [errorMsg,  setErrorMsg]    = useState<string | null>(null)
   const [success,   setSuccess]     = useState(false)
   const [errors,    setErrors]      = useState<Record<string, string>>({})
+  const [checkingToken, setCheckingToken] = useState(true)
+  const [tokenValid, setTokenValid] = useState(false)
 
   const strength = getStrength(password)
 
@@ -85,6 +87,51 @@ const ResetPassword: React.FC = () => {
       return () => clearTimeout(t)
     }
   }, [success, navigate])
+
+  // Verify reset token when page opens
+  useEffect(() => {
+    if (!token) {
+      setCheckingToken(false)
+      setTokenValid(false)
+      return
+    }
+
+    const verifyToken = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/v1/auth/reset-password/verify?token=${encodeURIComponent(token)}`
+        )
+        const data = await response.json()
+
+        if (!response.ok) {
+          setErrorMsg(data.detail || 'Password reset link is invalid or expired.')
+          setTokenValid(false)
+          return
+        }
+
+        setTokenValid(true)
+      } catch {
+        setErrorMsg('Unable to verify reset link. Please try again.')
+        setTokenValid(false)
+      } finally {
+        setCheckingToken(false)
+      }
+    }
+
+    verifyToken()
+  }, [token])
+
+  // Token checking state
+  if (checkingToken) {
+    return (
+      <AuthLayout brandContent={<BrandSection />}>
+        <AuthCard>
+          <h2 className="auth-title">Checking Link</h2>
+          <p className="auth-subtitle">Please wait while we verify your reset link.</p>
+        </AuthCard>
+      </AuthLayout>
+    )
+  }
 
   // No token guard
   if (!token) {
@@ -102,6 +149,35 @@ const ResetPassword: React.FC = () => {
           </Link>
           <div className="auth-footer">
             <Link to="/login">← Back to Sign In</Link>
+          </div>
+        </AuthCard>
+      </AuthLayout>
+    )
+  }
+
+  // Invalid or expired token guard
+  if (!tokenValid) {
+    return (
+      <AuthLayout brandContent={<BrandSection />}>
+        <AuthCard>
+          <h2 className="auth-title">Link Expired</h2>
+          <p className="auth-subtitle">This password reset link is invalid or has expired.</p>
+
+          <div className="auth-alert auth-alert--error" role="alert">
+            <ErrorIcon />
+            <span>{errorMsg || 'Please request a new reset link.'}</span>
+          </div>
+
+          <Link
+            to="/forgot-password"
+            className="auth-btn"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+          >
+            Request New Reset Link
+          </Link>
+
+          <div className="auth-footer">
+            <Link to="/login">Back to Sign In</Link>
           </div>
         </AuthCard>
       </AuthLayout>
