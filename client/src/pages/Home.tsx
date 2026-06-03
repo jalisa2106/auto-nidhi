@@ -4,7 +4,7 @@ import {
   CheckCircle2, ArrowRight, Car, Shield, TrendingUp, Users, Building, ShieldCheck
 } from 'lucide-react'
 import '../pages.css'
-
+import logoLight from '../assets/AutoNidhi Logo.png'
 const features = [
   {
     icon: '📁',
@@ -52,9 +52,8 @@ export default function Home() {
         <div className="container">
           <Link to="/" className="navbar-logo">
             <div className="logo-mark">
-              <Car size={20} color="#fff" />
+              <img src={logoLight} alt="AutoNidhi" className="navbar-logo-image" />
             </div>
-            Auto<span className="logo-nidhi">Nidhi</span>
           </Link>
  
           <ul className="navbar-links">

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import NotificationPanel from '../../components/app/NotificationPanel'
 import { subscribe, unreadCount, fetchNotifications } from '../../store/notificationStore'
+import logoDark from '../../assets/AutoNidhi Logo 1.png'
 import '../../pages.css'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
@@ -195,9 +196,8 @@ export default function AdminLayout() {
       <aside className="app-sidebar">
         <div className="sb-logo">
           <div className="sb-logo-mark">
-            <Car size={17} color="#fff" />
+            <img src={logoDark} alt="AutoNidhi" className="sidebar-logo-image" />
           </div>
-          <div className="sb-brand">Auto<span>Nidhi</span></div>
         </div>
 
         {activeNav.map((group) => (

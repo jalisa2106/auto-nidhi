@@ -118,8 +118,7 @@ export default function DataEntryLayout() {
     <div className="app-shell">
       <aside className="app-sidebar">
         <div className="sb-logo">
-          <div className="sb-logo-mark"><Car size={18} color="#fff" /></div>
-          <div className="sb-brand">Auto<span>Nidhi</span></div>
+          <div className="sb-logo-mark"><img src={logoDark} alt="AutoNidhi" className="sidebar-logo-image" /></div>
         </div>
 
         {staffNav.map((group) => (

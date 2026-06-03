@@ -5,6 +5,7 @@ import {
   Receipt, ShieldCheck, Wallet, Landmark, BadgePercent,
   Car, LogOut, BellRing,
 } from 'lucide-react'
+import logoDark from '../../assets/AutoNidhi Logo 1.png'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
 interface NavGroup { title: string; items: NavItem[] }
@@ -64,8 +65,7 @@ export default function AccountantLayout() {
       {/* ── Sidebar ── */}
       <aside className="app-sidebar">
         <div className="sb-logo">
-          <div className="sb-logo-mark"><Car size={18} color="#fff" /></div>
-          <div className="sb-brand">Auto<span>Nidhi</span></div>
+          <div className="sb-logo-mark"><img src={logoDark} alt="AutoNidhi" className="sidebar-logo-image" /></div>
         </div>
 
         {accountantNav.map((group) => (

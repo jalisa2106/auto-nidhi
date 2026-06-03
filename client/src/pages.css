@@ -22,25 +22,26 @@
 }
 
 .navbar-logo {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1.35rem;
-  font-weight: 800;
-  color: var(--gray-900);
-  letter-spacing: -0.5px;
+  gap: 0;
 }
 .navbar-logo .logo-mark {
-  width: 38px;
-  height: 38px;
-  background: linear-gradient(135deg, var(--brand-600), var(--brand-800));
-  border-radius: 10px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(37,99,235,.30);
+  overflow: hidden;
+  background: none;
 }
-.navbar-logo .logo-nidhi { color: var(--gold-500); }
+
+.navbar-logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 
 .navbar-links {
   display: flex;
@@ -525,10 +526,9 @@
 .app-shell { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; background: var(--surface-1); }
 @media(max-width:900px) { .app-shell { grid-template-columns: 1fr; } .app-sidebar { display: none; } }
 .app-sidebar { background: #0f172a; color: #cbd5e1; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-.app-sidebar .sb-logo { padding: 22px 22px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,.06); }
-.app-sidebar .sb-logo-mark { width: 34px; height: 34px; background: linear-gradient(135deg, var(--brand-500), var(--brand-700)); border-radius: 9px; display: flex; align-items: center; justify-content: center; }
-.app-sidebar .sb-brand { font-weight: 800; font-size: 1.05rem; color: #fff; }
-.app-sidebar .sb-brand span { color: var(--gold-400); }
+.app-sidebar .sb-logo { padding: 20px 0 16px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid rgba(255,255,255,.06); }
+.app-sidebar .sb-logo-mark { width: 54px; height: 54px; border-radius: 14px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.sidebar-logo-image { width: 100%; height: 100%; object-fit: contain; }
 .app-sidebar .sb-section { padding: 18px 14px 4px; font-size: .7rem; font-weight: 700; letter-spacing: 1px; color: #64748b; text-transform: uppercase; }
 .app-sidebar a { display: flex; align-items: center; gap: 10px; padding: 9px 16px; margin: 1px 8px; border-radius: 8px; font-size: .88rem; color: #cbd5e1; transition: all .15s; text-decoration: none; }
 .app-sidebar a:hover { background: rgba(255,255,255,.06); color: #fff; }
