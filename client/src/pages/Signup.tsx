@@ -63,7 +63,7 @@ interface RoleOption {
 const ROLES: RoleOption[] = [
   { value: 'customer',   label: 'Customer',    desc: 'Standard user access',    restricted: false },
   { value: 'accountant', label: 'Accountant',  desc: 'Finance & payment access', restricted: true  },
-  { value: 'data_entry', label: 'Data Entry',  desc: 'File & record management', restricted: true  },
+  { value: 'data_entry', label: 'Staff',  desc: 'File & record management', restricted: true  },
   { value: 'admin',      label: 'Admin',        desc: 'Full system access',       restricted: true  },
 ]
 
@@ -213,7 +213,7 @@ const Signup: React.FC = () => {
         const r = data.user.role
         if      (r === 'customer')   navigate('/portal')
         else if (r === 'accountant') navigate('/accountant/dashboard')
-        else if (r === 'data_entry') navigate('/data-entry/dashboard')
+        else if (r === 'data_entry') navigate('/staff/dashboard')
         else                         navigate('/dashboard')
       }, 1400)
 
