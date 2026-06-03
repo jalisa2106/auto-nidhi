@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   LayoutDashboard, Users, FolderOpen,
   ArrowDownToLine, ArrowUpFromLine, Receipt, ShieldCheck, Wallet,
-  Car, LogOut, Bell, User, Settings, ChevronDown, Split
+  Car, LogOut, Bell, User, Settings, ChevronDown
 } from 'lucide-react'
 import NotificationPanel from '../../components/app/NotificationPanel'
 import { subscribe, unreadCount, fetchNotifications } from '../../store/notificationStore'
@@ -122,7 +122,9 @@ export default function DataEntryLayout() {
     <div className="app-shell">
       <aside className="app-sidebar">
         <div className="sb-logo">
-          <div className="sb-logo-mark"><img src={logoDark} alt="AutoNidhi" className="sidebar-logo-image" /></div>
+          <div className="sb-logo-mark">
+            <Car size={18} color="#fff" />
+          </div>
         </div>
 
         {staffNav.map((group) => (

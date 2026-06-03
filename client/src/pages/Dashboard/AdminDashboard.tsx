@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, FolderOpen,
   ArrowDownToLine, ArrowUpFromLine, BadgePercent, HandCoins,
   Receipt, ShieldCheck, Wallet, Landmark,
-  Database, Settings, LogOut, Car, Bell, PiggyBank,
+  Database, Settings, LogOut, Bell, PiggyBank,
   User, ChevronDown, ClipboardList,
 } from 'lucide-react'
 import NotificationPanel from '../../components/app/NotificationPanel'

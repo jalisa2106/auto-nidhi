@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, FolderOpen, ArrowDownToLine, ArrowUpFromLine,
   Receipt, ShieldCheck, Wallet, Landmark, BadgePercent,
-  Car, LogOut, BellRing, Settings
+  LogOut, BellRing, Settings
 } from 'lucide-react'
 import logoDark from '../../assets/AutoNidhi Logo 1.png'
 

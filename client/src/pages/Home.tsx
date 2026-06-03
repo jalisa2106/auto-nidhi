@@ -1,7 +1,7 @@
 // client/src/pages/Home.tsx
 import { Link } from 'react-router-dom'
 import {
-  CheckCircle2, ArrowRight, Car, Shield, TrendingUp, Users, Building, ShieldCheck
+  CheckCircle2, ArrowRight, Shield, TrendingUp, Users, Building, ShieldCheck
 } from 'lucide-react'
 import '../pages.css'
 import logoLight from '../assets/AutoNidhi Logo.png'
