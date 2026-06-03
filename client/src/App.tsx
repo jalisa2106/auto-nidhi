@@ -53,7 +53,7 @@ import AdminSettingsPage      from './pages/AdminPages/AdminSettingsPage'
 import StaffPage              from './pages/AdminPages/StaffPage'
 import AccountantsPage        from './pages/AdminPages/AccountantsPage'
 import UserDetailPage         from './pages/AdminPages/UserDetailPage'
-import RequestsPage           from './pages/AdminPages/RequestsPage'
+import RequestsPage           from './pages/DataEntryPages/RequestsPage'
 
 function App() {
   return (
