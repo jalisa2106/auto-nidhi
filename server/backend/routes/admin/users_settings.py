@@ -193,9 +193,9 @@ def create_user(
         Password: {payload.password}
         Role: {role_label}
 
-        Important:
-        This is a temporary password. Please change it within 7 days.
-        If you do not change it within 7 days, this password will expire and you will need to contact the administrator.
+        Disclaimer:
+        This is a temporary login password. You are requested to change it within 7 days.
+        *If you do not change it within 7 days, this password will expire.
 
         Regards,
         Auto Nidhi Team

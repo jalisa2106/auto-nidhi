@@ -44,7 +44,7 @@ def login(data: LoginData, db: Session = Depends(get_db)):
         if datetime.now(timezone.utc) > expires_at:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Your temporary password has expired. Please contact the administrator to reset your password."
+                detail="Temporary credentials are expired."
             )
     
     # 4. Get the Role Name from the database using role_id

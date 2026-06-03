@@ -15,7 +15,7 @@ router = APIRouter()
 # NOTE: This resets on every server restart. For production, store tokens in DB.
 reset_tokens: dict = {}
 
-TOKEN_EXPIRY_MINUTES = 60  # 1 hour
+TOKEN_EXPIRY_MINUTES = 5  # Reset link expires in 5 minutes
 IS_DEV = os.getenv("APP_ENV", "production").lower() in {"dev", "development", "local"}
 
 # ── Pydantic Models ──────────────────────────────────────────────────────────
@@ -96,6 +96,24 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
         "message": "If an account exists with this email, you will receive reset instructions.",
     }
 
+@router.get("/reset-password/verify")
+def verify_reset_token(token: str):
+    token_data = reset_tokens.get(token)
+
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset link is invalid or expired."
+        )
+
+    if datetime.datetime.utcnow() > token_data["expires_at"]:
+        del reset_tokens[token]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset link has expired. Please request a new one."
+        )
+
+    return {"message": "Reset link is valid"}
 
 @router.post("/reset-password")
 def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):

@@ -44,6 +44,7 @@ const Login: React.FC = () => {
   const [loading, setLoading]       = useState(false)
   const [showPass, setShowPass]     = useState(false)
   const [errorMsg, setErrorMsg]     = useState<string | null>(null)
+  const [showResetLink, setShowResetLink] = useState(false)
 
   // Controlled form values
   const [email, setEmail]         = useState('')
@@ -59,6 +60,7 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMsg(null)
+    setShowResetLink(false)
 
     // Client-side validation
     let valid = true
@@ -82,7 +84,10 @@ const Login: React.FC = () => {
       const data = await response.json()
 
       if (!response.ok) {
-        if (response.status === 401) {
+        if (data.detail === 'Temporary credentials are expired.') {
+          setErrorMsg('Temporary credentials are expired.')
+          setShowResetLink(true)
+        } else if (response.status === 401) {
           setErrorMsg('Invalid email or password. Please check your credentials and try again.')
         } else {
           setErrorMsg(data.detail || 'Login failed. Please try again.')
@@ -137,7 +142,17 @@ const Login: React.FC = () => {
         {errorMsg && (
           <div className="auth-alert auth-alert--error" role="alert">
             <ErrorIcon />
-            <span>{errorMsg}</span>
+            <span>
+              {errorMsg}
+              {showResetLink && (
+                <>
+                  {' '}
+                  <Link to="/forgot-password" style={{ fontWeight: 700, color: 'inherit', textDecoration: 'underline' }}>
+                    Click here to reset your password.
+                  </Link>
+                </>
+              )}
+            </span>
           </div>
         )}
 
