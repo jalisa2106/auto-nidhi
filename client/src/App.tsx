@@ -50,6 +50,7 @@ import UsersPage              from './pages/AdminPages/UsersPage'
 import LoansPage              from './pages/AdminPages/LoansPage'
 import AdminProfilePage       from './pages/AdminPages/AdminProfilePage'
 import AdminSettingsPage      from './pages/AdminPages/AdminSettingsPage'
+import RequestsPage           from './pages/AdminPages/RequestsPage'
 
 function App() {
   return (
@@ -86,6 +87,7 @@ function App() {
           <Route path="/data-entry/rto-payments"       element={<RTOPaymentsPage />}       />
           <Route path="/data-entry/insurance-payments" element={<InsurancePaymentsPage />} />
           <Route path="/data-entry/expenses"           element={<ExpensesPage />}          />
+          <Route path="/data-entry/requests"           element={<RequestsPage />}          />
           <Route path="/data-entry/profile"            element={<AdminProfilePage />}      />
           <Route path="/data-entry/settings"           element={<AdminSettingsPage />}     />
         </Route>
@@ -100,6 +102,7 @@ function App() {
           <Route path="/accountant/insurance-payments" element={<InsurancePaymentsPage />}      />
           <Route path="/accountant/expenses"           element={<ExpensesPage />}               />
           <Route path="/accountant/advances"           element={<AdvancesPage />}               />
+          <Route path="/accountant/requests"           element={<RequestsPage />}               />
           <Route path="/accountant/profile"            element={<AdminProfilePage />}           />
           <Route path="/accountant/settings"           element={<AdminSettingsPage />}          />
         </Route>
@@ -112,6 +115,7 @@ function App() {
           <Route path="/dashboard"                   element={<DashboardPage />}          />
           <Route path="/customers"                   element={<CustomersPage />}          />
           <Route path="/files"                       element={<FilesPage />}              />
+          <Route path="/requests"                    element={<RequestsPage />}           />
           <Route path="/payments/in"                 element={<PaymentInPage />}          />
           <Route path="/payments/out"                element={<PaymentOutPage />}         />
           <Route path="/commissions/in"              element={<CommissionInPage />}       />

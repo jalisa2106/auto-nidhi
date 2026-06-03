@@ -829,3 +829,170 @@ export const customerRtoApi = {
   }
 }
 
+export interface ServiceRequest {
+  id: string
+  customer_id: string
+  customer_name: string
+  customer_email: string
+  customer_mobile: string
+  request_type: 'loan' | 'rto' | 'insurance' | 'other'
+  status: 'pending' | 'processed' | 'approved' | 'rejected'
+  details: any
+  remarks: string
+  consultant_id?: string
+  consultant_name?: string
+  created_at: string
+  updated_at: string
+  viewed_by_consultant: boolean
+  viewed_at?: string
+}
+
+export const serviceRequestsApi = {
+  listConsultants: async (): Promise<any[]> => {
+    return [
+      { id: 'c2d88add-f8a6-49c6-a9d4-6603ea46a459', first_name: 'James', last_name: 'Bond', email: 'james@gmail.com' },
+      { id: '4d763da5-8ee8-4074-ac8e-fe98767c4ad8', first_name: 'Yatri', last_name: 'Patel', email: 'dataentry@gmail.com' }
+    ]
+  },
+
+  list: async (consultantId?: string): Promise<ServiceRequest[]> => {
+    const raw = localStorage.getItem('service_requests')
+    let requests: ServiceRequest[] = raw ? JSON.parse(raw) : []
+
+    // Seed mock data if empty
+    if (requests.length === 0) {
+      requests = [
+        {
+          id: 'req-mock-1',
+          customer_id: 'cust-mock-1',
+          customer_name: 'Raj Patel',
+          customer_email: 'raj@gmail.com',
+          customer_mobile: '9876543210',
+          request_type: 'loan',
+          status: 'pending',
+          details: { vehicle_make: 'Maruti', vehicle_model: 'Swift', loan_amount: 500000, tenure: 36 },
+          remarks: 'Please check HDFC interest rates',
+          consultant_id: '4d763da5-8ee8-4074-ac8e-fe98767c4ad8', // Yatri Patel
+          consultant_name: 'Yatri Patel',
+          created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), // 4 days ago
+          updated_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+          viewed_by_consultant: false
+        },
+        {
+          id: 'req-mock-2',
+          customer_id: 'cust-mock-2',
+          customer_name: 'Amit Shah',
+          customer_email: 'amit@gmail.com',
+          customer_mobile: '9123456789',
+          request_type: 'rto',
+          status: 'pending',
+          details: { file_number: 'FILE/2026/002', service_type: 'ownership_transfer', rto_district: 'MH-12 (Pune)' },
+          remarks: 'Urgent transfer please',
+          consultant_id: '4d763da5-8ee8-4074-ac8e-fe98767c4ad8', // Yatri Patel
+          consultant_name: 'Yatri Patel',
+          created_at: new Date().toISOString(), // today
+          updated_at: new Date().toISOString(),
+          viewed_by_consultant: false
+        }
+      ]
+      localStorage.setItem('service_requests', JSON.stringify(requests))
+    }
+
+    if (consultantId) {
+      return requests.filter(r => r.consultant_id === consultantId)
+    }
+    return requests
+  },
+
+  create: async (data: {
+    customer_id?: string
+    customer_name: string
+    customer_email: string
+    customer_mobile: string
+    request_type: 'loan' | 'rto' | 'insurance' | 'other'
+    details: any
+    remarks: string
+    consultant_id?: string
+  }): Promise<ServiceRequest> => {
+    const raw = localStorage.getItem('service_requests')
+    const requests: ServiceRequest[] = raw ? JSON.parse(raw) : []
+
+    const consultants = [
+      { id: 'c2d88add-f8a6-49c6-a9d4-6603ea46a459', first_name: 'James', last_name: 'Bond', email: 'james@gmail.com' },
+      { id: '4d763da5-8ee8-4074-ac8e-fe98767c4ad8', first_name: 'Yatri', last_name: 'Patel', email: 'dataentry@gmail.com' }
+    ]
+
+    let finalConsultantId = data.consultant_id
+    if (!finalConsultantId) {
+      const counts: Record<string, number> = {}
+      consultants.forEach(c => { counts[c.id] = 0 })
+      requests.forEach(r => {
+        if (r.consultant_id && counts[r.consultant_id] !== undefined) {
+          counts[r.consultant_id]++
+        }
+      })
+
+      let minId = consultants[0].id
+      let minVal = counts[minId]
+      consultants.forEach(c => {
+        if (counts[c.id] < minVal) {
+          minVal = counts[c.id]
+          minId = c.id
+        }
+      })
+      finalConsultantId = minId
+    }
+
+    const consultant = consultants.find(c => c.id === finalConsultantId)
+
+    const newReq: ServiceRequest = {
+      id: `req-${Date.now()}`,
+      customer_id: data.customer_id || 'cust-direct',
+      customer_name: data.customer_name,
+      customer_email: data.customer_email,
+      customer_mobile: data.customer_mobile,
+      request_type: data.request_type,
+      status: 'pending',
+      details: data.details,
+      remarks: data.remarks,
+      consultant_id: finalConsultantId,
+      consultant_name: consultant ? `${consultant.first_name} ${consultant.last_name || ''}`.trim() : 'Assigned Consultant',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      viewed_by_consultant: false
+    }
+
+    requests.unshift(newReq)
+    localStorage.setItem('service_requests', JSON.stringify(requests))
+    return newReq
+  },
+
+  updateStatus: async (id: string, status: 'pending' | 'processed' | 'approved' | 'rejected', adminRemarks?: string): Promise<ServiceRequest> => {
+    const raw = localStorage.getItem('service_requests')
+    const requests: ServiceRequest[] = raw ? JSON.parse(raw) : []
+    const index = requests.findIndex(r => r.id === id)
+    if (index === -1) throw new Error('Request not found')
+
+    requests[index].status = status
+    requests[index].updated_at = new Date().toISOString()
+    if (adminRemarks) {
+      requests[index].remarks = `${requests[index].remarks || ''}\nConsultant update: ${adminRemarks}`
+    }
+    localStorage.setItem('service_requests', JSON.stringify(requests))
+    return requests[index]
+  },
+
+  markViewed: async (id: string): Promise<ServiceRequest> => {
+    const raw = localStorage.getItem('service_requests')
+    const requests: ServiceRequest[] = raw ? JSON.parse(raw) : []
+    const index = requests.findIndex(r => r.id === id)
+    if (index === -1) throw new Error('Request not found')
+
+    requests[index].viewed_by_consultant = true
+    requests[index].viewed_at = new Date().toISOString()
+    localStorage.setItem('service_requests', JSON.stringify(requests))
+    return requests[index]
+  }
+}
+
+
