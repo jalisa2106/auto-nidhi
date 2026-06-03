@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import api from '../../api/axios'
-import { notificationsApi } from '../../api/services'
+import { notificationsApi, serviceRequestsApi } from '../../api/services'
 import InsuranceCenter from '../../components/CustomerPages/InsuranceCenter'
 
 interface InsurancePolicy {
@@ -82,6 +82,11 @@ export default function CustomerInsurancePage() {
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
 
+  // Consultant assignment states
+  const [consultants, setConsultants] = useState<any[]>([])
+  const [assignmentMode, setAssignmentMode] = useState<'company' | 'choose'>('company')
+  const [selectedConsultant, setSelectedConsultant] = useState('')
+
 const loadData = () => {
   setLoading(true)
   setBackendError(null)
@@ -115,6 +120,10 @@ const loadData = () => {
 
   useEffect(() => {
     loadData()
+    serviceRequestsApi.listConsultants().then(res => {
+      setConsultants(res)
+      if (res.length > 0) setSelectedConsultant(res[0].id)
+    })
   }, [])
 
   const getPolicyStatus = (validToDateStr: string | null) => {
@@ -164,17 +173,41 @@ const loadData = () => {
 
     setSubmitting(true)
     try {
-      await notificationsApi.notifyAdmin({
-        subject: `New Insurance Request: ${regNo}`,
-        page_context: 'Quick Services - Insurance',
-        message: `Customer is requesting vehicle insurance coverage/renewal.
+      // 1. Log structured request
+      const userRaw = localStorage.getItem('an_current_user')
+      const user = userRaw ? JSON.parse(userRaw) : null
+      await serviceRequestsApi.create({
+        customer_id: user?.id || 'cust-direct',
+        customer_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Customer',
+        customer_email: user?.email || '',
+        customer_mobile: user?.phone_number || '9876543210',
+        request_type: 'insurance',
+        details: {
+          registration_no: regNo,
+          policy_type: policyType,
+          insurer_preference: insurerPreference || 'Any'
+        },
+        remarks: remarks,
+        consultant_id: assignmentMode === 'choose' ? selectedConsultant : undefined
+      })
+
+      // 2. legacy admin notification
+      try {
+        await notificationsApi.notifyAdmin({
+          subject: `New Insurance Request: ${regNo}`,
+          page_context: 'Quick Services - Insurance',
+          message: `Customer is requesting vehicle insurance coverage/renewal.
 
 Registration No: ${regNo}
 Policy Type: ${policyType.replace('_', ' ').toUpperCase()}
 Insurer Preference: ${insurerPreference || 'Any'}
 Remarks: ${remarks || 'None'}`,
-        include_summary: true
-      })
+          include_summary: true
+        })
+      } catch (err) {
+        console.warn("Legacy notifyAdmin failed, continuing as request was logged:", err)
+      }
+
       triggerToast('ok', 'Insurance request submitted to AutoNidhi team!')
       setIsModalOpen(false); setRegNo(''); setRemarks(''); setInsurerPreference('')
       loadData()
@@ -322,6 +355,45 @@ Remarks: ${remarks || 'None'}`,
 
                 <label className="form-label">Remarks</label>
                 <textarea rows={3} placeholder="Current expiry date or special requirements..." value={remarks} onChange={e => setRemarks(e.target.value)} className="form-input" />
+
+                <label className="form-label" style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginTop: 6, marginBottom: 6 }}>
+                  Consultant Assignment <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="assignmentMode"
+                      value="company"
+                      checked={assignmentMode === 'company'}
+                      onChange={() => setAssignmentMode('company')}
+                    />
+                    Company will assign
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="assignmentMode"
+                      value="choose"
+                      checked={assignmentMode === 'choose'}
+                      onChange={() => setAssignmentMode('choose')}
+                    />
+                    Choose your consultant
+                  </label>
+                </div>
+                {assignmentMode === 'choose' && (
+                  <select
+                    value={selectedConsultant}
+                    onChange={e => setSelectedConsultant(e.target.value)}
+                    className="form-input"
+                    style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem' }}
+                    required
+                  >
+                    {consultants.map(c => (
+                      <option key={c.id} value={c.id}>{c.first_name} {c.last_name || ''} ({c.email})</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="modal-footer"><button type="button" className="btn btn-outline btn-sm" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>{submitting ? 'Submitting...' : 'Send Request'}</button></div>
             </form>

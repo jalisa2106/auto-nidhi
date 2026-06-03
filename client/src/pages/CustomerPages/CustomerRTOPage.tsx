@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
-import { customerRtoApi, type CustomerRtoRecord } from '../../api/services'
+import { customerRtoApi, serviceRequestsApi, type CustomerRtoRecord } from '../../api/services'
 
 function Pagination({
   total, page, pageSize, onPage, onPageSize,
@@ -97,6 +97,11 @@ export default function CustomerRTOPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
 
+  // Consultant assignment states
+  const [consultants, setConsultants] = useState<any[]>([])
+  const [assignmentMode, setAssignmentMode] = useState<'company' | 'choose'>('company')
+  const [selectedConsultant, setSelectedConsultant] = useState('')
+
   // Drawer detail states
   const [selectedRecord, setSelectedRecord] = useState<CustomerRtoRecord | null>(null)
 
@@ -110,6 +115,10 @@ export default function CustomerRTOPage() {
 
   useEffect(() => {
     loadData()
+    serviceRequestsApi.listConsultants().then(res => {
+      setConsultants(res)
+      if (res.length > 0) setSelectedConsultant(res[0].id)
+    })
   }, [])
 
   const triggerToast = (type: 'ok' | 'err', msg: string) => {
@@ -174,12 +183,37 @@ export default function CustomerRTOPage() {
 
     setUploading(true)
     try {
-      // Simulate/trigger RTO submission
-      await customerRtoApi.submitRequest(selectedFileId, serviceType, remarks)
+      const matchedFile = eligibleFiles.find(f => f.file_id === selectedFileId)
+      const fileNumber = matchedFile ? matchedFile.file_number : ''
+
+      // 1. Log structured request
+      const userRaw = localStorage.getItem('an_current_user')
+      const user = userRaw ? JSON.parse(userRaw) : null
+      await serviceRequestsApi.create({
+        customer_id: user?.id || 'cust-direct',
+        customer_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Customer',
+        customer_email: user?.email || '',
+        customer_mobile: user?.phone_number || '9876543210',
+        request_type: 'rto',
+        details: {
+          file_id: selectedFileId,
+          file_number: fileNumber,
+          service_type: serviceType,
+          rto_district: rtoDistrict,
+          has_document: !!selectedFile
+        },
+        remarks: remarks,
+        consultant_id: assignmentMode === 'choose' ? selectedConsultant : undefined
+      })
+
+      // 2. legacy submission trigger
+      try {
+        await customerRtoApi.submitRequest(selectedFileId, serviceType, remarks)
+      } catch (err) {
+        console.warn("Legacy submitRequest failed, continuing as request was logged:", err)
+      }
       
-      // If a file was attached, simulate document upload
       if (selectedFile) {
-        // Upload simulation success
         triggerToast('ok', 'RTO Request submitted with document attachment!')
       } else {
         triggerToast('ok', 'RTO Service Request submitted successfully!')
@@ -190,7 +224,7 @@ export default function CustomerRTOPage() {
       setRtoDistrict('')
       setRemarks('')
       setSelectedFile(null)
-      loadData() // Refresh counts
+      loadData()
     } catch (err: any) {
       triggerToast('err', err.message || 'Failed to submit RTO request.')
     } finally {
@@ -524,6 +558,47 @@ export default function CustomerRTOPage() {
                     onChange={e => setSelectedFile(e.target.files?.[0] || null)}
                     style={{ width: '100%', fontSize: '0.82rem' }}
                   />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                    Consultant Assignment <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="assignmentMode"
+                        value="company"
+                        checked={assignmentMode === 'company'}
+                        onChange={() => setAssignmentMode('company')}
+                      />
+                      Company will assign
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="assignmentMode"
+                        value="choose"
+                        checked={assignmentMode === 'choose'}
+                        onChange={() => setAssignmentMode('choose')}
+                      />
+                      Choose your consultant
+                    </label>
+                  </div>
+                  {assignmentMode === 'choose' && (
+                    <select
+                      value={selectedConsultant}
+                      onChange={e => setSelectedConsultant(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem' }}
+                      required
+                    >
+                      {consultants.map(c => (
+                        <option key={c.id} value={c.id}>{c.first_name} {c.last_name || ''} ({c.email})</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
