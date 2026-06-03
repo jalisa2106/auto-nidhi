@@ -25,7 +25,7 @@ export default function CustomersPage() {
         addLabel="New customer"
         columns={[
           { key: "id", label: "ID" },
-          { key: "name", label: "Name", render: (r) => <a className="auth-link" onClick={() => navigate(`/data-entry/customers/${r.id}`)}>{r.name}</a> },
+          { key: "name", label: "Name", render: (r) => <a className="auth-link" onClick={() => navigate(`/staff/customers/${r.id}`)}>{r.name}</a> },
           { key: "mobile", label: "Mobile" },
           { key: "city", label: "City" },
           { key: "files", label: "Active Files" },

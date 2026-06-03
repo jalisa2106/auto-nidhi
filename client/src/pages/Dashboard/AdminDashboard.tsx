@@ -5,7 +5,7 @@ import {
   ArrowDownToLine, ArrowUpFromLine, BadgePercent, HandCoins,
   Receipt, ShieldCheck, Wallet, Landmark,
   Database, Settings, LogOut, Car, Bell, PiggyBank,
-  User, ChevronDown,
+  User, ChevronDown, ClipboardList,
 } from 'lucide-react'
 import NotificationPanel from '../../components/app/NotificationPanel'
 import { subscribe, unreadCount, fetchNotifications } from '../../store/notificationStore'
@@ -20,6 +20,7 @@ const adminNav: NavGroup[] = [
       { to: '/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
       { to: '/customers',  label: 'Customers', icon: Users },
       { to: '/files',      label: 'Files',     icon: FolderOpen },
+      { to: '/requests',   label: 'Service Requests', icon: ClipboardList },
     ],
   },
   {
@@ -62,6 +63,7 @@ const dataEntryNav: NavGroup[] = [
       { to: '/staff/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
       { to: '/staff/customers',  label: 'Customers', icon: Users },
       { to: '/staff/files',      label: 'Files',     icon: FolderOpen },
+      { to: '/staff/requests',   label: 'Service Requests', icon: ClipboardList },
     ],
   },
   {
@@ -80,6 +82,7 @@ const accountantNav: NavGroup[] = [
     title: 'Overview', items: [
       { to: '/accountant/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
       { to: '/accountant/files',      label: 'Files',     icon: FolderOpen },
+      { to: '/accountant/requests',   label: 'Service Requests', icon: ClipboardList },
     ],
   },
   {
@@ -100,6 +103,7 @@ export default function AdminLayout() {
   const [userName, setUserName]     = useState('Admin')
   const [userRole, setUserRole]     = useState('admin')
   const [badgeCount, setBadgeCount] = useState(0)
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
 
   const [showNotifs,  setShowNotifs]  = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -144,6 +148,41 @@ export default function AdminLayout() {
     return unsub
   }, [])
 
+  const updatePendingRequestsCount = () => {
+    try {
+      const raw = localStorage.getItem('service_requests')
+      if (!raw) return
+      const requests = JSON.parse(raw)
+      const role = localStorage.getItem('user_role')
+      const userRaw = localStorage.getItem('an_current_user')
+      const user = userRaw ? JSON.parse(userRaw) : null
+      if (!user) return
+
+      // Lookup the consultant ID using email to handle database payloads lacking user UUID
+      const consultantsList = [
+        { id: 'c2d88add-f8a6-49c6-a9d4-6603ea46a459', email: 'james@gmail.com' },
+        { id: '4d763da5-8ee8-4074-ac8e-fe98767c4ad8', email: 'dataentry@gmail.com' }
+      ]
+      const matched = consultantsList.find(c => c.email === user.email)
+      const userId = matched ? matched.id : (user.id || '')
+
+      const filtered = role === 'admin'
+        ? requests
+        : requests.filter((r: any) => r.consultant_id === userId)
+
+      const pending = filtered.filter((r: any) => r.status === 'pending').length
+      setPendingRequestsCount(pending)
+    } catch (err) {
+      console.warn("Failed to read pending requests count:", err)
+    }
+  }
+
+  useEffect(() => {
+    updatePendingRequestsCount()
+    window.addEventListener('service_requests_updated', updatePendingRequestsCount)
+    return () => window.removeEventListener('service_requests_updated', updatePendingRequestsCount)
+  }, [location.pathname])
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -166,9 +205,10 @@ export default function AdminLayout() {
   const closeNotifs = useCallback(() => setShowNotifs(false), [])
 
   // Resolve Title smoothly dynamically based on role routes
-  const baseRoute = location.pathname.replace('/data-entry', '').replace('/accountant', '').replace('/admin', '')
+  const baseRoute = location.pathname.replace('/staff', '').replace('/accountant', '').replace('/admin', '')
   const titleMap: Record<string, string> = {
     '/dashboard': 'Dashboard', '/customers': 'Customers', '/files': 'Files',
+    '/requests': 'Service Requests',
     '/payments/in': 'Payment IN', '/payments/out': 'Payment OUT',
     '/commissions/in': 'Commission IN', '/commissions/out': 'Commission OUT',
     '/rto-payments': 'RTO Payments', '/insurance-payments': 'Insurance Payments',
@@ -192,7 +232,7 @@ export default function AdminLayout() {
   
   // Choose Navigation Array based on Role
   const activeNav = userRole === 'admin' ? adminNav : (userRole === 'accountant' ? accountantNav : dataEntryNav)
-  const profilePrefix = userRole === 'admin' ? '/admin' : `/${userRole.replace('_', '-')}`
+  const profilePrefix = userRole === 'admin' ? '/admin' : (userRole === 'data_entry' ? '/staff' : `/${userRole.replace('_', '-')}`)
 
   return (
     <div className="app-shell">
@@ -214,9 +254,31 @@ export default function AdminLayout() {
                   key={item.to}
                   to={item.to}
                   className={isActive ? 'active-link' : ''}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}
                 >
-                  <item.icon size={16} />
-                  {item.label}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                    <item.icon size={16} />
+                    {item.label}
+                  </span>
+                  {item.label === 'Service Requests' && pendingRequestsCount > 0 && (
+                    <span style={{
+                      background: '#ef4444',
+                      color: '#fff',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      minWidth: '18px',
+                      height: '18px',
+                      borderRadius: '99px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '0 5px',
+                      lineHeight: 1,
+                      marginRight: '4px'
+                    }}>
+                      {pendingRequestsCount}
+                    </span>
+                  )}
                 </Link>
               )
             })}
