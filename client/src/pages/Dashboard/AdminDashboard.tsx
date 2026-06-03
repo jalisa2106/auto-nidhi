@@ -20,7 +20,6 @@ const adminNav: NavGroup[] = [
       { to: '/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
       { to: '/customers',  label: 'Customers', icon: Users },
       { to: '/files',      label: 'Files',     icon: FolderOpen },
-      { to: '/requests',   label: 'Service Requests', icon: ClipboardList },
     ],
   },
   {
@@ -80,7 +79,6 @@ const accountantNav: NavGroup[] = [
     title: 'Overview', items: [
       { to: '/accountant/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
       { to: '/accountant/files',      label: 'Files',     icon: FolderOpen },
-      { to: '/accountant/requests',   label: 'Service Requests', icon: ClipboardList },
     ],
   },
   {
