@@ -262,9 +262,10 @@ export default function PaymentOutPage() {
 
     // Load customers
     customersApi.list(1, 2000).then(res => {
-      setCustomers((res.data || []).map((c: any) => ({
-        label: c.full_name,
-        value: c.full_name
+      const list = Array.isArray(res) ? res : (res.data || [])
+      setCustomers(list.map((c: any) => ({
+        label: c.full_name || c.name,
+        value: c.full_name || c.name
       })))
     }).catch(() => {})
   }, [])

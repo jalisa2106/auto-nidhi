@@ -115,7 +115,7 @@ export default function RequestsPage() {
 
       // 2. Fetch customers for creation dropdown
       const custData = await customersApi.list(1, 100)
-      setCustomers(custData.data || [])
+      setCustomers(Array.isArray(custData) ? custData : (custData.data || []))
 
       // 3. Check for overdue unseen requests (pending, unseen, and > 3 days old)
       const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000
