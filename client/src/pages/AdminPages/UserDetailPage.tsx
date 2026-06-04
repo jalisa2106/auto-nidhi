@@ -134,8 +134,9 @@ export default function UserDetailPage() {
     }
   }
 
-  const backPath = user?.role === 'data_entry' ? '/settings/staff' : '/settings/accountants'
-  const roleLabel = user?.role === 'data_entry' ? 'Staff' : user?.role === 'accountant' ? 'Accountant' : 'User'
+  const normalizedRole = user?.role?.toLowerCase()
+  const backPath = normalizedRole === 'data_entry' ? '/settings/staff' : '/settings/accountants'
+  const roleLabel = normalizedRole === 'data_entry' ? 'Staff' : normalizedRole === 'accountant' ? 'Accountant' : 'User'
 
   if (loading) {
     return (
