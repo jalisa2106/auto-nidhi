@@ -86,6 +86,7 @@ export default function RequestsPage() {
   const [showProcessModal, setShowProcessModal] = useState(false)
   const [processRemarks, setProcessRemarks] = useState('')
   const [processing, setProcessing] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState<'processed' | 'approved' | 'rejected'>('processed')
 
   // Create request on behalf of customer states
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -205,15 +206,15 @@ export default function RequestsPage() {
     setShowProcessModal(true)
   }
 
-  // Submit status update to processed
-  const handleProcessRequest = async (e: React.FormEvent) => {
+  // Submit status update (processed / approved / rejected)
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedReq) return
 
     setProcessing(true)
     try {
-      await serviceRequestsApi.updateStatus(selectedReq.id, 'processed', processRemarks)
-      message.success('Request status updated to Processed.')
+      await serviceRequestsApi.updateStatus(selectedReq.id, submitStatus, processRemarks)
+      message.success(`Request status updated to ${submitStatus.toUpperCase()}.`)
       setShowProcessModal(false)
       loadData()
       // Dispatch event to update sidebar badges
@@ -293,7 +294,7 @@ export default function RequestsPage() {
   const metrics = useMemo(() => {
     const total = requests.length
     const pending = requests.filter(r => r.status === 'pending').length
-    const processed = requests.filter(r => r.status === 'processed').length
+    const processed = requests.filter(r => r.status !== 'pending').length
     const unseen = requests.filter(r => !r.viewed_by_consultant).length
     return { total, pending, processed, unseen }
   }, [requests])
@@ -374,6 +375,8 @@ export default function RequestsPage() {
             <option value="all">All Statuses</option>
             <option value="pending">Pending</option>
             <option value="processed">Processed</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
           </select>
 
           {userRole !== 'admin' && (
@@ -451,13 +454,24 @@ export default function RequestsPage() {
                         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Calendar size={13} /> {reqDate}</span>
                       </td>
                       <td>
-                        <span style={{
-                          background: r.status === 'pending' ? '#fffbeb' : '#dcfce7',
-                          color: r.status === 'pending' ? '#b45309' : '#166534',
-                          padding: '3px 10px', borderRadius: 99, fontSize: '0.72rem', fontWeight: 700
-                        }}>
-                          {r.status === 'pending' ? '● Pending' : '✓ Processed'}
-                        </span>
+                        {(() => {
+                          const sStyles: Record<string, { bg: string; color: string; label: string }> = {
+                            pending: { bg: '#fffbeb', color: '#b45309', label: '● Pending' },
+                            processed: { bg: '#eff6ff', color: '#1d4ed8', label: '⚙ Processed' },
+                            approved: { bg: '#dcfce7', color: '#15803d', label: '✓ Approved' },
+                            rejected: { bg: '#fef2f2', color: '#b91c1c', label: '✕ Rejected' },
+                          }
+                          const s = sStyles[r.status] || { bg: '#f1f5f9', color: '#475569', label: r.status }
+                          return (
+                            <span style={{
+                              background: s.bg, color: s.color, padding: '3px 10px',
+                              borderRadius: 99, fontSize: '0.72rem', fontWeight: 700,
+                              textTransform: 'capitalize', display: 'inline-flex', alignItems: 'center', gap: 4
+                            }}>
+                              {s.label}
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td>
                         {!r.viewed_by_consultant ? (
@@ -595,7 +609,7 @@ export default function RequestsPage() {
               <button className="btn btn-ghost btn-sm" disabled={processing} onClick={() => setShowProcessModal(false)}>✕</button>
             </div>
             
-            <form onSubmit={handleProcessRequest}>
+            <form onSubmit={handleFormSubmit}>
               <div className="modal-body" style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <p style={{ margin: 0, fontSize: '0.88rem', color: '#64748b' }}>
                   Confirm processing request for <strong>{selectedReq.customer_name}</strong>. Provide comments below:
@@ -615,10 +629,34 @@ export default function RequestsPage() {
                 </div>
               </div>
 
-              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-outline btn-sm" disabled={processing} onClick={() => setShowProcessModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary btn-sm" disabled={processing}>
-                  {processing ? 'Processing...' : 'Mark as Processed'}
+                <button 
+                  type="submit" 
+                  className="btn btn-sm" 
+                  disabled={processing} 
+                  onClick={() => setSubmitStatus('rejected')} 
+                  style={{ background: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+                >
+                  Reject
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-sm" 
+                  disabled={processing} 
+                  onClick={() => setSubmitStatus('processed')} 
+                  style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8' }}
+                >
+                  Mark Processed
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-sm" 
+                  disabled={processing} 
+                  onClick={() => setSubmitStatus('approved')} 
+                  style={{ background: '#10b981', borderColor: '#10b981', color: '#fff' }}
+                >
+                  Approve
                 </button>
               </div>
             </form>
