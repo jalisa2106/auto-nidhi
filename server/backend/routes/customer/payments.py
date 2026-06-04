@@ -33,7 +33,7 @@ def customer_payments_status(
             "paid_amount": float(p.paid_amount) if p.paid_amount is not None else 0.0,
             "remaining_amount": float(p.remaining_amount) if p.remaining_amount is not None else 0.0,
             "payment_mode": p.payment_mode,
-            "payment_date": p.payment_date.isoformat() if p.payment_date else None,
+            "payment_date": p.payment_date.isoformat() if hasattr(p.payment_date, "isoformat") else str(p.payment_date) if p.payment_date else None,
             "remarks": p.remarks,
         }
         for p in payments

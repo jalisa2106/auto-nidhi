@@ -122,7 +122,7 @@ def get_current_session(
         "token_storage": "Local (Remembered)",
         "authentication": "JWT Bearer Token",
         "is_active": bool(current_admin.is_active),
-        "last_login": current_admin.last_login.isoformat() if current_admin.last_login else None,
+        "last_login": current_admin.last_login.isoformat() if hasattr(current_admin.last_login, "isoformat") else str(current_admin.last_login) if current_admin.last_login else None,
     }
 
 @router.get("/security")

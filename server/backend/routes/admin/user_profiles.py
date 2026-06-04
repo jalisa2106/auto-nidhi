@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case
+from sqlalchemy import func, case, or_
 from typing import Optional
 from uuid import UUID
 
@@ -15,13 +15,19 @@ from backend.utils import get_current_admin
 router = APIRouter(prefix="/api/v1/admin/user-profiles", tags=["Admin User Profiles"])
 
 
-def _role_name_to_filter(role: str) -> str:
-    """Map frontend role param to DB role_name."""
-    return {
-        "staff": "Data_Entry", 
-        "data_entry": "Data_Entry", 
-        "accountant": "Accountant"
-    }.get(role, role)
+def _get_role_obj(db: Session, role: str):
+    """Find role by any known alias, case-insensitive."""
+    aliases = {
+        "staff":     ["data_entry", "staff", "dataentry"],
+        "accountant": ["accountant"],
+    }.get(role.lower(), [role.lower()])
+
+    # Try case-insensitive match against all known aliases
+    all_roles = db.query(MasterRole).all()
+    for r in all_roles:
+        if r.role_name.lower().replace(" ", "_").replace(" ", "") in aliases or r.role_name.lower() in aliases:
+            return r
+    return None
 
 
 @router.get("/")
@@ -31,10 +37,7 @@ def list_users_by_role(
     _: SystemUser = Depends(get_current_admin),
 ):
     """List all users of a given role with basic activity summary counts."""
-    role_name = _role_name_to_filter(role)
-
-    # Get the role record
-    role_obj = db.query(MasterRole).filter(MasterRole.role_name == role_name).first()
+    role_obj = _get_role_obj(db, role)
     if not role_obj:
         return {"data": [], "total": 0}
 
@@ -69,9 +72,9 @@ def list_users_by_role(
             "email": u.email,
             "phone_number": u.phone_number or "—",
             "is_active": u.is_active,
-            "last_login": u.last_login.isoformat() if u.last_login else None,
-            "created_at": u.created_at.isoformat() if u.created_at else None,
-            "role": role_name,
+            "last_login": u.last_login.isoformat() if hasattr(u.last_login, "isoformat") else str(u.last_login) if u.last_login else None,
+            "created_at": u.created_at.isoformat() if hasattr(u.created_at, "isoformat") else str(u.created_at) if u.created_at else None,
+            "role": role_obj.role_name,
             # Summary stats
             "files_created": files_created,
             "customers_created": customers_created,
@@ -219,7 +222,7 @@ def get_user_detail(
         "phone_number": user.phone_number or "—",
         "is_active": user.is_active,
         "role": role_name,
-        "last_login": user.last_login.isoformat() if user.last_login else None,
+        "last_login": user.last_login.isoformat() if hasattr(user.last_login, "isoformat") else str(user.last_login) if user.last_login else None,
         "joined": user.created_at.strftime("%d %b %Y") if user.created_at else "—",
         # Activity
         "files_created": files_total,

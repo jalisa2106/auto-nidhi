@@ -86,7 +86,7 @@ def _serialize(u: SystemUser, role_name: Optional[str] = None) -> dict:
         "role_name": role_name or (u.role.role_name if u.role else None),
         "is_active": u.is_active,
         "last_login": u.last_login.isoformat() if hasattr(u, "last_login") and u.last_login else None,
-        "created_at": u.created_at.isoformat() if u.created_at else None,
+        "created_at": u.created_at.isoformat() if hasattr(u.created_at, "isoformat") else str(u.created_at) if u.created_at else None,
     }
 
 

@@ -42,7 +42,7 @@ def serialize(doc: CustomerDocument):
         "status": doc.status,
         "file_name": doc.file_name,
         "file_size": doc.file_size,
-        "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+        "uploaded_at": doc.uploaded_at.isoformat() if hasattr(doc.uploaded_at, "isoformat") else str(doc.uploaded_at) if doc.uploaded_at else None,
         "rejection_reason": doc.rejection_reason,
     }
 
@@ -115,7 +115,7 @@ def upload_document(
         "status": doc.status,
         "file_name": doc.file_name,
         "file_size": doc.file_size,
-        "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+        "uploaded_at": doc.uploaded_at.isoformat() if hasattr(doc.uploaded_at, "isoformat") else str(doc.uploaded_at) if doc.uploaded_at else None,
     }
 
     safe_name = upload.filename.replace("/", "_").replace("\\", "_")
@@ -152,7 +152,7 @@ def upload_document(
             "status": doc.status,
             "file_name": doc.file_name,
             "file_size": doc.file_size,
-            "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+            "uploaded_at": doc.uploaded_at.isoformat() if hasattr(doc.uploaded_at, "isoformat") else str(doc.uploaded_at) if doc.uploaded_at else None,
         },
     )
 
@@ -188,7 +188,7 @@ def remove_document(
         "status": doc.status,
         "file_name": doc.file_name,
         "file_size": doc.file_size,
-        "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+        "uploaded_at": doc.uploaded_at.isoformat() if hasattr(doc.uploaded_at, "isoformat") else str(doc.uploaded_at) if doc.uploaded_at else None,
     }
 
     doc.file_name = None

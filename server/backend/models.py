@@ -395,7 +395,7 @@ class InsuranceInfo(Base):
     premium_amount = Column(DECIMAL(15, 2))
     idv_amount = Column(DECIMAL(15, 2))
 
-    file = relationship("FileRecord")
+    file = relationship("FileRecord", back_populates="insurance_info")
     insurance_company = relationship("MasterInsuranceCompany")
     insurance_type = relationship("MasterInsuranceType")
 

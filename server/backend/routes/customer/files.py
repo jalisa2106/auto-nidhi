@@ -45,8 +45,8 @@ def customer_file_list(
             "customer_name": f.customer.full_name if f.customer else None,
             "finance_amount": float(f.finance_info.loan_amount) if f.finance_info and f.finance_info.loan_amount is not None else None,
             "finance_bank": f.finance_info.bank.bank_name if f.finance_info and f.finance_info.bank else None,
-            "created_at": f.created_at.isoformat() if f.created_at else None,
-            "updated_at": f.updated_at.isoformat() if f.updated_at else None,
+            "created_at": f.created_at.isoformat() if hasattr(f.created_at, "isoformat") else str(f.created_at) if f.created_at else None,
+            "updated_at": f.updated_at.isoformat() if hasattr(f.updated_at, "isoformat") else str(f.updated_at) if f.updated_at else None,
         }
         for f in files
     ]
@@ -86,8 +86,8 @@ def customer_file_detail(
         "remarks": file.remarks,
         "finance_amount": float(file.finance_info.loan_amount) if file.finance_info and file.finance_info.loan_amount is not None else None,
         "finance_bank": file.finance_info.bank.bank_name if file.finance_info and file.finance_info.bank else None,
-        "created_at": file.created_at.isoformat() if file.created_at else None,
-        "updated_at": file.updated_at.isoformat() if file.updated_at else None,
+        "created_at": file.created_at.isoformat() if hasattr(file.created_at, "isoformat") else str(file.created_at) if file.created_at else None,
+        "updated_at": file.updated_at.isoformat() if hasattr(file.updated_at, "isoformat") else str(file.updated_at) if file.updated_at else None,
     }
 
 class CustomerApplicationSubmit(BaseModel):

@@ -48,7 +48,7 @@ def get_customer_rto_details(
             "id": str(r.id),
             "file_id": str(r.file_id),
             "file_number": r.file.file_number if r.file else None,
-            "payment_date": r.payment_date.isoformat() if r.payment_date else None,
+            "payment_date": r.payment_date.isoformat() if hasattr(r.payment_date, "isoformat") else str(r.payment_date) if r.payment_date else None,
             "amount": float(r.amount),
             "payment_mode": r.payment_mode,
             "remarks": r.remarks

@@ -45,7 +45,7 @@ def get_notifications(
                 "type": n.notification_type,
                 "message": n.message,
                 "read": n.is_read,
-                "created_at": n.created_at.isoformat() if n.created_at else None,
+                "created_at": n.created_at.isoformat() if hasattr(n.created_at, "isoformat") else str(n.created_at) if n.created_at else None,
                 "file_id": str(n.file_id) if n.file_id else None
             } for n in notifications
         ]

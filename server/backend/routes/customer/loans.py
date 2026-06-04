@@ -78,7 +78,7 @@ def list_customer_loans(
                 "status": f.status,
                 "finance_bank": f.finance_info.bank.bank_name if f.finance_info and f.finance_info.bank else None,
                 "loan_amount": float(f.finance_info.loan_amount) if f.finance_info and f.finance_info.loan_amount is not None else None,
-                "created_at": f.created_at.isoformat() if f.created_at else None,
+                "created_at": f.created_at.isoformat() if hasattr(f.created_at, "isoformat") else str(f.created_at) if f.created_at else None,
             }
             for f in files
         ],

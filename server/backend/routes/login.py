@@ -80,9 +80,9 @@ def login(data: LoginData, db: Session = Depends(get_db)):
             "role": role_name,
             "role_id": str(user.role_id) if user.role_id else None,
             "is_active": user.is_active,
-            "last_login": user.last_login.isoformat() if user.last_login else None,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "last_login": user.last_login.isoformat() if hasattr(user.last_login, "isoformat") else str(user.last_login) if user.last_login else None,
+            "created_at": user.created_at.isoformat() if hasattr(user.created_at, "isoformat") else str(user.created_at) if user.created_at else None,
             "must_change_password": user.must_change_password,
-            "password_expires_at": user.password_expires_at.isoformat() if user.password_expires_at else None,
+            "password_expires_at": user.password_expires_at.isoformat() if hasattr(user.password_expires_at, "isoformat") else str(user.password_expires_at) if user.password_expires_at else None,
         }
     }

@@ -41,7 +41,7 @@ def serialize_loan(file: FileRecord):
 
     return {
         "file_number": file.file_number,
-        "docket_date": file.docket_date.isoformat() if file.docket_date else None,
+        "docket_date": file.docket_date.isoformat() if hasattr(file.docket_date, "isoformat") else str(file.docket_date) if file.docket_date else None,
         "status": file.status,
         "remarks": file.remarks or "",
         "lan_number": finance.lan_number if finance else "",

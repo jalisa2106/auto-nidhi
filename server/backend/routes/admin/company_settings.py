@@ -71,7 +71,7 @@ def _serialize(p: MasterCompanyProfile) -> dict:
         "pan_no": p.pan_no,
         "insurance_expiry_notification": p.insurance_expiry_notification,
         "opening_balance": float(p.opening_balance) if p.opening_balance is not None else None,
-        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+        "updated_at": p.updated_at.isoformat() if hasattr(p.updated_at, "isoformat") else str(p.updated_at) if p.updated_at else None,
     }
 
 
