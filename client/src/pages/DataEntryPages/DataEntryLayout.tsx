@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   LayoutDashboard, Users, FolderOpen,
   ArrowDownToLine, ArrowUpFromLine, Receipt, ShieldCheck, Wallet,
-  Car, LogOut, Bell, User, Settings, ChevronDown,
+  Car, LogOut, Bell, User, Settings, ChevronDown
 } from 'lucide-react'
 import NotificationPanel from '../../components/app/NotificationPanel'
 import { subscribe, unreadCount, fetchNotifications } from '../../store/notificationStore'
@@ -26,6 +26,12 @@ const staffNav: NavGroup[] = [
       { to: '/staff/rto-payments',        label: 'RTO Payments',       icon: Receipt         },
       { to: '/staff/insurance-payments',  label: 'Insurance Payments', icon: ShieldCheck     },
       { to: '/staff/expenses',            label: 'Expenses',           icon: Wallet          },
+    ],
+  },
+  // ⚡ NEW: Operational Overrides & Escalations Section
+  {
+    title: 'Operations', items: [
+      { to: '/staff/modifications',       label: 'Modification Desk',  icon: Settings        },
     ],
   },
 ]
@@ -64,7 +70,6 @@ export default function DataEntryLayout() {
   useEffect(() => {
     const role = localStorage.getItem('user_role') || ''
     
-    // Initial load from storage
     try {
       const stored = localStorage.getItem('an_current_user')
       if (stored) {
@@ -77,13 +82,12 @@ export default function DataEntryLayout() {
       navigate('/login', { replace: true })
     }
 
-    // NEW: Listen for the exact same sync event that DashboardPage dispatches
     const handleNameSync = (e: any) => {
-      if (e.detail) setUserName(e.detail);
-    };
-    window.addEventListener('user_name_sync', handleNameSync);
+      if (e.detail) setUserName(e.detail)
+    }
+    window.addEventListener('user_name_sync', handleNameSync)
     
-    return () => window.removeEventListener('user_name_sync', handleNameSync);
+    return () => window.removeEventListener('user_name_sync', handleNameSync)
   }, [navigate])
 
   useEffect(() => {
@@ -118,8 +122,9 @@ export default function DataEntryLayout() {
     <div className="app-shell">
       <aside className="app-sidebar">
         <div className="sb-logo">
-          <div className="sb-logo-mark"><Car size={18} color="#fff" /></div>
-          <div className="sb-brand">Auto<span>Nidhi</span></div>
+          <div className="sb-logo-mark">
+            <Car size={18} color="#fff" />
+          </div>
         </div>
 
         {staffNav.map((group) => (

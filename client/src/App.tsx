@@ -23,7 +23,7 @@ import CustomerProfilePage        from './pages/CustomerPages/CustomerProfilePag
 import CustomerSettingsPage       from './pages/CustomerPages/CustomerSettingsPage'
 import CustomerRTOPage            from './pages/CustomerPages/CustomerRTOPage'
 
-// Admin layout (sidebar + topbar + Outlet)
+// Admin layout (sidebar + topbar + Outlet) — Shared across Admin, Staff, and Accountants
 import AdminLayout from './pages/Dashboard/AdminDashboard'
 
 // ── Admin / Shared Staff pages ──────────────────────────────────────
@@ -53,7 +53,12 @@ import AdminSettingsPage      from './pages/AdminPages/AdminSettingsPage'
 import StaffPage              from './pages/AdminPages/StaffPage'
 import AccountantsPage        from './pages/AdminPages/AccountantsPage'
 import UserDetailPage         from './pages/AdminPages/UserDetailPage'
-import RequestsPage           from './pages/AdminPages/RequestsPage'
+import RequestsPage           from './pages/DataEntryPages/RequestsPage'
+
+// ── ⚡ NEW INJECTIONS: Operational Override Pages ────────────────────
+import StaffModificationsPage      from './pages/DataEntryPages/StaffModificationsPage'
+import AccountantModificationsPage from './pages/AccountantPages/AccountantModificationsPage'
+import AdminReviewDeskPage         from './pages/AdminPages/AdminReviewDeskPage'
 
 function App() {
   return (
@@ -89,8 +94,10 @@ function App() {
           <Route path="/staff/payments/out"       element={<PaymentOutPage />}        />
           <Route path="/staff/rto-payments"       element={<RTOPaymentsPage />}       />
           <Route path="/staff/insurance-payments" element={<InsurancePaymentsPage />} />
-          <Route path="/staff/expenses"           element={<ExpensesPage />}          />
-          <Route path="/staff/requests"           element={<RequestsPage />}          />
+          <Route path="/staff/expenses"           element={<ExpensesPage />}           />
+          <Route path="/staff/requests"           element={<RequestsPage />}           />
+          {/* ⚡ NEW: Staff Data Entry Modification Route */}
+          <Route path="/staff/modifications"      element={<StaffModificationsPage />} />
           <Route path="/staff/profile"            element={<AdminProfilePage />}      />
           <Route path="/staff/settings"           element={<AdminSettingsPage />}     />
         </Route>
@@ -105,7 +112,8 @@ function App() {
           <Route path="/accountant/insurance-payments" element={<InsurancePaymentsPage />}      />
           <Route path="/accountant/expenses"           element={<ExpensesPage />}               />
           <Route path="/accountant/advances"           element={<AdvancesPage />}               />
-          <Route path="/accountant/requests"           element={<RequestsPage />}               />
+          {/* ⚡ NEW: Accountant Ledger Override Correction Route */}
+          <Route path="/accountant/modifications"      element={<AccountantModificationsPage />} />
           <Route path="/accountant/profile"            element={<AdminProfilePage />}           />
           <Route path="/accountant/settings"           element={<AdminSettingsPage />}          />
         </Route>
@@ -118,7 +126,6 @@ function App() {
           <Route path="/dashboard"                   element={<DashboardPage />}          />
           <Route path="/customers"                   element={<CustomersPage />}          />
           <Route path="/files"                       element={<FilesPage />}              />
-          <Route path="/requests"                    element={<RequestsPage />}           />
           <Route path="/payments/in"                 element={<PaymentInPage />}          />
           <Route path="/payments/out"                element={<PaymentOutPage />}         />
           <Route path="/commissions/in"              element={<CommissionInPage />}       />
@@ -128,6 +135,8 @@ function App() {
           <Route path="/expenses"                    element={<ExpensesPage />}           />
           <Route path="/advances"                    element={<AdvancesPage />}           />
           <Route path="/loans"                       element={<LoansPage />}              />
+          {/* ⚡ NEW: Centralized Admin Review Check Desk Route */}
+          <Route path="/admin/review-desk"           element={<AdminReviewDeskPage />}    />
           <Route path="/masters/dealers"             element={<DealersPage />}            />
           <Route path="/masters/brokers"             element={<BrokersPage />}            />
           <Route path="/masters/finance-banks"       element={<FinanceBanksPage />}       />
@@ -142,7 +151,7 @@ function App() {
           <Route path="/settings/accountants"        element={<AccountantsPage />}        />
           <Route path="/settings/accountants/:id"    element={<UserDetailPage />}         />
           <Route path="/admin/profile"               element={<AdminProfilePage />}       />
-          <Route path="/admin/settings"              element={<AdminSettingsPage />}      />
+          <Route path="/admin/settings"              element={<AdminSettingsPage />}     />
         </Route>
 
         {/* Fallback */}

@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, FolderOpen, ArrowDownToLine, ArrowUpFromLine,
   Receipt, ShieldCheck, Wallet, Landmark, BadgePercent,
-  Car, LogOut, BellRing,
+  LogOut, BellRing, Settings
 } from 'lucide-react'
+import logoDark from '../../assets/AutoNidhi Logo 1.png'
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<any> }
 interface NavGroup { title: string; items: NavItem[] }
@@ -26,6 +27,12 @@ const accountantNav: NavGroup[] = [
       { to: '/accountant/advances',            label: 'Advances',           icon: Landmark         },
       { to: '/accountant/commission/in',       label: 'Commission IN',      icon: BadgePercent     },
       { to: '/accountant/commission/out',      label: 'Commission OUT',     icon: BadgePercent     },
+    ],
+  },
+  // ⚡ NEW: Operational Overrides & Adjustments Section
+  {
+    title: 'Operations', items: [
+      { to: '/accountant/modifications',       label: 'Ledger Overrides',   icon: Settings         },
     ],
   },
 ]
@@ -64,8 +71,7 @@ export default function AccountantLayout() {
       {/* ── Sidebar ── */}
       <aside className="app-sidebar">
         <div className="sb-logo">
-          <div className="sb-logo-mark"><Car size={18} color="#fff" /></div>
-          <div className="sb-brand">Auto<span>Nidhi</span></div>
+          <div className="sb-logo-mark"><img src={logoDark} alt="AutoNidhi" className="sidebar-logo-image" /></div>
         </div>
 
         {accountantNav.map((group) => (

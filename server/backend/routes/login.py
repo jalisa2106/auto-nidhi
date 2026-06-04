@@ -35,7 +35,18 @@ def login(data: LoginData, db: Session = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been deactivated. Please contact the administrator."
         )
+    
+    if user.must_change_password and user.password_expires_at:
+        expires_at = user.password_expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
 
+        if datetime.now(timezone.utc) > expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Temporary credentials are expired."
+            )
+    
     # 4. Get the Role Name from the database using role_id
     db_role = db.query(MasterRole).filter(MasterRole.id == user.role_id).first()
     role_name = db_role.role_name.lower() if db_role else "customer"
@@ -71,5 +82,7 @@ def login(data: LoginData, db: Session = Depends(get_db)):
             "is_active": user.is_active,
             "last_login": user.last_login.isoformat() if hasattr(user.last_login, "isoformat") else str(user.last_login) if user.last_login else None,
             "created_at": user.created_at.isoformat() if hasattr(user.created_at, "isoformat") else str(user.created_at) if user.created_at else None,
+            "must_change_password": user.must_change_password,
+            "password_expires_at": user.password_expires_at.isoformat() if hasattr(user.password_expires_at, "isoformat") else str(user.password_expires_at) if user.password_expires_at else None,
         }
     }

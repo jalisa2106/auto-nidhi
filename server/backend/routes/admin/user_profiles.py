@@ -17,7 +17,11 @@ router = APIRouter(prefix="/api/v1/admin/user-profiles", tags=["Admin User Profi
 
 def _role_name_to_filter(role: str) -> str:
     """Map frontend role param to DB role_name."""
-    return {"staff": "data_entry", "data_entry": "data_entry", "accountant": "accountant"}.get(role, role)
+    return {
+        "staff": "Data_Entry", 
+        "data_entry": "Data_Entry", 
+        "accountant": "Accountant"
+    }.get(role, role)
 
 
 @router.get("/")
