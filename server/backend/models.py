@@ -24,6 +24,7 @@ class SystemUser(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     must_change_password = Column(Boolean, default=False, nullable=False)
     password_expires_at = Column(DateTime(timezone=True), nullable=True)
+    last_login = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, nullable=False)
 
     role = relationship("MasterRole")
