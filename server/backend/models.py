@@ -149,8 +149,8 @@ class FileRecord(Base):
     customer = relationship("Customer")
     creator = relationship("SystemUser", foreign_keys=[created_by_user_id])
     assignee = relationship("SystemUser", foreign_keys=[assigned_to])
-    finance_info = relationship("FinanceInfo", uselist=False)
-    insurance_info = relationship("InsuranceInfo", uselist=False)
+    finance_info = relationship("FinanceInfo", uselist=False, back_populates="file")
+    insurance_info = relationship("InsuranceInfo", uselist=False, back_populates="file")
 
 class MasterBank(Base):
     __tablename__ = "master_bank"
@@ -229,7 +229,7 @@ class FinanceInfo(Base):
     bank_id = Column(UUID(as_uuid=True), ForeignKey("master_bank.id"))
 
     bank = relationship("MasterBank")
-    file = relationship("FileRecord")
+    file = relationship("FileRecord", back_populates="finance_info")
 
 class PaymentOut(Base):
     __tablename__ = "payment_out"
@@ -395,7 +395,7 @@ class InsuranceInfo(Base):
     premium_amount = Column(DECIMAL(15, 2))
     idv_amount = Column(DECIMAL(15, 2))
 
-    file = relationship("FileRecord")
+    file = relationship("FileRecord", back_populates="insurance_info")
     insurance_company = relationship("MasterInsuranceCompany")
     insurance_type = relationship("MasterInsuranceType")
 
