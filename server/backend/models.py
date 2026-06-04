@@ -149,8 +149,8 @@ class FileRecord(Base):
     customer = relationship("Customer")
     creator = relationship("SystemUser", foreign_keys=[created_by_user_id])
     assignee = relationship("SystemUser", foreign_keys=[assigned_to])
-    finance_info = relationship("FinanceInfo", uselist=False)
-    insurance_info = relationship("InsuranceInfo", uselist=False)
+    finance_info = relationship("FinanceInfo", uselist=False, back_populates="file")
+    insurance_info = relationship("InsuranceInfo", uselist=False, back_populates="file")
 
 class MasterBank(Base):
     __tablename__ = "master_bank"
@@ -229,7 +229,7 @@ class FinanceInfo(Base):
     bank_id = Column(UUID(as_uuid=True), ForeignKey("master_bank.id"))
 
     bank = relationship("MasterBank")
-    file = relationship("FileRecord")
+    file = relationship("FileRecord", back_populates="finance_info")
 
 class PaymentOut(Base):
     __tablename__ = "payment_out"
@@ -452,3 +452,24 @@ class Notification(Base):
 
     user = relationship("SystemUser", foreign_keys=[user_id])
     file = relationship("FileRecord", foreign_keys=[file_id])
+
+class ModificationRequest(Base):
+    __tablename__ = "modification_request"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    entity_type = Column(String(100), nullable=False)
+    entity_id = Column(String(255), nullable=False)
+    request_type = Column(String(30), nullable=False)
+    reason = Column(Text, nullable=False)
+    status = Column(String(30), nullable=False, default="pending")
+
+    submitted_by = Column(UUID(as_uuid=True), ForeignKey("system_user.id"), nullable=False)
+    reviewed_by = Column(UUID(as_uuid=True), ForeignKey("system_user.id"), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    decision_note = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+    submitter = relationship("SystemUser", foreign_keys=[submitted_by])
+    reviewer = relationship("SystemUser", foreign_keys=[reviewed_by])

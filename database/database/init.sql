@@ -55,4 +55,11 @@
 \echo '=== Step 16: Customer Document Vault ==='
 \i 016_customer_documents.sql
 
+\echo '=== Step 17: Financial Soft Delete + Payment Status ==='
+\i 017_soft_delete_financials.sql
+\i 018_payment_status.sql
+
+\echo '=== Step 18: Modification Requests ==='
+\i 019_modification_requests.sql
+
 \echo '=== AutoConsultancy schema setup COMPLETE ==='
