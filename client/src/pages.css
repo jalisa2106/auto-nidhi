@@ -158,7 +158,6 @@
   gap: 32px;
   flex-wrap: wrap;
 }
-.hero-stat { }
 .hero-stat-value {
   font-size: 1.6rem;
   font-weight: 800;
@@ -426,7 +425,6 @@
   font-size: 1.1rem;
   flex-shrink: 0;
 }
-.auth-feature-text { }
 .auth-feature-title {
   font-size: 0.88rem; font-weight: 600; color: #fff;
 }
@@ -704,7 +702,6 @@
 /* Row 4 financial row */
 .db-fin-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media(max-width:800px) { .db-fin-row { grid-template-columns: 1fr; } }
-.db-fin-card { }
 .db-fin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .db-fin-item { background: var(--surface-1); border-radius: 10px; padding: 14px; }
 .db-fin-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--gray-400); margin-bottom: 6px; }
@@ -944,7 +941,6 @@
   gap: 12px;
 }
 @media(max-width:600px) { .pay-detail-grid { grid-template-columns: 1fr; } }
-.pay-detail-item {}
 .pay-detail-key {
   font-size: .72rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: .5px; color: var(--gray-400); margin-bottom: 2px;
