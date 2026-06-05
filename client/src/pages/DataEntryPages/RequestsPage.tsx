@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { 
   GitPullRequest, ClipboardList, CheckCircle2, Clock, 
-  Search, AlertTriangle, Eye, ShieldCheck, Plus, 
+  Search, AlertTriangle, Eye, ShieldCheck, 
   Mail, Phone, Calendar, Loader2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
-import { serviceRequestsApi, customersApi, filesApi, type ServiceRequest } from '../../api/services'
+import { serviceRequestsApi, type ServiceRequest } from '../../api/services'
 import { addNotification } from '../../store/notificationStore'
 import { message } from 'antd'
 
