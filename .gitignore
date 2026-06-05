@@ -38,5 +38,3 @@ env/
 *.sln
 *.sw?
 Thumbs.db
-
-server/backend/ml
