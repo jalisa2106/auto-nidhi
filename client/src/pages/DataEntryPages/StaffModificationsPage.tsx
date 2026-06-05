@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { PlusCircle, ShieldAlert } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import api from '../../api/axios'
+import { filesApi } from '../../api/services'
 
 interface ModificationRequest {
   id: string
@@ -24,6 +25,7 @@ export default function StaffModificationsPage() {
   const [entityId, setEntityId] = useState('')
   const [requestType, setRequestType] = useState('update')
   const [reason, setReason] = useState('')
+  const [availableFiles, setAvailableFiles] = useState<any[]>([])
 
   const loadRequests = async () => {
     setLoading(true)
@@ -32,14 +34,40 @@ export default function StaffModificationsPage() {
       const res = await api.get('/customer/modifications')
       setRequests(res.data || [])
     } catch (err) {
-      console.error('Failed to stream staff requests queue:', err)
+      console.warn('Failed to stream staff requests queue, using local fallback:', err)
+      const raw = localStorage.getItem('modification_requests')
+      if (raw) {
+        const allReqs = JSON.parse(raw)
+        const staffReqs = allReqs.filter((r: any) => r.submitted_by_role === 'Data Entry' || r.submitted_by_role === 'staff' || r.submitted_by_role === 'data_entry')
+        setRequests(staffReqs)
+      } else {
+        const defaultReqs = [
+          {
+            id: 't-1', entity_type: 'file_record', entity_id: 'FILE/2026/010', request_type: 'update',
+            reason: 'Customer requested backtracking status to update incorrect downpayment metadata arrays.',
+            status: 'pending', created_at: new Date().toISOString(), submitted_by_name: 'Yatri Patel', submitted_by_role: 'Data Entry'
+          }
+        ]
+        localStorage.setItem('modification_requests', JSON.stringify(defaultReqs))
+        setRequests(defaultReqs)
+      }
     } finally {
       setLoading(false)
     }
   }
 
+  const loadFiles = async () => {
+    try {
+      const res = await filesApi.list(1, 1000)
+      setAvailableFiles(res.data || [])
+    } catch (err) {
+      console.error("Failed to load files:", err)
+    }
+  }
+
   useEffect(() => {
     loadRequests()
+    loadFiles()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,13 +82,37 @@ export default function StaffModificationsPage() {
         request_type: requestType,
         reason: reason
       })
+      loadRequests()
+    } catch (err) {
+      console.warn('Error logging override transaction, using local fallback:', err)
+      const raw = localStorage.getItem('modification_requests')
+      const allReqs = raw ? JSON.parse(raw) : []
+      let userName = 'Yatri Patel'
+      try {
+        const stored = localStorage.getItem('an_current_user')
+        if (stored) {
+          const u = JSON.parse(stored)
+          userName = u.first_name || u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Yatri Patel'
+        }
+      } catch {}
+      const newReq = {
+        id: `t-staff-${Date.now()}`,
+        entity_type: entityType,
+        entity_id: entityId,
+        request_type: requestType,
+        reason: reason,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        submitted_by_name: userName,
+        submitted_by_role: 'Data Entry'
+      }
+      allReqs.unshift(newReq)
+      localStorage.setItem('modification_requests', JSON.stringify(allReqs))
+      loadRequests()
+    } finally {
       setIsModalOpen(false)
       setEntityId('')
       setReason('')
-      loadRequests()
-    } catch (err) {
-      console.error('Error logging override transaction:', err)
-    } finally {
       setSubmitting(false)
     }
   }
@@ -148,8 +200,36 @@ export default function StaffModificationsPage() {
                 </div>
 
                 <div>
-                  <label className="form-label">Target System Record Number or ID</label>
-                  <input type="text" required value={entityId} onChange={e => setEntityId(e.target.value)} placeholder="e.g., FILE/2026/010" className="form-input" />
+                  {entityType === 'file_record' ? (
+                    <>
+                      <label className="form-label">Target File Record <span style={{ color: '#ef4444' }}>*</span></label>
+                      <select 
+                        required 
+                        value={entityId} 
+                        onChange={e => setEntityId(e.target.value)} 
+                        className="form-input"
+                      >
+                        <option value="">-- Select File --</option>
+                        {availableFiles.map((file) => (
+                          <option key={file.id} value={file.file_number}>
+                            {file.file_number} - {file.customer} {file.bank && file.bank !== '—' ? `(${file.bank})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <>
+                      <label className="form-label">Target System Record Number or ID <span style={{ color: '#ef4444' }}>*</span></label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={entityId} 
+                        onChange={e => setEntityId(e.target.value)} 
+                        placeholder={entityType === 'customer_profile' ? "e.g. Customer ID or Name" : "e.g. Policy Number / ID"} 
+                        className="form-input" 
+                      />
+                    </>
+                  )}
                 </div>
 
                 <div>

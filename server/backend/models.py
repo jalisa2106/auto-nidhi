@@ -473,3 +473,13 @@ class ModificationRequest(Base):
 
     submitter = relationship("SystemUser", foreign_keys=[submitted_by])
     reviewer = relationship("SystemUser", foreign_keys=[reviewed_by])
+
+
+class PasswordResetToken(Base):
+    """DB-backed password reset tokens — survives server restarts / Render cold starts."""
+    __tablename__ = "password_reset_tokens"
+
+    token      = Column(String(128), primary_key=True, nullable=False)
+    email      = Column(String(255), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
