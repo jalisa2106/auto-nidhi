@@ -14,8 +14,15 @@ const LOAN_STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string
   draft:          { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8', label: 'Draft' },
   login:          { bg: '#eff6ff', text: '#1d4ed8', dot: '#3b82f6', label: 'Login' },
   under_process: { bg: '#fffbeb', text: '#d97706', dot: '#f59e0b', label: 'In Process' },
-  sanctioned:    { bg: '#f0fdfa', text: '#0f766e', dot: '#14b8a6', label: 'Sanctioned' },
+  sanctioned:    { bg: '#f0fdf4', text: '#0f766e', dot: '#14b8a6', label: 'Sanctioned' },
   disbursed:     { bg: '#f0fdf4', text: '#15803d', dot: '#22c55e', label: 'Disbursed' },
+}
+
+const REQ_STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string; label: string }> = {
+  pending:   { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b', label: 'Pending' },
+  processed: { bg: '#ede9fe', text: '#6d28d9', dot: '#8b5cf6', label: 'Processed' },
+  approved:  { bg: '#dcfce7', text: '#15803d', dot: '#22c55e', label: 'Approved' },
+  rejected:  { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444', label: 'Rejected' },
 }
 
 function normalizeStatus(s?: string) {
@@ -25,6 +32,22 @@ function normalizeStatus(s?: string) {
 function LoanStatusBadge({ status }: { status?: string }) {
   const key = normalizeStatus(status)
   const cfg = LOAN_STATUS_CONFIG[key] || LOAN_STATUS_CONFIG.draft
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      background: cfg.bg, color: cfg.text,
+      padding: '4px 12px', borderRadius: 99, fontSize: '.72rem', fontWeight: 700,
+      textTransform: 'uppercase', letterSpacing: '.5px'
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot }} />
+      {cfg.label}
+    </span>
+  )
+}
+
+function ReqStatusBadge({ status }: { status?: string }) {
+  const key = (status || 'pending').toLowerCase()
+  const cfg = REQ_STATUS_CONFIG[key] || REQ_STATUS_CONFIG.pending
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -88,6 +111,10 @@ export default function CustomerLoanPage() {
   const [loading, setLoading] = useState(true)
   const [backendError, setBackendError] = useState<string | null>(null)
   
+  // Submitted request history
+  const [submittedRequests, setSubmittedRequests] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(true)
+
   // Search & Filter state
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -128,8 +155,26 @@ export default function CustomerLoanPage() {
       .finally(() => setLoading(false))
   }
 
+  const loadSubmittedRequests = () => {
+    setLoadingHistory(true)
+    const userRaw = localStorage.getItem('an_current_user')
+    const user = userRaw ? JSON.parse(userRaw) : null
+    const userId = user?.id || 'cust-direct'
+    
+    serviceRequestsApi.list()
+      .then(res => {
+        const filtered = (res || []).filter((r: any) => r.customer_id === userId && r.request_type === 'loan')
+        setSubmittedRequests(filtered)
+      })
+      .catch(err => {
+        console.error("Failed to load submitted loan requests:", err)
+      })
+      .finally(() => setLoadingHistory(false))
+  }
+
   useEffect(() => {
     loadData()
+    loadSubmittedRequests()
     serviceRequestsApi.listConsultants().then(res => {
       setConsultants(res)
       if (res.length > 0) setSelectedConsultant(res[0].id)
@@ -235,6 +280,7 @@ Customer Submissions Remarks: ${remarks || 'None'}`,
       
       // Smooth refresh to show updates if the backend auto-creates a trace draft line
       loadData()
+      loadSubmittedRequests()
     } catch (err: any) {
       triggerToast('err', 'Failed to send request. Please try again.')
     } finally {
@@ -407,6 +453,75 @@ Customer Submissions Remarks: ${remarks || 'None'}`,
                   onPageSize={setPageSize}
                 />
               </>
+            )}
+          </div>
+
+          {/* Submitted Requests History Card */}
+          <div className="data-card" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--gray-800)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ClipboardList size={18} style={{ color: 'var(--brand-600)' }} />
+                Submitted Loan Requests History
+              </h3>
+              <button 
+                type="button"
+                className="btn btn-ghost btn-sm" 
+                onClick={loadSubmittedRequests} 
+                disabled={loadingHistory}
+                style={{ fontSize: '0.75rem', fontWeight: 600 }}
+              >
+                Refresh History
+              </button>
+            </div>
+
+            {loadingHistory ? (
+              <div style={{ padding: 20, textAlign: 'center', color: 'var(--gray-400)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <Loader2 size={20} className="animate-spin" style={{ color: 'var(--brand-600)' }} />
+                <span style={{ fontSize: '0.8rem' }}>Loading submitted applications...</span>
+              </div>
+            ) : submittedRequests.length === 0 ? (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.84rem' }}>
+                You have not submitted any loan request forms yet.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem' }}>Request ID</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem' }}>Vehicle</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem' }}>Amount</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem' }}>Status</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem' }}>Assigned To</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: '0.75rem' }}>Submitted On</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submittedRequests.map(req => (
+                      <tr key={req.id}>
+                        <td style={{ padding: '10px 12px', fontSize: '0.8rem', fontFamily: 'monospace', fontWeight: 700, color: 'var(--gray-600)' }}>
+                          {req.id.replace('req-', '').substring(0, 8).toUpperCase()}
+                        </td>
+                        <td style={{ padding: '10px 12px', fontSize: '0.8rem', fontWeight: 600, color: '#1e293b' }}>
+                          {req.details?.vehicle_make} {req.details?.vehicle_model}
+                        </td>
+                        <td style={{ padding: '10px 12px', fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>
+                          ₹{(req.details?.loan_amount || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <ReqStatusBadge status={req.status} />
+                        </td>
+                        <td style={{ padding: '10px 12px', fontSize: '0.8rem', color: '#64748b' }}>
+                          {req.consultant_name || 'Unassigned'}
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.8rem', color: '#64748b' }}>
+                          {req.created_at ? new Date(req.created_at).toLocaleDateString('en-IN') : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>

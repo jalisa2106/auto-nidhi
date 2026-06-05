@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import {
   FileText, CheckCircle2, Clock, AlertTriangle, Download,
   PlusCircle, Info, MapPin, ClipboardList,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import { customerRtoApi, serviceRequestsApi, type CustomerRtoRecord } from '../../api/services'
@@ -80,10 +80,37 @@ function RtoStatusBadge({ status }: { status?: string }) {
   )
 }
 
+const REQ_STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string; label: string }> = {
+  pending:   { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b', label: 'Pending' },
+  processed: { bg: '#ede9fe', text: '#6d28d9', dot: '#8b5cf6', label: 'Processed' },
+  approved:  { bg: '#dcfce7', text: '#15803d', dot: '#22c55e', label: 'Approved' },
+  rejected:  { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444', label: 'Rejected' },
+}
+
+function ReqStatusBadge({ status }: { status?: string }) {
+  const key = (status || 'pending').toLowerCase()
+  const cfg = REQ_STATUS_CONFIG[key] || REQ_STATUS_CONFIG.pending
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      background: cfg.bg, color: cfg.text,
+      padding: '4px 12px', borderRadius: 99, fontSize: '.72rem', fontWeight: 700,
+      textTransform: 'uppercase', letterSpacing: '.5px'
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot }} />
+      {cfg.label}
+    </span>
+  )
+}
 
 export default function CustomerRTOPage() {
   const [rtoFiles, setRtoFiles] = useState<CustomerRtoRecord[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // Submitted request history
+  const [submittedRequests, setSubmittedRequests] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(true)
+
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'submitted' | 'in_process' | 'completed'>('all')
   const [page, setPage] = useState(1)
@@ -113,8 +140,26 @@ export default function CustomerRTOPage() {
       .finally(() => setLoading(false))
   }
 
+  const loadSubmittedRequests = () => {
+    setLoadingHistory(true)
+    const userRaw = localStorage.getItem('an_current_user')
+    const user = userRaw ? JSON.parse(userRaw) : null
+    const userId = user?.id || 'cust-direct'
+    
+    serviceRequestsApi.list()
+      .then(res => {
+        const filtered = (res || []).filter((r: any) => r.customer_id === userId && r.request_type === 'rto')
+        setSubmittedRequests(filtered)
+      })
+      .catch(err => {
+        console.error("Failed to load submitted RTO requests:", err)
+      })
+      .finally(() => setLoadingHistory(false))
+  }
+
   useEffect(() => {
     loadData()
+    loadSubmittedRequests()
     serviceRequestsApi.listConsultants().then(res => {
       setConsultants(res)
       if (res.length > 0) setSelectedConsultant(res[0].id)
@@ -225,6 +270,7 @@ export default function CustomerRTOPage() {
       setRemarks('')
       setSelectedFile(null)
       loadData()
+      loadSubmittedRequests()
     } catch (err: any) {
       triggerToast('err', err.message || 'Failed to submit RTO request.')
     } finally {
@@ -397,6 +443,74 @@ export default function CustomerRTOPage() {
             )}
           </div>
 
+          {/* Submitted Requests History Card */}
+          <div className="data-card" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--gray-800)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ClipboardList size={18} style={{ color: 'var(--brand-600)' }} />
+                Submitted RTO Requests History
+              </h3>
+              <button 
+                type="button"
+                className="btn btn-ghost btn-sm" 
+                onClick={loadSubmittedRequests} 
+                disabled={loadingHistory}
+                style={{ fontSize: '0.75rem', fontWeight: 600 }}
+              >
+                Refresh History
+              </button>
+            </div>
+
+            {loadingHistory ? (
+              <div style={{ padding: 20, textAlign: 'center', color: 'var(--gray-400)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <Loader2 size={20} className="animate-spin" style={{ color: 'var(--brand-600)' }} />
+                <span style={{ fontSize: '0.8rem' }}>Loading submitted requests...</span>
+              </div>
+            ) : submittedRequests.length === 0 ? (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.84rem' }}>
+                You have not submitted any RTO request forms yet.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem' }}>Request ID</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem' }}>File No.</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem' }}>Service Type</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem' }}>Status</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem' }}>Assigned To</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: '0.75rem' }}>Submitted On</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submittedRequests.map(req => (
+                      <tr key={req.id}>
+                        <td style={{ padding: '10px 12px', fontSize: '0.8rem', fontFamily: 'monospace', fontWeight: 700, color: 'var(--gray-600)' }}>
+                          {req.id.replace('req-', '').substring(0, 8).toUpperCase()}
+                        </td>
+                        <td style={{ padding: '10px 12px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--brand-700)', fontFamily: 'monospace' }}>
+                          {req.details?.file_number || '—'}
+                        </td>
+                        <td style={{ padding: '10px 12px', fontSize: '0.8rem', fontWeight: 600, color: '#1e293b' }}>
+                          {req.details?.service_type === 'hypothecation_removal' ? 'Hypothecation Termination' : req.details?.service_type === 'fc_renewal' ? 'FC/Permit Renewal' : 'Ownership Transfer'}
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <ReqStatusBadge status={req.status} />
+                        </td>
+                        <td style={{ padding: '10px 12px', fontSize: '0.8rem', color: '#64748b' }}>
+                          {req.consultant_name || 'Unassigned'}
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.8rem', color: '#64748b' }}>
+                          {req.created_at ? new Date(req.created_at).toLocaleDateString('en-IN') : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Form Center Column */}
