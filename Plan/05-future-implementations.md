@@ -155,6 +155,150 @@ Security enhancement — not blocking current operations. Can be added post-laun
 
 ---
 
+## F9 — Sidebar Navigation: Role-by-Role Cleanup
+**Priority:** Medium  
+**Complexity:** LOW  
+**Blocked By:** All role plans completed (can only clean up nav after pages exist)
+
+**Description:**
+Each role's sidebar has either orphan links (pointing to non-existent pages), inconsistent ordering, or missing icons. Once all pages in plans 01-04 are implemented, a final sidebar audit is needed for all 4 roles.
+
+**What's needed per role:**
+
+| Role | Layout File | Issues to fix |
+|---|---|---|
+| Admin | `AdminDashboard.tsx` (sidebar section) | Verify every nav item has a working route. Remove any dead links. Add Analytics (/dashboard/analytics). Add Review Desk (/dashboard/review-desk). |
+| Staff | `DataEntryLayout.tsx` | Confirm Commission IN/OUT links added (S11). Confirm Customers, Files, Payments, Requests links all work. |
+| Accountant | `AccountantLayout.tsx` | Confirm Commission IN/OUT links added (AC9). Verify all links match implemented pages. |
+| Customer | `CustomerLayout.tsx` | Verify Quick Services section present. Add "My Requests" link to show service request status. |
+
+**Additional improvements:**
+- Add active link highlight (current route highlighted in sidebar)
+- Add tooltips on collapsed sidebar icons
+- Add role badge chip at top of sidebar ("STAFF", "ADMIN", etc.)
+- Ensure mobile sidebar collapses cleanly
+
+**Files Changed:**
+- `[MODIFY]` Admin sidebar nav section in `AdminDashboard.tsx`
+- `[MODIFY]` `DataEntryLayout.tsx` (staff)
+- `[MODIFY]` `AccountantLayout.tsx`
+- `[MODIFY]` `CustomerLayout.tsx`
+
+---
+
+## F10 — UI Consistency: Design Theme + Color System
+**Priority:** Medium  
+**Complexity:** MEDIUM  
+**Blocked By:** All functional changes complete (do this last, purely visual)
+
+**Description:**
+The current codebase has inconsistent styling across pages — some pages use inline styles with raw hex values, others use CSS variables from `pages.css`. The visual design is inconsistent in colors, spacing, border radii, and typography across Admin/Staff/Accountant/Customer portals.
+
+**What's needed:**
+
+1. **Audit existing CSS variables in `client/src/pages.css`** — ensure all design tokens are defined:
+   ```css
+   /* These MUST be centrally defined, not repeated inline: */
+   --brand-50, --brand-100, ..., --brand-900  /* primary blue/indigo */
+   --success, --warning, --error, --info      /* status colors */
+   --surface-1, --surface-2, --surface-3      /* backgrounds */
+   --text-primary, --text-secondary, --text-muted
+   --radius-sm, --radius-md, --radius-lg
+   --shadow-sm, --shadow-md
+   ```
+
+2. **Enforce consistent component styling:**
+   - All tables: same header background, row hover, border style
+   - All modals: same border-radius, backdrop blur, shadow
+   - All buttons: `btn-primary`, `btn-secondary`, `btn-danger` classes
+   - All status badges: same size/font/padding per status type
+   - All pagination: same component (A8 Pagination from admin plan)
+
+3. **Typography:** Ensure all roles use the same font (currently mixed between system fonts and loaded fonts)
+
+4. **Color theme per role** (optional enhancement):
+   - Admin: Indigo/dark theme (current)
+   - Staff: Teal accent
+   - Accountant: Slate/neutral
+   - Customer: Blue/light theme
+
+**Files Changed:**
+- `[MODIFY]` `client/src/pages.css` — centralize all design tokens
+- `[MODIFY]` `client/src/styles/auth.css` — ensure login/signup consistent
+- Multiple page files — replace inline hex colors with CSS variable references
+
+**Deferred because:**
+Functional correctness comes first. UI polish is the final step before production release.
+
+---
+
+## F11 — Real Email + Forgot Password (SMTP)
+**Priority:** HIGH  
+**Complexity:** LOW  
+**Blocked By:** SMTP credentials must be in `.env` (already partially configured)
+
+**Description:**
+The forgot password flow has a complete backend implementation (`forgot_password.py`, `password_reset_tokens` table, `email_utils.py`) but real email delivery is not working in production because SMTP credentials may not be configured or tested.
+
+**What's needed:**
+
+**Step 1 — Verify SMTP configuration in `server/.env`:**
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password   # Gmail App Password (not regular password)
+SMTP_FROM=noreply@autonidhi.in
+```
+
+**Step 2 — Verify `email_utils.py` uses these env vars correctly:**
+```python
+import smtplib
+from email.mime.text import MIMEText
+import os
+
+def send_email(to_email: str, subject: str, html_body: str):
+    msg = MIMEText(html_body, 'html')
+    msg['Subject'] = subject
+    msg['From'] = os.getenv('SMTP_FROM')
+    msg['To'] = to_email
+    with smtplib.SMTP(os.getenv('SMTP_HOST'), int(os.getenv('SMTP_PORT', 587))) as server:
+        server.starttls()
+        server.login(os.getenv('SMTP_USER'), os.getenv('SMTP_PASS'))
+        server.send_message(msg)
+```
+
+**Step 3 — Test forgot password end-to-end:**
+1. Go to `/forgot-password` → enter a registered email
+2. Should receive an email with reset link within 30 seconds
+3. Click link → `/reset-password?token=...` → enter new password → login with new password
+
+**Step 4 — Email templates (improve if basic HTML):**
+- Forgot password email: AutoNidhi logo, reset link button, expiry note (24 hours)
+- Document verified email: document type, verification status, link to portal
+- File status change email: file number, new status, link to portal
+- Notification emails: summary of unread notifications (weekly digest, optional)
+
+**Step 5 — Verify `ResetPassword.tsx` frontend flow:**
+1. Open `client/src/pages/ResetPassword.tsx` — confirm it reads `?token=` from URL params
+2. Calls `POST /api/v1/auth/reset-password` with token + new password
+3. On success: redirects to `/login` with toast "Password updated. Please log in."
+
+**Files Changed:**
+- `[MODIFY]` `server/.env` — confirm SMTP credentials present
+- `[MODIFY]` `server/backend/email_utils.py` — verify/fix SMTP send function
+- `[MODIFY]` `server/backend/routes/auth/forgot_password.py` — verify sends email correctly
+- `[MODIFY]` `client/src/pages/ResetPassword.tsx` — verify token flow works
+
+**Priority Note:** This is marked HIGH priority despite being in the "future" plan because:
+- Password recovery is a business-critical feature (locked-out users call support)
+- The backend code is already written — this is just config + testing
+- Estimated effort: 1-2 hours max
+
+**Deferred from main plans because:** Requires SMTP credentials to be set up and tested in production environment (not just localhost). Do this in production testing phase.
+
+---
+
 ## Summary Table
 
 | ID | Feature | Priority | Complexity | Blocked By |
@@ -163,7 +307,10 @@ Security enhancement — not blocking current operations. Can be added post-laun
 | F2 | Bulk File Import CSV/Excel | Low | HIGH | Validation pipeline |
 | F3 | Audit Log Viewer (Admin) | Medium | MEDIUM | Verify audit_logs population |
 | F4 | Staff Performance Reports | Low | MEDIUM | A1 analytics + allocation data |
-| F5 | Document Verification Workflow | Medium | MEDIUM | A3 (CustomerDetailPage) |
+| F5 | Document Verification Workflow | MOVED TO C10 | — | — |
 | F6 | Commission Auto-calculation | Medium | HIGH | Business rules document |
 | F7 | Mobile PWA + Push Notifications | Low | HIGH | PWA infrastructure |
 | F8 | Two-Factor Authentication | Medium | HIGH | TOTP library + login flow |
+| F9 | Sidebar Nav Cleanup (all roles) | Medium | LOW | All plans 01-04 done first |
+| F10 | UI Consistency / Design Theme | Medium | MEDIUM | All functional changes done |
+| F11 | Real Email + Forgot Password SMTP | **HIGH** | LOW | SMTP credentials in .env |

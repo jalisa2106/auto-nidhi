@@ -1,0 +1,27 @@
+-- ============================================================
+-- AutoNidhi — Migration 024: Notification Preferences (SKIP NOTE)
+-- ============================================================
+-- STATUS: NO NEW TABLE NEEDED.
+--
+-- Analysis: Migration 015 (user_notification_preferences) already
+-- created a general-purpose notification preference table:
+--
+--   user_notification_preferences(id, user_id, preference_key, enabled, ...)
+--
+-- The customer is a system_user (has a user_id). Therefore, the
+-- existing table already supports storing customer notification
+-- preferences using the same schema.
+--
+-- Plan C6 (Customer Notification Preferences) should use:
+--   POST/GET /api/v1/portal/notification-preferences
+--   → reads/writes to user_notification_preferences WHERE user_id = current_user.id
+--
+-- A separate customer_notification_preferences table would be redundant
+-- and would split the same concept across two tables unnecessarily.
+--
+-- This file is intentionally a no-op comment — kept for migration
+-- sequence numbering continuity only.
+-- ============================================================
+
+-- No SQL changes. See 015_user_notification_preferences.sql.
+SELECT 1; -- no-op to satisfy SQL parsers

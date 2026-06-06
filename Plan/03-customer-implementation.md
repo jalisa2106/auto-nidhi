@@ -1,8 +1,41 @@
 # Customer Portal Implementation Plan
 
 ## Overview
-8 tasks covering new widgets, bug fixes, permission enforcement, and backend improvements for the Customer role.
-The customer portal is in reasonably good shape compared to the staff role — most pages exist and are connected to real APIs. The gaps are widget additions, a broken payment backend query, and missing "Action Required" flows.
+11 tasks covering new widgets, bug fixes, permission enforcement, and backend improvements for the Customer role.
+The customer portal is in reasonably good shape compared to the staff role — most pages exist and are connected to real APIs. The gaps are widget additions, a broken payment backend query, missing "Action Required" flows, and key workflow questions answered by the architectural thinking doc.
+
+---
+
+## 📌 Dashboard Architecture Decision (from T6 — Confirmed)
+
+**Source: 00-thinking-solutions.md, Section T6**
+
+The customer dashboard should have exactly **6 widgets in this priority order:**
+
+| # | Widget | Priority | Status |
+|---|---|---|---|
+| 1 | ⚠️ Action Required Card | HIGHEST | C2 (new task) |
+| 2 | Active Files Status + next step | HIGH | Already exists (keep) |
+| 3 | Allocated Consultant Card | HIGH | C3 (new task) |
+| 4 | Payment Summary (Paid vs Outstanding) | MEDIUM | C5 (new task) |
+| 5 | Insurance Expiry Alert | MEDIUM | C4 (new task) |
+| 6 | Quick Services shortcuts | LOW | Already exists (keep) |
+
+**Decision on "File Pipeline" widget:**
+Keep it BUT reduce its visual weight. It currently dominates the page. The pipeline gives a COUNT-per-status view (macro) while the Recent Files table gives individual file detail (micro). Both are useful — but Action Required must come first, above the fold.
+
+**Layout change required in `CustomerPortalPage.tsx`:**
+```
+BEFORE:
+  KPI row → File Pipeline → Recent Files → Quick Actions
+
+AFTER:
+  KPI row → [Action Required banner if any] → [Allocated Staff card] + [Payment Summary] → File Pipeline → Recent Files → Quick Actions
+```
+
+The Action Required banner is **conditionally shown** — it is completely hidden when there are no pending actions (no noise).
+
+---
 
 **Pre-read: What Already Exists and Works**
 
@@ -12,7 +45,7 @@ The customer portal is in reasonably good shape compared to the staff role — m
 | `CustomerPaymentsPage.tsx` | ⚠️ Partial | Connected, but backend query broken (wrong join — sees 0 payments) |
 | `CustomerFilesPage.tsx` | ✅ Working | Real data |
 | `CustomerFileDetailPage.tsx` | ✅ Working | Shows full file details |
-| `CustomerDocumentsPage.tsx` | ✅ Working | Upload + view |
+| `CustomerDocumentsPage.tsx` | ✅ Working | Upload + view, but UI is broken/unfinished |
 | `CustomerInsurancePage.tsx` | ✅ Working | Real data |
 | `CustomerLoanPage.tsx` | ✅ Working | Real data |
 | `CustomerRTOPage.tsx` | ✅ Working | Real data |
@@ -608,19 +641,253 @@ Check `client/src/store/notificationStore.ts` — the notification polling inter
 
 ---
 
+---
+
+## TASK C9 — Remove Staff Selection from Application Forms + Registration Allocation Flow
+**Type:** Critical Fix + Feature Design  
+**Complexity:** MEDIUM  
+**Depends On:** C1 (payments fixed), DB migration 022 (customer_staff_allocation table)
+
+**Root Cause (Gap Identified in Verification + Confirmed by T1):**
+When a customer applies for a service (loan, insurance, RTO) from the portal, the form currently asks them to select a specific staff/consultant. Per the architectural thinking doc (T1):
+
+> "Option B alone is wrong. New customers have zero context about which staff member specializes in what. Asking a customer to pick a staff member during registration is UX friction with no business value."
+
+**Decision (from T1):**
+- Customer NEVER picks staff — remove all staff selection dropdowns from customer-facing forms
+- Allocation happens **when the first file is created** by staff, not at signup
+- Customer can request a staff change later (existing C7 task handles this)
+
+**What to do:**
+
+**Step 1 — Audit all customer-facing forms for staff selection fields:**
+1. Open `CustomerLoanPage.tsx` — check if there's a consultant/staff dropdown in the loan application form. If yes, remove it.
+2. Open `CustomerInsurancePage.tsx` — same check and removal
+3. Open `CustomerRTOPage.tsx` — same check and removal
+4. Open the signup flow (`Signup.tsx`) — check if staff selection appears at registration. If yes, remove entirely.
+
+**Step 2 — Remove backend staff_id field from service request endpoints:**
+In `server/backend/routes/customer/`, find any endpoint that accepts `consultant_id` or `staff_id` as a required field from the customer. Change these to optional or remove entirely:
+```python
+# BEFORE (wrong - customer is selecting staff):
+class ServiceRequestCreate(BaseModel):
+    service_type: str
+    consultant_id: UUID  # ← REMOVE THIS
+    description: str
+
+# AFTER (correct - staff selected by system/admin):
+class ServiceRequestCreate(BaseModel):
+    service_type: str
+    description: str
+    # consultant_id set automatically from customer_staff_allocation table
+```
+
+**Step 3 — Auto-assign staff from allocation table:**
+When a service request is submitted, automatically look up the customer's allocated staff:
+```python
+@router.post("/service-requests")
+def create_service_request(
+    payload: ServiceRequestCreate,
+    current_user: SystemUser = Depends(get_current_customer),
+    db: Session = Depends(get_db),
+):
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+
+    # Auto-assign: get allocated staff from allocation table
+    allocation = db.execute(
+        text("SELECT staff_id FROM customer_staff_allocation WHERE customer_id = :cid AND is_active = TRUE LIMIT 1"),
+        {"cid": str(customer.id)}
+    ).first()
+
+    req = ServiceRequest(
+        customer_id=customer.id,
+        service_type=payload.service_type,
+        description=payload.description,
+        consultant_id=allocation.staff_id if allocation else None,  # auto-assigned
+        status='pending'
+    )
+    db.add(req)
+    db.commit()
+```
+
+**Files Changed:**
+- `[MODIFY]` `client/src/pages/CustomerPages/CustomerLoanPage.tsx` — remove staff selection dropdown
+- `[MODIFY]` `client/src/pages/CustomerPages/CustomerInsurancePage.tsx` — remove staff selection dropdown
+- `[MODIFY]` `client/src/pages/CustomerPages/CustomerRTOPage.tsx` — remove staff selection dropdown
+- `[MODIFY]` `client/src/pages/Signup.tsx` — remove any staff selection from registration
+- `[MODIFY]` `server/backend/routes/customer/service_requests.py` — remove required consultant_id, auto-assign from allocation table
+
+**Verification:**
+- Open customer loan form — no staff dropdown visible ✓
+- Submit loan request — auto-assigned to the allocated staff ✓
+- If no staff allocated yet, request is saved with `consultant_id = NULL` (handled gracefully) ✓
+- Admin sees the request in Review Desk without needing to know which staff submitted it ✓
+
+---
+
+## TASK C10 — Document Upload: Fix UI + Staff Approval Workflow
+**Type:** Bug Fix + Feature (moved from F5 — now current priority)  
+**Complexity:** MEDIUM  
+**Depends On:** S2 (staff has customer detail view), A3 (admin has customer detail view)
+
+> **Note:** This was F5 in the future plan. It is moved to current implementation because the user explicitly requires it: "upload file page has upload option when we click it little card visible but it's ui and design is not ok so need to set it properly"
+
+**Part A — Fix Document Upload UI in `CustomerDocumentsPage.tsx`:**
+
+Current issue: When the upload option is clicked, a "little card" appears with broken/unfinished UI.
+
+**What to fix:**
+1. Open `CustomerDocumentsPage.tsx` — find the upload trigger and the upload card/modal
+2. Replace the upload card with a proper full-featured modal:
+   ```tsx
+   // Proper upload modal should contain:
+   // 1. Document type dropdown (Aadhar, PAN, RC, Insurance, etc.)
+   // 2. Drag-and-drop zone OR file picker button
+   // 3. File preview thumbnail (image preview or PDF icon)
+   // 4. File size/type validation (max 5MB, accept: .jpg,.png,.pdf)
+   // 5. Upload button → calls POST /api/v1/customer/documents/
+   // 6. After upload: shows "Pending Review" badge immediately
+   ```
+3. Each uploaded document in the list must show its status badge:
+   - `pending_review` → amber badge "Pending Review"
+   - `verified` → green badge "Verified ✅"
+   - `rejected` → red badge "Rejected ❌" + "Re-upload" button
+
+**Part B — Staff sees document list in Customer Profile:**
+
+In `CustomerDetailPage.tsx` (used by both admin and staff via S2):
+1. Add a "Documents" tab or section below the KPI cards
+2. Shows all documents uploaded by that customer:
+   - Document type, file name, upload date, current status badge
+3. Add **Verify** and **Reject** action buttons:
+   ```tsx
+   <button onClick={() => updateDocStatus(doc.id, 'verified')} className="btn-sm btn-green">
+     ✅ Verify
+   </button>
+   <button onClick={() => updateDocStatus(doc.id, 'rejected')} className="btn-sm btn-red">
+     ❌ Reject
+   </button>
+   ```
+4. Calls `PATCH /api/v1/documents/{id}/verify` endpoint
+
+**Part C — Backend endpoint:**
+```python
+@router.patch("/{doc_id}/verify")
+def verify_document(
+    doc_id: UUID,
+    payload: dict,  # { "status": "verified" | "rejected", "rejection_reason": str }
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_staff)  # both admin and staff
+):
+    doc = db.query(CustomerDocument).filter(CustomerDocument.id == doc_id).first()
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    doc.status = payload["status"]
+    doc.reviewed_by = current_user.id
+    doc.reviewed_at = datetime.utcnow()
+    if payload["status"] == 'rejected':
+        doc.rejection_reason = payload.get("rejection_reason", "")
+    db.commit()
+
+    # Notify customer
+    notif_type = 'document_approved' if payload['status'] == 'verified' else 'document_rejected'
+    send_targeted_notification(db, doc.customer_user_id, f"Your document '{doc.document_type}' has been {payload['status']}.", notif_type)
+    return {"updated": True}
+```
+
+**Files Changed:**
+- `[MODIFY]` `client/src/pages/CustomerPages/CustomerDocumentsPage.tsx` — fix upload modal UI, add status badges, add re-upload on rejection
+- `[MODIFY]` `client/src/pages/AdminPages/CustomerDetailPage.tsx` — add documents tab with Verify/Reject buttons
+- `[MODIFY]` `server/backend/routes/customer/documents.py` or `admin/documents.py` — add PATCH verify endpoint
+
+**Verification:**
+- Upload a document as customer — modal is clean, shows preview, shows "Pending Review" badge after upload ✓
+- Log in as staff → open customer profile → see uploaded documents with Verify/Reject buttons ✓
+- Click Verify → customer sees "Verified ✅" badge on their document ✓
+- Click Reject → customer sees "Rejected ❌" badge + "Re-upload" button ✓
+- Customer re-uploads rejected document → status resets to "Pending Review" ✓
+
+---
+
+## TASK C11 — File-Based Application Workflow: Understanding + Implementation
+**Type:** Architecture Clarification + Bug Prevention  
+**Complexity:** LOW (documentation + minor fixes)  
+**Depends On:** C1 (payments fixed)
+
+**Root Cause (Gap Identified in Verification + Answered by T2/T3):**
+The question "how do loan/insurance/RTO applications work with the file system" was a gap. The thinking doc (T2) fully answers this:
+
+**Confirmed Architecture (from T2):**
+- A **File** is the core business container. One file = one service engagement for one vehicle
+- Staff creates the file (not the customer)
+- The file auto-links: `customer_id`, `vehicle_info`, `finance_info`, `insurance_info`, `rto_info`
+- Customer can only VIEW their files (not create, not edit)
+- Customer's loan/insurance/RTO pages show data from their linked files filtered by `customer_id`
+
+**What customer sees in each section:**
+
+| Customer Page | Data Source | Access |
+|---|---|---|
+| `/portal/files` | `file_record` filtered by `customer_id` | View only |
+| `/portal/insurance` | `insurance_info` via `file_record.customer_id` | View only |
+| `/portal/loan` | `finance_info` via `file_record.customer_id` | View only |
+| `/portal/rto` | `rto_info` via `file_record.customer_id` | View only |
+| `/portal/payments` | `payment_in` via `file_record.customer_id` | View only |
+| `/portal/documents` | `customer_document` where `customer_id` | Upload + view |
+
+**What this task actually does (implementation fixes):**
+
+1. **Remove application creation from customer portal** for loan/insurance/RTO if currently implemented:
+   - These are NOT initiated by the customer — staff creates the file which generates the loan/insurance/RTO record
+   - Customer uses "Quick Services" on dashboard to SUBMIT A REQUEST (service_request) — NOT to directly create a loan record
+   - If any page (`CustomerLoanPage`, `CustomerInsurancePage`, `CustomerRTOPage`) has a "Create New" or "Apply Now" button that directly creates a DB record — remove it
+   - Replace with: "Request This Service" button → creates a `service_request` entry for staff to action
+
+2. **Clarify Quick Services flow on dashboard:**
+   ```tsx
+   // "Apply for Loan" quick action should:
+   // NOT: POST /api/v1/finance-info/ (creating a loan record directly)
+   // SHOULD: POST /api/v1/customer/service-requests { service_type: 'loan_application' }
+   ```
+
+3. **File detail on customer side** — verify `CustomerFileDetailPage.tsx` shows:
+   - File number, status with human-readable label (not raw enum)
+   - Vehicle details (make, model, RC number)
+   - Loan details if applicable (amount, bank name, LAN number)
+   - Insurance details if applicable (policy number, validity)
+   - RTO status if applicable
+   - Payment summary (paid / outstanding)
+   - Assigned staff name (just name, not ID)
+
+**Files Changed:**
+- `[MODIFY]` `client/src/pages/CustomerPages/CustomerLoanPage.tsx` — remove direct creation, replace with service request
+- `[MODIFY]` `client/src/pages/CustomerPages/CustomerInsurancePage.tsx` — same
+- `[MODIFY]` `client/src/pages/CustomerPages/CustomerRTOPage.tsx` — same
+- `[MODIFY]` `client/src/pages/CustomerPages/CustomerFileDetailPage.tsx` — verify/fix all sections shown
+
+**Verification:**
+- Customer clicks "Apply for Loan" on dashboard → service request created, staff is notified ✓
+- Customer cannot directly create a finance_info or insurance_info record ✓
+- Customer file detail page shows all relevant sub-data (vehicle, loan, insurance, payment) in one view ✓
+
+---
+
 ## Execution Order (Recommended)
 
 | Order | Task | Why |
 |---|---|---|
 | 1 | **C1** — Fix payments backend query | Unblocks C5 (payment summary widget) |
 | 2 | **C8** — Notification polling interval | Simple, server-load critical, zero risk |
-| 3 | **C6 DB** — Run migration SQL for notification prefs | DB first before code |
-| 4 | **C6** — Customer settings save to DB | Low risk, no dependencies |
-| 5 | **C2** — Action Required endpoint + widget | New backend + new UI section |
-| 6 | **C4** — Insurance expiry card | Depends on C2 data (same endpoint) |
-| 7 | **C5** — Payment summary widget | Depends on C1 being fixed |
-| 8 | **C3** — Allocated staff card | Depends on allocation table from DB plan |
-| 9 | **C7** — Request staff change form | Depends on C3 concept, uses modification_request table |
+| 3 | **C9** — Remove staff selection from forms | Fixes broken UX immediately, no dependencies |
+| 4 | **C11** — File-based workflow audit + fixes | Ensures customer pages show/create the right things |
+| 5 | **C6 DB** — Run migration SQL for notification prefs | DB first before code |
+| 6 | **C6** — Customer settings save to DB | Low risk, no dependencies |
+| 7 | **C2** — Action Required endpoint + widget | New backend + new UI section |
+| 8 | **C4** — Insurance expiry card | Depends on C2 data (same endpoint) |
+| 9 | **C5** — Payment summary widget | Depends on C1 being fixed |
+| 10 | **C3** — Allocated staff card | Depends on allocation table from DB plan |
+| 11 | **C10** — Document upload UI fix + staff approval | Depends on S2 (staff has customer view) |
+| 12 | **C7** — Request staff change form | Depends on C3 concept, uses modification_request table |
 
 ## Verification Plan
 
@@ -642,3 +909,9 @@ curl http://localhost:8000/api/v1/portal/payments \
 7. C6: Change notification pref → refresh → pref is persisted ✓
 8. C7: Submit "Request Staff Change" → admin sees it in Review Desk ✓
 9. C8: Network tab shows 1 notification poll per minute ✓
+10. C9: Customer loan/insurance/RTO forms have NO staff selection dropdown ✓
+11. C9: Submitting loan request creates a service_request entry (not a finance_info record) ✓
+12. C10: Document upload modal is clean — drag and drop, preview, status badge ✓
+13. C10: Staff opens customer profile → sees documents with Verify/Reject buttons ✓
+14. C10: Staff clicks Verify → customer sees "Verified" badge immediately ✓
+15. C11: Customer file detail page shows vehicle + loan + insurance + payment in one view ✓
