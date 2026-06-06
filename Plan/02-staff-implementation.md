@@ -61,71 +61,111 @@ Before executing any task, understand these confirmed facts:
 
 ---
 
-## TASK S2 — Rewrite Staff CustomersPage (Currently Mock Data)
+## TASK S2 — Rewrite Staff CustomersPage (Scoped to Own Customers, Correct Permissions)
 **Type:** Critical Bug Fix + Feature  
 **Complexity:** HIGH  
 **Depends On:** S1 (routes fixed)
 
 **Root Cause:**
-`DataEntryPages/CustomersPage.tsx` (53 lines total) uses **hardcoded `mockCustomers` array** — no API calls, no real data, no pagination. The component needs to be completely rewritten.
+`DataEntryPages/CustomersPage.tsx` (53 lines total) uses **hardcoded `mockCustomers` array** — no API calls, no real data, no pagination. Additionally, the old plan had 3 confirmed errors that must be fixed per the architectural thinking doc (T1):
+
+> ❌ **OLD (WRONG):** Staff sees ALL customers
+> ✅ **CORRECT (T1):** Staff sees only customers whose files have `assigned_to = staff.id`
+>
+> ❌ **OLD (WRONG):** Staff can create customers — "Add Customer" button present
+> ✅ **CORRECT (T1):** Staff CANNOT create customers. Customers self-register or are created by Admin. Remove Add Customer button entirely.
+>
+> ❌ **OLD (WRONG):** 5 rows per page
+> ✅ **CORRECT:** 10 rows per page for staff customer list (explicitly requested)
 
 **What to do:**
 
-**Step 1 — Backend:**
-1. The admin customers endpoint `GET /api/v1/customers/` in `customers.py` already exists and supports `?page=1&limit=10&search=`
-2. Staff can already call this endpoint (uses `get_current_staff` dependency — verified in `customers.py`)
-3. Add `customer_type` filter param if not already present (from A5 in admin plan)
-4. Ensure the endpoint returns: `id`, `full_name`, `mobile_1`, `mobile_2`, `email`, `city`, `state`, `customer_type`, `created_at`, active file count
+**Step 1 — Backend (scope customers to staff):**
+1. In `server/backend/routes/admin/customers.py`, the `GET /api/v1/customers/` endpoint currently returns ALL customers.
+2. Add role-based scoping: when called by a `Data_Entry` role user, filter by customers who have at least one file with `assigned_to = current_user.id`:
+```python
+@router.get("/")
+def list_customers(
+    page: int = 1,
+    limit: int = 10,
+    search: Optional[str] = None,
+    customer_type: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_staff)
+):
+    role_name = current_user.role.role_name if current_user.role else ''
+    query = db.query(Customer)
+
+    # SCOPE: Staff only sees their own customers (via file assignment)
+    if role_name == 'Data_Entry':
+        staff_customer_ids = db.execute(
+            text("""
+            SELECT DISTINCT customer_id FROM file_record
+            WHERE assigned_to = :staff_id AND is_deleted = FALSE
+            """),
+            {"staff_id": str(current_user.id)}
+        ).scalars().all()
+        query = query.filter(Customer.id.in_(staff_customer_ids))
+
+    # Admin sees all customers (no extra filter)
+    if search:
+        query = query.filter(Customer.full_name.ilike(f"%{search}%"))
+    if customer_type:
+        query = query.filter(Customer.customer_type == customer_type)
+
+    total = query.count()
+    customers = query.offset((page - 1) * limit).limit(limit).all()
+    return {"data": [serialize(c) for c in customers], "total": total, "page": page, "limit": limit}
+```
+3. Ensure the endpoint returns: `id`, `full_name`, `mobile_1`, `mobile_2`, `email`, `city`, `state`, `customer_type`, `created_at`, active file count
 
 **Step 2 — Frontend rewrite:**
 Replace `DataEntryPages/CustomersPage.tsx` entirely:
 ```tsx
 // Key features needed:
-// 1. Real API call: GET /api/v1/customers/?page=1&limit=5&search=
-// 2. Server-side pagination (5 per page, using shared Pagination component from A8)
+// 1. Real API call: GET /api/v1/customers/?page=1&limit=10&search=
+// 2. Server-side pagination — 10 rows per page (NOT 5 — staff customer page is 10)
 // 3. Search box — debounced 300ms — resets to page 1
-// 4. Filter tabs: All | Individual | Business (from A5 customer_type fix)
-// 5. "Add Customer" button → opens create modal
+// 4. Filter tabs: All | Individual | Business
+// 5. NO "Add Customer" button — staff cannot create customers
 // 6. Clicking customer name/row → navigate('/staff/customers/:id')
-// 7. Staff can create customers but NOT delete them
+// 7. "My Customers" heading — makes clear it's their scoped list
 ```
 
-**Create Modal fields:**
-- full_name (required)
-- mobile_1 (required, 10 digits)
-- mobile_2 (optional)
-- email (optional)
-- city, state, pincode
-- address
-- customer_type (Individual / Business)
-- aadhar_number, pan_number (optional)
-
 **Table columns:**
-`#` | `Name (clickable)` | `Mobile` | `City` | `Type badge` | `Active Files` | `Created`
+`#` | `Name (clickable)` | `Mobile` | `City/State` | `Type badge` | `Active Files` | `Member Since`
+
+**If staff has no customers yet** (no files assigned to them):
+- Show empty state: "No customers assigned to you yet. Create a file for a customer to get started."
+- Link to `/staff/files` → Create New File button
 
 **Step 3 — Customer profile route for staff:**
 1. Add route in `App.tsx`: `<Route path="/staff/customers/:id" element={<CustomerDetailPage />} />`
-   - Note: `CustomerDetailPage.tsx` is in `AdminPages/` — staff can reuse it with role-based button visibility
-   - In `CustomerDetailPage.tsx`: show "Edit" button only if `role === 'admin'`
-2. Verify `CustomerDetailPage.tsx` calls `GET /api/v1/customers/{id}/profile` — check this endpoint exists in `customers.py`
+   - `CustomerDetailPage.tsx` is in `AdminPages/` — staff can reuse it with role-based button visibility
+   - In `CustomerDetailPage.tsx`: show "Edit" / "Delete" buttons only if `role === 'admin'`
+2. Staff profile view of customer shows: personal details, allocated files, document status, payment summary
+3. In `CustomerDetailPage.tsx`, also show the customer's uploaded documents with **Verify/Reject buttons** for staff (from document verification workflow — F5 in future plan, but document list must be visible now)
 
 **DB Changes:**
-None
+None — scoping done at query level using existing `file_record.assigned_to` FK
 
 **Files Changed:**
-- `[MODIFY]` `client/src/pages/DataEntryPages/CustomersPage.tsx` — complete rewrite (delete mock data, real API)
+- `[MODIFY]` `client/src/pages/DataEntryPages/CustomersPage.tsx` — complete rewrite (scoped, no Add Customer, 10 rows)
+- `[MODIFY]` `server/backend/routes/admin/customers.py` — add role-based scoping when role = Data_Entry
 - `[MODIFY]` `client/src/App.tsx` — add `/staff/customers/:id` route
-- `[MODIFY]` `client/src/pages/AdminPages/CustomerDetailPage.tsx` — hide Edit/Delete buttons from non-admin
+- `[MODIFY]` `client/src/pages/AdminPages/CustomerDetailPage.tsx` — hide Edit/Delete buttons for non-admin
 
 **Permissions / Role Gate:**
-- Staff can create customers (`POST /api/v1/customers/`)
-- Staff CANNOT delete customers — do NOT show delete button
-- Staff CAN view all customers — not just "their" customers (until allocation table is built from T1)
+- Staff CANNOT create customers — no Add Customer button, no POST to `/api/v1/customers/`
+- Staff CANNOT delete customers
+- Staff sees ONLY their own customers (files assigned to them)
+- Admin sees ALL customers (no scoping)
 
 **Edge Cases:**
-- Clicking row while loading — debounce or disable row clicks during load
-- If customer has no files yet — show "0 active files"
-- Search with 1-2 characters should still work — backend handles short strings fine
+- Staff with no assigned files → empty state, not an error
+- If a customer has files assigned to multiple staff, they appear in both staff members' lists (correct — different files can have different assignees)
+- Search applies within scoped results only
+- When filter changes → reset to page 1
 
 ---
 
@@ -515,6 +555,98 @@ The `AdminPages/CommissionInPage.tsx` and `AdminPages/CommissionOutPage.tsx` ARE
 
 ---
 
+## TASK S12 — Service Request Phase Updates by Staff
+**Type:** New Feature  
+**Complexity:** MEDIUM  
+**Depends On:** S5 (hardcoded UUIDs removed), S1 (routes fixed)
+
+**Root Cause (Gap Identified in Verification):**
+The current `RequestsPage.tsx` shows service requests but staff can only VIEW them — there is no way for staff to update the status of a request through its lifecycle phases. Per the architectural thinking doc (T3) and user requirements, the workflow should be:
+
+```
+Pending → Verification → In Progress → Completed
+                                ↓
+                           Cancelled (at any point)
+```
+
+Currently: Only admin can change modification request statuses (A14). Service requests from customers have no phase workflow on the staff side at all.
+
+**What to do:**
+
+**Step 1 — Check existing backend endpoint:**
+1. Open `server/backend/routes/admin/service_requests.py`
+2. Check if a `PATCH /{id}/status` endpoint exists
+3. If NOT, add one:
+```python
+@router.patch("/{req_id}/status")
+def update_service_request_status(
+    req_id: UUID,
+    payload: dict,  # { "status": str, "staff_notes": str }
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_staff)
+):
+    req = db.query(ServiceRequest).filter(ServiceRequest.id == req_id).first()
+    if not req:
+        raise HTTPException(404, "Service request not found")
+
+    # Ensure staff can only update their own assigned requests
+    role_name = current_user.role.role_name if current_user.role else ''
+    if role_name == 'Data_Entry' and str(req.consultant_id) != str(current_user.id):
+        raise HTTPException(403, "You can only update your own assigned requests")
+
+    req.status = payload.get("status", req.status)
+    req.staff_notes = payload.get("staff_notes", req.staff_notes)
+    req.updated_at = datetime.utcnow()
+    db.commit()
+
+    # Notify the customer about status change
+    send_targeted_notification(
+        db=db,
+        target_user_id=req.customer_user_id,
+        message=f"Your service request has been updated to: {req.status}",
+        notification_type="general"
+    )
+    return {"updated": True, "status": req.status}
+```
+
+4. Also add `staff_notes` column to `service_requests` table if not present:
+```sql
+-- Add to migration or run directly:
+ALTER TABLE service_requests
+    ADD COLUMN IF NOT EXISTS staff_notes TEXT,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+```
+
+**Step 2 — Frontend in `RequestsPage.tsx`:**
+1. For each request row, add a status dropdown (only visible to the assigned staff):
+   - Options: `Pending | Verification | In Progress | Completed | Cancelled`
+   - Current status shown as a colored badge
+2. Add a "Update Status" button next to each request that opens a small modal:
+   - Status dropdown
+   - Staff notes textarea (optional)
+   - Save button → calls PATCH endpoint
+3. On success: reload requests list + show toast "Status updated"
+4. Customer is automatically notified (from backend send_targeted_notification)
+
+**Status Badge Colors:**
+- `pending` → amber
+- `verification` → blue
+- `in_progress` → indigo
+- `completed` → green
+- `cancelled` → red/gray
+
+**Files Changed:**
+- `[MODIFY]` `server/backend/routes/admin/service_requests.py` — add PATCH status endpoint
+- `[MODIFY]` `client/src/pages/DataEntryPages/RequestsPage.tsx` — add status update dropdown + modal per request
+- (Optional) Add `staff_notes` + `updated_at` columns to `service_requests` table via migration
+
+**Verification:**
+- Log in as staff → open a service request → change status to "In Progress" → customer receives notification ✓
+- Log in as staff B → try to update a request assigned to staff A → 403 Forbidden ✓
+- Customer portal shows updated status on their service request history ✓
+
+---
+
 ## TASK S10 — Staff Profile: Update + Own Settings
 **Type:** Bug Fix / Enhancement  
 **Complexity:** LOW  
@@ -567,12 +699,13 @@ The `AdminPages/CommissionInPage.tsx` and `AdminPages/CommissionOutPage.tsx` ARE
 | 3 | **S5** — Remove hardcoded UUIDs from RequestsPage | Self-contained, easy win |
 | 4 | **S4** — Fix StaffModificationsPage endpoint | Self-contained, removes localStorage anti-pattern |
 | 5 | **S10** — Fix profile/settings routes in App.tsx | Easy, self-contained routing fix |
-| 6 | **S2** — Rewrite Staff CustomersPage | Biggest rewrite — depends on S1 routes being fixed |
+| 6 | **S2** — Rewrite Staff CustomersPage (scoped, no Add Customer, 10 rows) | Biggest rewrite — depends on S1 routes being fixed |
 | 7 | **S3** — Fix Files Page: drawer + pagination + remove delete | Depends on A2 (drawer) and A8 (pagination) from admin plan |
 | 8 | **S8** — Fix payment page stubs | Depends on A8 (pagination), benefits from S3 being done first |
 | 9 | **S11** — Create Commission IN/OUT pages | Do after S8 — same pattern, missing files |
-| 10 | **S6** — Scope dashboard stats to staff | Depends on S1 |
-| 11 | **S9** — Dashboard enhancements | Depends on S1, S5, S6 |
+| 10 | **S12** — Service request phase updates by staff | Depends on S5 (UUIDs removed) |
+| 11 | **S6** — Scope dashboard stats to staff | Depends on S1 |
+| 12 | **S9** — Dashboard enhancements | Depends on S1, S5, S6 |
 
 ## Verification Plan
 
@@ -590,16 +723,20 @@ curl http://localhost:8000/api/v1/dashboard/stats \
 
 ### Manual Verification Checklist
 1. S1: Log in as staff → click "All Files" → goes to `/staff/files` ✓
-2. S2: Staff Customers page shows real customer names, not mock data ✓
-3. S2: Click customer name → opens `/staff/customers/:id` profile page ✓
-4. S3: Click file number → drawer opens (not 404) ✓
-5. S3: Files list shows 5 rows, has pagination controls ✓
-6. S3: No delete button visible ✓
-7. S4: Submit modification request → appears in table (from real API, not localStorage) ✓
-8. S5: Log in as any staff user → service requests page shows their requests only ✓
-9. S7: Try DELETE via API client with staff token → 403 Forbidden ✓
-10. S8: `/staff/payments/in` → shows real payment data with pagination ✓
-11. S10: `/staff/profile` → shows DataEntryProfilePage (not AdminProfilePage) ✓
-12. S11: `/staff/commission/in` → Commission IN page loads with real data ✓
-13. S11: `/staff/commission/out` → Commission OUT page loads with real data ✓
-14. S11: No delete button on either commission page ✓
+2. S2: Staff Customers page shows ONLY customers whose files are assigned to that staff ✓
+3. S2: Staff sees 10 rows per page (not 5) ✓
+4. S2: NO "Add Customer" button visible anywhere on staff customer page ✓
+5. S2: Click customer name → opens `/staff/customers/:id` profile page ✓
+6. S3: Click file number → drawer opens (not 404) ✓
+7. S3: Files list shows 5 rows, has pagination controls ✓
+8. S3: No delete button visible ✓
+9. S4: Submit modification request → appears in table (from real API, not localStorage) ✓
+10. S5: Log in as any staff user → service requests page shows their requests only ✓
+11. S7: Try DELETE via API client with staff token → 403 Forbidden ✓
+12. S8: `/staff/payments/in` → shows real payment data with pagination ✓
+13. S10: `/staff/profile` → shows DataEntryProfilePage (not AdminProfilePage) ✓
+14. S11: `/staff/commission/in` → Commission IN page loads with real data ✓
+15. S11: `/staff/commission/out` → Commission OUT page loads with real data ✓
+16. S11: No delete button on either commission page ✓
+17. S12: Staff changes service request status → customer receives notification ✓
+18. S12: Staff B cannot update Staff A's service request → 403 ✓
