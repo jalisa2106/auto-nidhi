@@ -142,7 +142,15 @@ export const customersApi = {
   },
 }
 
+export const customerProfileApi = {
+  detail: async (customerId: string) => {
+    const { data } = await api.get(`/customers/${customerId}/profile`)
+    return data
+  },
+}
+
 export const brokersApi = {
+
   list: async (search = '') => {
     const { data } = await api.get('/brokers/', {
       params: { search: search || undefined },

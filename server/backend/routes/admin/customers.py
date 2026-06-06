@@ -11,10 +11,11 @@ from datetime import date
 from backend.email_utils import send_email
 
 from backend.database import get_db
-from backend.models import Customer, FileRecord, SystemUser, MasterRole
+from backend.models import Customer, FileRecord, SystemUser, MasterRole, PaymentIn, PaymentOut, InsurancePayment, RTOPayment, FinanceInfo
 from backend.utils import get_current_staff, get_current_admin, record_dashboard_event, get_password_hash
 
 router = APIRouter(prefix="/api/v1/customers", tags=["Admin Customers"])
+
 
 class CustomerCreate(BaseModel):
     full_name: str = Field(..., min_length=1)
@@ -279,3 +280,148 @@ def deactivate_customer(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{customer_id}/profile")
+def get_customer_profile(
+    customer_id: UUID,
+    db: Session = Depends(get_db),
+    _: SystemUser = Depends(get_current_admin),
+):
+    """Full customer profile with all financial activity — shown to admin when clicking a customer row."""
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # ── Files ────────────────────────────────────────────────────────────────
+    files_q = db.query(FileRecord).filter(
+        FileRecord.customer_id == customer_id,
+        FileRecord.is_deleted == False,
+    )
+    files_total = files_q.count()
+
+    file_status_counts = (
+        db.query(FileRecord.status, func.count(FileRecord.id))
+        .filter(FileRecord.customer_id == customer_id, FileRecord.is_deleted == False)
+        .group_by(FileRecord.status)
+        .all()
+    )
+    files_by_status = {s: c for s, c in file_status_counts}
+
+    file_ids_subq = db.query(FileRecord.id).filter(
+        FileRecord.customer_id == customer_id,
+        FileRecord.is_deleted == False,
+    ).scalar_subquery()
+
+    # ── Payment IN ───────────────────────────────────────────────────────────
+    pay_in = db.query(
+        func.count(PaymentIn.id),
+        func.coalesce(func.sum(PaymentIn.payment_amount), 0),
+    ).filter(PaymentIn.file_id.in_(file_ids_subq)).one()
+    payment_in_count = pay_in[0] or 0
+    payment_in_total = float(pay_in[1] or 0)
+
+    # ── Payment OUT ──────────────────────────────────────────────────────────
+    pay_out = db.query(
+        func.count(PaymentOut.id),
+        func.coalesce(func.sum(PaymentOut.amount), 0),
+    ).filter(PaymentOut.file_id.in_(file_ids_subq)).one()
+    payment_out_count = pay_out[0] or 0
+    payment_out_total = float(pay_out[1] or 0)
+
+    # ── Insurance ────────────────────────────────────────────────────────────
+    ins = db.query(
+        func.count(InsurancePayment.id),
+        func.coalesce(func.sum(InsurancePayment.amount), 0),
+    ).filter(
+        InsurancePayment.file_id.in_(file_ids_subq),
+        InsurancePayment.is_deleted == False,
+    ).one()
+    insurance_count = ins[0] or 0
+    insurance_total = float(ins[1] or 0)
+
+    # ── RTO ──────────────────────────────────────────────────────────────────
+    rto = db.query(
+        func.count(RTOPayment.id),
+        func.coalesce(func.sum(RTOPayment.amount), 0),
+    ).filter(
+        RTOPayment.file_id.in_(file_ids_subq),
+        RTOPayment.is_deleted == False,
+    ).one()
+    rto_count = rto[0] or 0
+    rto_total = float(rto[1] or 0)
+
+    # ── Loans ─────────────────────────────────────────────────────────────────
+    loans = db.query(
+        func.count(FinanceInfo.id),
+        func.coalesce(func.sum(FinanceInfo.loan_amount), 0),
+    ).filter(FinanceInfo.file_id.in_(file_ids_subq)).one()
+    loans_count = loans[0] or 0
+    loans_total = float(loans[1] or 0)
+
+    # ── Recent 5 Files ────────────────────────────────────────────────────────
+    recent_files = (
+        db.query(FileRecord)
+        .filter(FileRecord.customer_id == customer_id, FileRecord.is_deleted == False)
+        .order_by(FileRecord.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    recent_files_data = [
+        {
+            "id": str(f.id),
+            "file_number": f.file_number or "—",
+            "file_type": f.file_type or "—",
+            "status": f.status or "—",
+            "created_at": f.created_at.strftime("%Y-%m-%d") if f.created_at else "—",
+        }
+        for f in recent_files
+    ]
+
+    # ── Creator info ──────────────────────────────────────────────────────────
+    creator_name = None
+    if customer.created_by:
+        creator = db.query(SystemUser).filter(SystemUser.id == customer.created_by).first()
+        if creator:
+            creator_name = f"{creator.first_name or ''} {creator.last_name or ''}".strip()
+
+    def safe_date(d):
+        if d is None:
+            return None
+        if hasattr(d, "isoformat"):
+            return d.isoformat()
+        return str(d)
+
+    return {
+        # Profile
+        "id": str(customer.id),
+        "full_name": customer.full_name or "—",
+        "email": customer.email or "—",
+        "mobile_1": customer.mobile_1 or "—",
+        "mobile_2": customer.mobile_2 or None,
+        "address": customer.address or "—",
+        "city": customer.city or "—",
+        "state": customer.state or "—",
+        "pincode": customer.pincode or "—",
+        "date_of_birth": safe_date(customer.date_of_birth),
+        "aadhar_number": customer.aadhar_number or "—",
+        "pan_number": customer.pan_number or "—",
+        "customer_type": customer.customer_type or "individual",
+        "created_at": safe_date(customer.created_at),
+        "added_by": creator_name,
+        # Activity
+        "files_total": files_total,
+        "files_by_status": files_by_status,
+        "payment_in_count": payment_in_count,
+        "payment_in_total": payment_in_total,
+        "payment_out_count": payment_out_count,
+        "payment_out_total": payment_out_total,
+        "insurance_count": insurance_count,
+        "insurance_total": insurance_total,
+        "rto_count": rto_count,
+        "rto_total": rto_total,
+        "loans_count": loans_count,
+        "loans_total": loans_total,
+        # Recent files
+        "recent_files": recent_files_data,
+    }

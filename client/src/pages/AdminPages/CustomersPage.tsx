@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, X, FileSpreadsheet, FileDown, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Eye, X, FileSpreadsheet, FileDown, Pencil, Trash2, AlertTriangle, ChevronRight } from "lucide-react";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -388,9 +388,17 @@ export default function CustomersPage() {
                     className="btn btn-outline btn-sm"
                     style={{ padding: '5px 10px' }}
                     onClick={() => setViewCustomer(r.raw)}
-                    title="View details"
+                    title="Quick view"
                   >
                     <Eye size={13} />
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    style={{ padding: '5px 10px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => navigate(`/customers/${r.id}`)}
+                    title="View full profile"
+                  >
+                    Profile <ChevronRight size={12} />
                   </button>
                   <button
                     className="btn btn-outline btn-sm"

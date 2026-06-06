@@ -29,6 +29,7 @@ import AdminLayout from './pages/Dashboard/AdminDashboard'
 // ── Admin / Shared Staff pages ──────────────────────────────────────
 import DashboardPage          from './pages/AdminPages/DashboardPage'
 import CustomersPage          from './pages/AdminPages/CustomersPage'
+import CustomerDetailPage     from './pages/AdminPages/CustomerDetailPage'
 import FilesPage              from './pages/AdminPages/FilesPage'
 import PaymentInPage          from './pages/AdminPages/PaymentInPage'
 import PaymentOutPage         from './pages/AdminPages/PaymentOutPage'
@@ -125,6 +126,7 @@ function App() {
         <Route element={<AdminLayout />}>
           <Route path="/dashboard"                   element={<DashboardPage />}          />
           <Route path="/customers"                   element={<CustomersPage />}          />
+          <Route path="/customers/:id"               element={<CustomerDetailPage />}     />
           <Route path="/files"                       element={<FilesPage />}              />
           <Route path="/payments/in"                 element={<PaymentInPage />}          />
           <Route path="/payments/out"                element={<PaymentOutPage />}         />
