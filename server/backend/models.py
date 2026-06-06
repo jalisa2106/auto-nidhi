@@ -26,6 +26,10 @@ class SystemUser(Base):
     password_expires_at = Column(DateTime(timezone=True), nullable=True)
     last_login = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, nullable=False)
+    # ── Soft Delete (Migration 025) ───────────────────────────
+    is_deleted      = Column(Boolean, default=False, nullable=False)
+    deleted_at      = Column(DateTime(timezone=True), nullable=True)
+    deletion_reason = Column(Text, nullable=True)
 
     role = relationship("MasterRole")
 
@@ -170,6 +174,12 @@ class MasterCompanyBank(Base):
     ifsc_code = Column(String(20), nullable=False)
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    # ── Enhanced Fields (Migration 023) ──────────────────────
+    account_holder_name = Column(String(255), nullable=True)
+    branch_name         = Column(String(255), nullable=True)
+    upi_id              = Column(String(100),  nullable=True)
+    is_primary          = Column(Boolean, default=False, nullable=False)
+    notes               = Column(Text, nullable=True)
 
 class MasterInsuranceCompany(Base):
     __tablename__ = "master_insurance_company"
@@ -399,33 +409,6 @@ class InsuranceInfo(Base):
     insurance_company = relationship("MasterInsuranceCompany")
     insurance_type = relationship("MasterInsuranceType")
 
-class CustomerDocument(Base):
-    __tablename__ = "customer_document"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
-
-    customer_id = Column(UUID(as_uuid=True), ForeignKey("customer.id"), nullable=False)
-    file_id = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=True)
-
-    document_type = Column(String(100), nullable=False)
-    label = Column(String(255), nullable=False)
-    category = Column(String(50), nullable=False)  # kyc / transactional
-    status = Column(String(50), nullable=False, default="missing")  # verified / pending_review / rejected / missing
-
-    file_name = Column(String(255))
-    file_path = Column(Text)
-    file_size = Column(Integer)
-    content_type = Column(String(100))
-
-    rejection_reason = Column(Text)
-
-    uploaded_at = Column(DateTime(timezone=True))
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
-
-    customer = relationship("Customer")
-    file = relationship("FileRecord")
-
 class UserNotificationPreference(Base):
     __tablename__ = "user_notification_preferences"
 
@@ -461,18 +444,22 @@ class ModificationRequest(Base):
     entity_id = Column(String(255), nullable=False)
     request_type = Column(String(30), nullable=False)
     reason = Column(Text, nullable=False)
+    # status values: pending | verification | in_progress | approved | completed | rejected
     status = Column(String(30), nullable=False, default="pending")
 
     submitted_by = Column(UUID(as_uuid=True), ForeignKey("system_user.id"), nullable=False)
     reviewed_by = Column(UUID(as_uuid=True), ForeignKey("system_user.id"), nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
     decision_note = Column(Text, nullable=True)
+    # ── Review Desk Workflow Columns (Migration 026) ──────────
+    admin_notes      = Column(Text, nullable=True)
+    rejection_reason = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
 
     submitter = relationship("SystemUser", foreign_keys=[submitted_by])
-    reviewer = relationship("SystemUser", foreign_keys=[reviewed_by])
+    reviewer  = relationship("SystemUser", foreign_keys=[reviewed_by])
 
 
 class PasswordResetToken(Base):
@@ -496,8 +483,66 @@ class ServiceRequest(Base):
     consultant_id = Column(UUID(as_uuid=True), ForeignKey("system_user.id", ondelete="SET NULL"))
     viewed_by_consultant = Column(Boolean, default=False)
     viewed_at = Column(DateTime(timezone=True))
+    # ── Staff Phase Notes (Migration 027) ─────────────────────
+    staff_notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=text("NOW()"))
     updated_at = Column(DateTime(timezone=True), server_default=text("NOW()"))
     
-    customer = relationship("Customer")
+    customer   = relationship("Customer")
     consultant = relationship("SystemUser", foreign_keys=[consultant_id])
+
+
+class CustomerDocument(Base):
+    __tablename__ = "customer_document"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+
+    customer_id = Column(UUID(as_uuid=True), ForeignKey("customer.id"), nullable=False)
+    file_id     = Column(UUID(as_uuid=True), ForeignKey("file_record.id"), nullable=True)
+
+    document_type = Column(String(100), nullable=False)
+    label         = Column(String(255), nullable=False)
+    category      = Column(String(50),  nullable=False)   # kyc / transactional
+    status        = Column(String(50),  nullable=False, default="missing")  # verified / pending_review / rejected / missing
+
+    file_name    = Column(String(255))
+    file_path    = Column(Text)
+    file_size    = Column(Integer)
+    content_type = Column(String(100))
+
+    rejection_reason = Column(Text)
+    # ── Document Review Tracking (Migration 028) ─────────────
+    reviewed_by  = Column(UUID(as_uuid=True), ForeignKey("system_user.id", ondelete="SET NULL"), nullable=True)
+    reviewed_at  = Column(DateTime(timezone=True), nullable=True)
+
+    uploaded_at = Column(DateTime(timezone=True))
+    created_at  = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at  = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+    customer = relationship("Customer")
+    file     = relationship("FileRecord")
+    reviewer = relationship("SystemUser", foreign_keys=[reviewed_by])
+
+
+# ── New Model: CustomerStaffAllocation (Migration 022) ────────
+class CustomerStaffAllocation(Base):
+    """Tracks which staff member is the primary consultant for a customer.
+    Only one row per customer can be active (is_active=TRUE) at a time.
+    Old allocations are kept with is_active=FALSE for audit history.
+    """
+    __tablename__ = "customer_staff_allocation"
+
+    id              = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    customer_id     = Column(UUID(as_uuid=True), ForeignKey("customer.id",     ondelete="CASCADE"), nullable=False)
+    staff_id        = Column(UUID(as_uuid=True), ForeignKey("system_user.id",  ondelete="CASCADE"), nullable=False)
+    allocated_by    = Column(UUID(as_uuid=True), ForeignKey("system_user.id",  ondelete="SET NULL"), nullable=True)
+    allocated_since = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    is_active       = Column(Boolean, nullable=False, default=True)
+    notes           = Column(Text, nullable=True)
+    created_at      = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at      = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    customer      = relationship("Customer",    foreign_keys=[customer_id])
+    staff         = relationship("SystemUser",  foreign_keys=[staff_id])
+    allocated_by_user = relationship("SystemUser", foreign_keys=[allocated_by])
