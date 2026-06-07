@@ -110,11 +110,6 @@ export default function CustomerInsurancePage() {
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
 
-  // Consultant assignment states
-  const [consultants, setConsultants] = useState<any[]>([])
-  const [assignmentMode, setAssignmentMode] = useState<'company' | 'choose'>('company')
-  const [selectedConsultant, setSelectedConsultant] = useState('')
-
 const loadData = () => {
   setLoading(true)
   setBackendError(null)
@@ -162,10 +157,6 @@ const loadData = () => {
   useEffect(() => {
     loadData()
     loadSubmittedRequests()
-    serviceRequestsApi.listConsultants().then(res => {
-      setConsultants(res)
-      if (res.length > 0) setSelectedConsultant(res[0].id)
-    })
   }, [])
 
   const getPolicyStatus = (validToDateStr: string | null) => {
@@ -228,8 +219,7 @@ const loadData = () => {
           policy_type: policyType,
           insurer_preference: insurerPreference || 'Any'
         },
-        remarks: remarks,
-        consultant_id: assignmentMode === 'choose' ? selectedConsultant : undefined
+        remarks: remarks
       })
 
       // 2. legacy admin notification
@@ -467,44 +457,6 @@ Remarks: ${remarks || 'None'}`,
                 <label className="form-label">Remarks</label>
                 <textarea rows={3} placeholder="Current expiry date or special requirements..." value={remarks} onChange={e => setRemarks(e.target.value)} className="form-input" />
 
-                <label className="form-label" style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginTop: 6, marginBottom: 6 }}>
-                  Consultant Assignment <span style={{ color: '#ef4444' }}>*</span>
-                </label>
-                <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="assignmentMode"
-                      value="company"
-                      checked={assignmentMode === 'company'}
-                      onChange={() => setAssignmentMode('company')}
-                    />
-                    Company will assign
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="assignmentMode"
-                      value="choose"
-                      checked={assignmentMode === 'choose'}
-                      onChange={() => setAssignmentMode('choose')}
-                    />
-                    Choose your consultant
-                  </label>
-                </div>
-                {assignmentMode === 'choose' && (
-                  <select
-                    value={selectedConsultant}
-                    onChange={e => setSelectedConsultant(e.target.value)}
-                    className="form-input"
-                    style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.88rem' }}
-                    required
-                  >
-                    {consultants.map(c => (
-                      <option key={c.id} value={c.id}>{c.first_name} {c.last_name || ''} ({c.email})</option>
-                    ))}
-                  </select>
-                )}
               </div>
               <div className="modal-footer"><button type="button" className="btn btn-outline btn-sm" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>{submitting ? 'Submitting...' : 'Send Request'}</button></div>
             </form>
