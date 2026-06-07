@@ -95,3 +95,93 @@ def customer_dashboard(
             "recent_files": recent_files,
         },
     }
+
+
+@router.get("/action-required")
+def customer_action_required(
+    current_user: SystemUser = Depends(get_current_customer),
+    db: Session = Depends(get_db),
+):
+    customer = get_customer_for_user(current_user, db)
+    if not customer:
+        return {
+            "outstanding_payments": 0,
+            "pending_documents": 0,
+            "expiring_insurance_days": None,
+            "expiring_insurance_file": None,
+            "files_needing_attention": [],
+        }
+
+    customer_id = str(customer.id)
+
+    outstanding_payments = db.execute(
+        text(
+            """
+            SELECT COUNT(*)
+            FROM payment_in pi
+            JOIN file_record fr ON fr.id = pi.file_id
+            WHERE fr.customer_id = :cid
+              AND fr.is_deleted = FALSE
+              AND pi.remaining_amount > 0
+            """
+        ),
+        {"cid": customer_id},
+    ).scalar() or 0
+
+    pending_documents = db.execute(
+        text(
+            """
+            SELECT COUNT(*)
+            FROM customer_document
+            WHERE customer_id = :cid
+              AND status IN ('pending', 'rejected')
+            """
+        ),
+        {"cid": customer_id},
+    ).scalar() or 0
+
+    expiry = db.execute(
+        text(
+            """
+            SELECT fr.file_number,
+                   ii.valid_to,
+                   (ii.valid_to::date - CURRENT_DATE) AS days_left
+            FROM insurance_info ii
+            JOIN file_record fr ON fr.id = ii.file_id
+            WHERE fr.customer_id = :cid
+              AND fr.is_deleted = FALSE
+              AND ii.valid_to IS NOT NULL
+              AND ii.valid_to::date >= CURRENT_DATE
+            ORDER BY ii.valid_to ASC
+            LIMIT 1
+            """
+        ),
+        {"cid": customer_id},
+    ).mappings().first()
+
+    stale_files = [
+        dict(row)
+        for row in db.execute(
+            text(
+                """
+                SELECT file_number,
+                       status::text AS status,
+                       (CURRENT_DATE - created_at::date) AS days_old
+                FROM file_record
+                WHERE customer_id = :cid
+                  AND is_deleted = FALSE
+                  AND status = 'draft'
+                  AND created_at < NOW() - INTERVAL '7 days'
+                """
+            ),
+            {"cid": customer_id},
+        ).mappings().all()
+    ]
+
+    return {
+        "outstanding_payments": int(outstanding_payments),
+        "pending_documents": int(pending_documents),
+        "expiring_insurance_days": int(expiry["days_left"]) if expiry else None,
+        "expiring_insurance_file": expiry["file_number"] if expiry else None,
+        "files_needing_attention": stale_files,
+    }

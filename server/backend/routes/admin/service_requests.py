@@ -6,8 +6,8 @@ from uuid import UUID
 import json
 
 from backend.database import get_db
-from backend.models import SystemUser, Customer, MasterRole
-from backend.utils import get_current_user, get_current_staff, record_dashboard_event, send_targeted_notification
+from backend.models import SystemUser, Customer, MasterRole, CustomerStaffAllocation
+from backend.utils import get_current_user, get_current_staff, get_customer_for_user, record_dashboard_event, send_targeted_notification
 
 router = APIRouter(prefix="/api/v1/service-requests", tags=["Service Requests"])
 
@@ -63,7 +63,7 @@ def list_service_requests(
 
         role_name_clean = role_name.lower().replace(" ", "_").replace("-", "_")
         if role_name_clean == "customer":
-            customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+            customer = get_customer_for_user(current_user, db)
             if not customer:
                 return []
             conditions.append("sr.customer_id = :current_customer_id")
@@ -145,7 +145,7 @@ def create_service_request(
             customer = db.query(Customer).filter(Customer.id == customer_id).first()
 
         if not customer:
-            customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+            customer = get_customer_for_user(current_user, db)
 
         if not customer:
             raise HTTPException(status_code=400, detail="Valid customer profile is required")
@@ -155,8 +155,16 @@ def create_service_request(
         details = payload.get("details", {})
         remarks = payload.get("remarks")
         consultant_id = payload.get("consultant_id")
-        if not consultant_id:
+        if consultant_id and not _is_uuid(consultant_id):
             consultant_id = None
+
+        if not consultant_id:
+            allocation = db.query(CustomerStaffAllocation).filter(
+                CustomerStaffAllocation.customer_id == customer.id,
+                CustomerStaffAllocation.is_active == True
+            ).order_by(CustomerStaffAllocation.allocated_since.desc()).first()
+            if allocation:
+                consultant_id = str(allocation.staff_id)
 
         if not request_type:
             raise HTTPException(status_code=400, detail="request_type is required")
