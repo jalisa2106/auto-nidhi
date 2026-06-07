@@ -191,10 +191,23 @@ export default function CustomerPortalPage() {
           <div className="db-kpi-icon"><ShieldCheck size={22} /></div>
           <div className="db-kpi-body">
             <div className="db-kpi-label">Insurance</div>
-            <div className="db-kpi-value">{loading || insuranceCount === null ? '…' : insuranceCount}</div>
-            <div className="db-kpi-sub">
-              <span className="db-kpi-tag red">View policies</span>
-            </div>
+            {actionRequired && actionRequired.expiring_insurance_days !== null && actionRequired.expiring_insurance_days <= 30 ? (
+              <>
+                <div className="db-kpi-value" style={{ color: '#b91c1c' }}>
+                  {actionRequired.expiring_insurance_days}d
+                </div>
+                <div className="db-kpi-sub">
+                  <span className="db-kpi-tag red">Expires soon!</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="db-kpi-value">{loading || insuranceCount === null ? '…' : insuranceCount}</div>
+                <div className="db-kpi-sub">
+                  <span className="db-kpi-tag red">View policies</span>
+                </div>
+              </>
+            )}
           </div>
           <ChevronRight size={16} className="db-kpi-arrow" />
         </div>
