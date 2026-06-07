@@ -18,6 +18,11 @@ interface CustomerFileDetail {
   remarks?: string | null
   finance_amount?: number | null
   finance_bank?: string | null
+  lan_number?: string | null
+  insurance_policy_number?: string | null
+  insurance_valid_to?: string | null
+  payment_paid?: number
+  payment_outstanding?: number
   created_at?: string | null
   updated_at?: string | null
   documents?: Array<{
@@ -143,10 +148,30 @@ export default function CustomerFileDetailPage() {
                 <div className="info-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
                   <div className="info-item"><span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600 }}>FINANCE AMOUNT</span><span className="info-value" style={{ fontSize: '1.4rem', fontWeight: '700', color: '#10b981', display: 'block', marginTop: 4 }}>₹{file.finance_amount.toLocaleString('en-IN')}</span></div>
                   <div className="info-item"><span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600 }}>CLEARING BANK</span><span className="info-value" style={{ fontSize: '1.05rem', fontWeight: 500, display: 'block', marginTop: 4 }}>{file.finance_bank}</span></div>
+                  {file.lan_number && <div className="info-item"><span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600 }}>LAN NUMBER</span><span className="info-value" style={{ fontSize: '1.05rem', fontWeight: 500, display: 'block', marginTop: 4 }}>{file.lan_number}</span></div>}
                 </div>
               ) : (
                 <p style={{ color: 'var(--gray-400)', margin: 0 }}>No dynamic finance parameters mapped against this sequence.</p>
               )}
+
+              {/* Extras block for Insurance and Payment Summary */}
+              <div style={{ marginTop: 24, borderTop: '1px solid var(--gray-200)', paddingTop: 20 }}>
+                <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--gray-800)' }}>Other Service Details</h4>
+                <div className="info-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
+                  <div className="info-item">
+                    <span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600 }}>INSURANCE POLICY</span>
+                    <span className="info-value" style={{ fontSize: '0.95rem', fontWeight: 500, display: 'block', marginTop: 4 }}>{file.insurance_policy_number || 'N/A'}</span>
+                    {file.insurance_valid_to && <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)', marginTop: 2 }}>Valid to: {formatDateTime(file.insurance_valid_to).split(',')[0]}</div>}
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label" style={{ fontSize: '0.75rem', color: 'var(--gray-400)', fontWeight: 600 }}>PAYMENT SUMMARY</span>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                      <span style={{ color: '#10b981', fontWeight: 600 }}>Paid: ₹{(file.payment_paid || 0).toLocaleString('en-IN')}</span>
+                      <span style={{ color: '#ef4444', fontWeight: 600 }}>Due: ₹{(file.payment_outstanding || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

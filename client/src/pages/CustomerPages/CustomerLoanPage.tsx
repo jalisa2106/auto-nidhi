@@ -375,7 +375,7 @@ Customer Submissions Remarks: ${remarks || 'None'}`,
               </select>
 
               <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setIsModalOpen(true)}>
-                <PlusCircle size={14} /> Apply for Loan
+                <PlusCircle size={14} /> Request Loan Service
               </button>
             </div>
           </div>
@@ -536,7 +536,7 @@ Customer Submissions Remarks: ${remarks || 'None'}`,
         <div className="modal-backdrop" onClick={() => !submitting && setIsModalOpen(false)}>
           <div className="modal" style={{ maxWidth: 500, width: '100%' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Apply for New Vehicle Loan</h3>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Request New Vehicle Loan Service</h3>
               <button className="btn btn-ghost btn-sm" disabled={submitting} onClick={() => setIsModalOpen(false)}>✕</button>
             </div>
 
@@ -653,7 +653,7 @@ Customer Submissions Remarks: ${remarks || 'None'}`,
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
-                  {submitting ? 'Sending Request...' : 'Submit Loan Application'}
+                  {submitting ? 'Sending Request...' : 'Submit Loan Request'}
                 </button>
               </div>
             </form>

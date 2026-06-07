@@ -310,7 +310,7 @@ Remarks: ${remarks || 'None'}`,
                 <option value="expiring">Expiring</option>
                 <option value="expired">Expired</option>
               </select>
-              <button className="btn btn-primary btn-sm" onClick={() => setIsModalOpen(true)}><PlusCircle size={14} /> Get Insurance</button>
+              <button className="btn btn-primary btn-sm" onClick={() => setIsModalOpen(true)}><PlusCircle size={14} /> Request Insurance Service</button>
             </div>
           </div>
 
@@ -448,7 +448,7 @@ Remarks: ${remarks || 'None'}`,
       {isModalOpen && (
         <div className="modal-backdrop" onClick={() => !submitting && setIsModalOpen(false)}>
           <div className="modal" style={{ maxWidth: 500, width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Apply for Vehicle Insurance</h3><button className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>✕</button></div>
+            <div className="modal-header"><h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Request Vehicle Insurance Service</h3><button className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>✕</button></div>
             <form onSubmit={handleWizardSubmit}>
               <div className="modal-body" style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <label className="form-label">Registration Number <span style={{ color: '#ef4444' }}>*</span></label>
