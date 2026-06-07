@@ -353,7 +353,7 @@ export const loansApi = {
 
 export const rtoPaymentsApi = {
   list: async (params: any) => {
-    const { data } = await api.get('/rto-payments', { params })
+    const { data } = await api.get('/rto-payments/', { params })
     return data
   },
   create: async (payload: any) => {
@@ -436,11 +436,11 @@ export const expensesApi = {
 
 export const bankAccountsApi = {
   list: async (page = 1, limit = 50) => {
-    const { data } = await api.get('/settings/banks', { params: { page, limit } })
+    const { data } = await api.get('/settings/banks/', { params: { page, limit } })
     return data
   },
   create: async (payload: { bank_name: string; account_number: string; ifsc_code: string; area?: string }) => {
-    const { data } = await api.post('/settings/banks', payload, skipAuthRedirectConfig)
+    const { data } = await api.post('/settings/banks/', payload, skipAuthRedirectConfig)
     return data
   },
   update: async (id: string, payload: Record<string, any>) => {
@@ -484,7 +484,7 @@ export const usersSettingsApi = {
 
 export const financeBanksApi = {
   list: async (page = 1, limit = 20, search = '') => {
-    const { data } = await api.get('/finance-banks', { params: { page, limit, search: search || undefined } })
+    const { data } = await api.get('/finance-banks/', { params: { page, limit, search: search || undefined } })
     return data
   },
   listAll: async () => {
@@ -549,7 +549,7 @@ export const insuranceTypesApi = {
 
 export const advancesApi = {
   list: async (search = '') => {
-    const { data } = await api.get('/advances', {
+    const { data } = await api.get('/advances/', {
       params: { search: search || undefined },
     })
     return data

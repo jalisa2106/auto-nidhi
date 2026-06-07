@@ -137,7 +137,7 @@ export default function FilesPage() {
   useEffect(() => {
     if (addOpen) {
       if (customers.length === 0) {
-        api.get('/customers?limit=1000')
+        api.get('/customers/?limit=1000')
           .then(res => setCustomers(Array.isArray(res.data) ? res.data : []))
           .catch(() => message.error('Failed to load customers'));
       }
