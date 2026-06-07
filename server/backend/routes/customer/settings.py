@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import SystemUser, MasterRole, UserNotificationPreference
+from backend.models import SystemUser, MasterRole, UserNotificationPreference, Customer
 from backend.utils import get_current_customer, record_dashboard_event
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-this-secret-key")
@@ -171,3 +171,37 @@ def get_customer_security_status(
             "note": "Account is active" if current_customer.is_active else "Account is disabled",
         },
     }
+@router.get("/notification-preferences")
+def get_notification_preferences(
+    current_user: SystemUser = Depends(get_current_customer),
+    db: Session = Depends(get_db),
+):
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        return []
+    prefs = db.execute(
+        text("SELECT pref_key, is_enabled FROM customer_notification_preferences WHERE customer_id = :cid"),
+        {"cid": str(customer.id)}
+    ).mappings().all()
+    return [dict(p) for p in prefs]
+
+@router.post("/notification-preferences")
+def save_notification_preferences(
+    payload: List[dict],
+    current_user: SystemUser = Depends(get_current_customer),
+    db: Session = Depends(get_db),
+):
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        raise HTTPException(404, "Customer not found")
+    for item in payload:
+        db.execute(
+            text("""
+            INSERT INTO customer_notification_preferences (customer_id, pref_key, is_enabled)
+            VALUES (:cid, :key, :enabled)
+            ON CONFLICT (customer_id, pref_key) DO UPDATE SET is_enabled = :enabled, updated_at = NOW()
+            """),
+            {"cid": str(customer.id), "key": item["key"], "enabled": item["enabled"]}
+        )
+    db.commit()
+    return {"saved": True}
