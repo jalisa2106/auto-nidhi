@@ -7,12 +7,12 @@ from pydantic import BaseModel
 
 from backend.database import get_db
 from backend.models import Customer, FileRecord, SystemUser, MasterRole
-from backend.utils import get_current_customer, send_targeted_notification
+from backend.utils import get_current_customer, get_customer_for_user, send_targeted_notification
 
 router = APIRouter(prefix="/api/v1/portal", tags=["Customer Portal"])
 
 def _get_customer_by_user(db: Session, current_user: SystemUser) -> Optional[Customer]:
-    return db.query(Customer).filter(Customer.email == current_user.email).first()
+    return get_customer_for_user(current_user, db)
 
 
 @router.get("/files")

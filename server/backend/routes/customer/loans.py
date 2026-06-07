@@ -9,7 +9,7 @@ from sqlalchemy import or_
 
 from backend.database import get_db
 from backend.models import FileRecord, FinanceInfo, SystemUser, Customer
-from backend.utils import get_current_customer, record_dashboard_event
+from backend.utils import get_current_customer, get_customer_for_user, record_dashboard_event
 
 router = APIRouter(prefix="/api/v1/portal/loans", tags=["Customer Loans"])
 
@@ -22,7 +22,7 @@ class LoanCreate(BaseModel):
 
 
 def _get_customer_by_user(db: Session, current_user: SystemUser) -> Optional[Customer]:
-    return db.query(Customer).filter(Customer.email == current_user.email).first()
+    return get_customer_for_user(current_user, db)
 
 
 def generate_file_number(db: Session) -> str:

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from backend.utils import get_current_customer
+from backend.utils import get_current_customer, get_customer_for_user
 from backend.database import get_db
 from backend.models import (
     Customer,
@@ -19,7 +19,7 @@ def customer_insurance(
     current_user: SystemUser = Depends(get_current_customer),
     db: Session = Depends(get_db),
 ):
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer = get_customer_for_user(current_user, db)
     if not customer:
         return []
 

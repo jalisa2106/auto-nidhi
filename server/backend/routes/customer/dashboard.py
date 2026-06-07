@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Customer, SystemUser
-from backend.utils import get_current_customer
+from backend.utils import get_current_customer, get_customer_for_user
 
 router = APIRouter(prefix="/api/v1/customer", tags=["Customer Dashboard"])
 
@@ -19,7 +19,7 @@ def customer_dashboard(
     db: Session = Depends(get_db),
 ):
     user_id = str(current_user.id)
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer = get_customer_for_user(current_user, db)
 
     if not customer:
         return {

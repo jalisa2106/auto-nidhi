@@ -5,7 +5,7 @@ from typing import Optional
 
 from backend.database import get_db
 from backend.models import SystemUser, RTOPayment, FileRecord, Customer, MasterRole
-from backend.utils import get_current_customer, send_targeted_notification
+from backend.utils import get_current_customer, get_customer_for_user, send_targeted_notification
 
 router = APIRouter(prefix="/api/v1/portal/rto", tags=["Customer RTO"])
 
@@ -21,7 +21,7 @@ def get_customer_rto_details(
     db: Session = Depends(get_db)
 ):
     # 1. Get the customer profile linked to the logged-in user
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer = get_customer_for_user(current_user, db)
     if not customer:
         return []
 
@@ -63,7 +63,7 @@ def submit_rto_request(
     current_user: SystemUser = Depends(get_current_customer),
     db: Session = Depends(get_db)
 ):
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer = get_customer_for_user(current_user, db)
     file_record = db.query(FileRecord).filter(FileRecord.id == payload.file_id).first()
 
     # Find admins to notify them of the RTO request

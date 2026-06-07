@@ -9,7 +9,7 @@ import json
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
 
 from backend.database import get_db
 from backend.models import SystemUser, MasterRole
@@ -134,11 +134,7 @@ def get_current_customer_profile(
 ):
     from backend.models import Customer
 
-    customer = (
-        db.query(Customer)
-        .filter(Customer.email == current_user.email)
-        .first()
-    )
+    customer = get_customer_for_user(current_user, db)
 
     if not customer:
         raise HTTPException(
@@ -147,6 +143,43 @@ def get_current_customer_profile(
         )
 
     return customer
+
+
+def get_customer_for_user(current_user: SystemUser, db: Session):
+    from backend.models import Customer
+
+    normalized_email = (current_user.email or "").strip().lower()
+    preferred_phone = current_user.phone_number
+    full_name = " ".join(filter(None, [current_user.first_name, current_user.last_name])).strip()
+
+    if normalized_email:
+        customer = (
+            db.query(Customer)
+            .filter(func.lower(Customer.email) == normalized_email)
+            .first()
+        )
+        if customer:
+            return customer
+
+    if preferred_phone:
+        customer = db.query(Customer).filter(Customer.mobile_1 == preferred_phone).first()
+        if customer:
+            return customer
+
+    if full_name:
+        customer = (
+            db.query(Customer)
+            .filter(func.lower(Customer.full_name) == full_name.lower())
+            .first()
+        )
+        if customer:
+            return customer
+
+        name_query = db.query(Customer).filter(Customer.full_name.ilike(f"%{full_name}%"))
+        if name_query.count() == 1:
+            return name_query.first()
+
+    return None
 
 
 def _jsonb(value: Optional[dict[str, Any]]) -> Optional[str]:
