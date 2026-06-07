@@ -19,7 +19,13 @@ interface FileRecord {
   finance_bank?: string
   created_at?: string
 }
-
+interface ActionRequiredData {
+  outstanding_payments: number
+  pending_documents: number
+  expiring_insurance_days: number | null
+  expiring_insurance_file: string | null
+  files_needing_attention: Array<{ file_number: string; status: string; days_old: number }>
+}
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string; label: string; next: string }> = {
@@ -59,6 +65,7 @@ export default function CustomerPortalPage() {
   const navigate = useNavigate()
   const [allFiles, setAllFiles] = useState<FileRecord[]>([])
   const [insuranceCount, setInsuranceCount] = useState<number | null>(null)
+  const [actionRequired, setActionRequired] = useState<ActionRequiredData | null>(null)
   // FIXED: Removed the 'unread' variable to resolve TS6133, but kept the setter.
   const [, setUnread] = useState(unreadCount())
   const [loading, setLoading] = useState(true)
@@ -84,12 +91,17 @@ export default function CustomerPortalPage() {
       .then(res => setInsuranceCount(res.data?.length ?? 0))
       .catch(() => setInsuranceCount(0))
 
-    // 4. Fetch notifications
+    // 4. Fetch action-required summary
+    const p4 = api.get<ActionRequiredData>('/customer/action-required')
+      .then(res => setActionRequired(res.data))
+      .catch(() => setActionRequired(null))
+
+    // 5. Fetch notifications
     fetchNotifications()
 
-    Promise.all([p1, p2, p3]).finally(() => setLoading(false))
+    Promise.all([p1, p2, p3, p4]).finally(() => setLoading(false))
 
-    // 5. Subscribe to notifications unread updates
+    // 6. Subscribe to notifications unread updates
     const unsub = subscribe(() => setUnread(unreadCount()))
     return unsub
   }, [])
@@ -158,6 +170,53 @@ export default function CustomerPortalPage() {
           <ChevronRight size={16} className="db-kpi-arrow" />
         </div>
       </div>
+
+      {actionRequired && (
+        (actionRequired.outstanding_payments > 0 || actionRequired.pending_documents > 0 ||
+          (actionRequired.expiring_insurance_days !== null && actionRequired.expiring_insurance_days <= 30) ||
+          (actionRequired.files_needing_attention?.length ?? 0) > 0) && (
+          <div className="db-card" style={{ margin: '20px 0', border: '1px solid #fecdd3', background: '#fff1f2' }}>
+            <div className="db-card-header">
+              <div className="db-card-title" style={{ color: '#be123c' }}>
+                <AlertCircle size={16} /> Action Required
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, padding: '12px 0 8px' }}>
+              {actionRequired.outstanding_payments > 0 && (
+                <div style={{ flex: '1 1 240px', minWidth: 240, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#991b1b' }}>💳 {actionRequired.outstanding_payments} payment(s) outstanding</div>
+                  <div style={{ marginTop: 8, color: '#7f1d1d', fontSize: '.84rem' }}>Please settle pending dues to avoid delays in your services.</div>
+                  <div style={{ marginTop: 12 }}><Link to="/portal/payments" style={{ color: '#991b1b', fontWeight: 700 }}>View payments →</Link></div>
+                </div>
+              )}
+
+              {actionRequired.pending_documents > 0 && (
+                <div style={{ flex: '1 1 240px', minWidth: 240, background: '#ffedd5', border: '1px solid #fed7aa', borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#9a3412' }}>📄 {actionRequired.pending_documents} document(s) need attention</div>
+                  <div style={{ marginTop: 8, color: '#7c2d12', fontSize: '.84rem' }}>Upload or correct documents so your file can progress smoothly.</div>
+                  <div style={{ marginTop: 12 }}><Link to="/portal/documents" style={{ color: '#9a3412', fontWeight: 700 }}>Review documents →</Link></div>
+                </div>
+              )}
+
+              {actionRequired.expiring_insurance_days !== null && actionRequired.expiring_insurance_days <= 30 && (
+                <div style={{ flex: '1 1 240px', minWidth: 240, background: '#ede9fe', border: '1px solid #ddd6fe', borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#4c1d95' }}>🛡️ Insurance expires in {actionRequired.expiring_insurance_days} days</div>
+                  <div style={{ marginTop: 8, color: '#4338ca', fontSize: '.84rem' }}>{actionRequired.expiring_insurance_file || 'Policy file'} is due soon.</div>
+                  <div style={{ marginTop: 12 }}><Link to="/portal/insurance" style={{ color: '#4338ca', fontWeight: 700 }}>View insurance →</Link></div>
+                </div>
+              )}
+
+              {(actionRequired.files_needing_attention || []).map(f => (
+                <div key={f.file_number} style={{ flex: '1 1 240px', minWidth: 240, background: '#eff6ff', border: '1px solid #dbeafe', borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1d4ed8' }}>📁 File {f.file_number} needs attention</div>
+                  <div style={{ marginTop: 8, color: '#1e40af', fontSize: '.84rem' }}>Draft for {f.days_old} days — status is {f.status}.</div>
+                  <div style={{ marginTop: 12 }}><Link to="/portal/files" style={{ color: '#1d4ed8', fontWeight: 700 }}>View file →</Link></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      )}
 
       {/* ── Row 2: Pipeline + Services ── */}
       <div className="db-row2">
