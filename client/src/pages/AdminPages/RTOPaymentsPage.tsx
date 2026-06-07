@@ -66,6 +66,11 @@ const formatPaymentId = (id: string) => {
   return id
 }
 
+interface PageProps {
+  forceRole?: string
+  forceAdmin?: boolean
+}
+
 // ── Pagination ────────────────────────────────────────────────────────────────
 
 function StatCard({ icon, label, value, iconBg, iconColor, accent }: {
@@ -107,9 +112,9 @@ function FormField({ label, children }: { label: React.ReactNode; children: Reac
   )
 }
 
-export default function RTOPaymentsPage() {
-  const role = localStorage.getItem('user_role') || 'admin'
-  const isAdmin = role === 'admin'
+export default function RTOPaymentsPage({ forceRole, forceAdmin }: PageProps = {}) {
+  const role = forceRole ?? (localStorage.getItem('user_role') || 'admin')
+  const isAdmin = forceAdmin ?? role === 'admin'
 
   const [rows,     setRows]     = useState<RTOPayment[]>([])
   const [search,   setSearch]   = useState('')

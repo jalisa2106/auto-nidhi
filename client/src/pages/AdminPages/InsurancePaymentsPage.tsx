@@ -33,9 +33,14 @@ type InsurancePaymentForm = {
   remarks: string
 }
 
-export default function InsurancePaymentsPage() {
-  const role = localStorage.getItem('user_role') || 'admin'
-  const isAdmin = role === 'admin'
+interface PageProps {
+  forceRole?: string
+  forceAdmin?: boolean
+}
+
+export default function InsurancePaymentsPage({ forceRole, forceAdmin }: PageProps = {}) {
+  const role = forceRole ?? (localStorage.getItem('user_role') || 'admin')
+  const isAdmin = forceAdmin ?? role === 'admin'
 
   const [rows, setRows] = useState<any[]>([])
   const [files, setFiles] = useState<{ id: string; file_number: string; customer: string }[]>([])

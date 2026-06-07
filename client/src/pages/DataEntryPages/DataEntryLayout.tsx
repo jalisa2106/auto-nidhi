@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   LayoutDashboard, Users, FolderOpen,
   ArrowDownToLine, ArrowUpFromLine, Receipt, ShieldCheck, Wallet,
-  Car, LogOut, Bell, User, Settings, ChevronDown
+  Car, LogOut, Bell, User, Settings, ChevronDown, BadgePercent, HandCoins
 } from 'lucide-react'
 import NotificationPanel from '../../components/app/NotificationPanel'
 import { subscribe, unreadCount, fetchNotifications } from '../../store/notificationStore'
@@ -23,6 +23,8 @@ const staffNav: NavGroup[] = [
     title: 'Finance', items: [
       { to: '/staff/payments/in',         label: 'Payment IN',         icon: ArrowDownToLine },
       { to: '/staff/payments/out',        label: 'Payment OUT',        icon: ArrowUpFromLine },
+      { to: '/staff/commission/in',       label: 'Commission IN',      icon: BadgePercent    },
+      { to: '/staff/commission/out',      label: 'Commission OUT',     icon: HandCoins       },
       { to: '/staff/rto-payments',        label: 'RTO Payments',       icon: Receipt         },
       { to: '/staff/insurance-payments',  label: 'Insurance Payments', icon: ShieldCheck     },
       { to: '/staff/expenses',            label: 'Expenses',           icon: Wallet          },

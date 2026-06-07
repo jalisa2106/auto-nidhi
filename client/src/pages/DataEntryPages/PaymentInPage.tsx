@@ -1,2 +1,6 @@
-// Reuses the admin PaymentInPage
-export { default } from "../AdminPages/PaymentInPage" 
+import PaymentInPage from '../AdminPages/PaymentInPage'
+
+export default function StaffPaymentInPage() {
+  return <PaymentInPage forceRole="data_entry" />
+}
+ 

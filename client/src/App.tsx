@@ -12,6 +12,8 @@ import RoleBasedRouter from './pages/RoleBasedRouter'
 // ── Layouts (eager — shared shell) ───────────────────────────────────
 import CustomerLayout from './pages/CustomerPages/CustomerLayout'
 import AdminLayout    from './pages/Dashboard/AdminDashboard'
+import DataEntryProfilePage from './pages/DataEntryPages/DataEntryProfilePage'
+import DataEntrySettingsPage from './pages/DataEntryPages/DataEntrySettingsPage'
 
 // ── Customer portal (lazy) ────────────────────────────────────────────
 const CustomerPortalPage     = lazy(() => import('./pages/CustomerPages/CustomerPortalPage'))
@@ -62,6 +64,8 @@ const AnalyticsPage          = lazy(() => import('./pages/AdminPages/AnalyticsPa
 const DataEntryDashboardPage = lazy(() => import('./pages/DataEntryPages/DataEntryDashboardPage'))
 const DataEntryCustomersPage = lazy(() => import('./pages/DataEntryPages/CustomersPage'))
 const DataEntryFilesPage     = lazy(() => import('./pages/DataEntryPages/FilesPage'))
+const DataEntryCommissionInPage  = lazy(() => import('./pages/DataEntryPages/CommissionInPage'))
+const DataEntryCommissionOutPage = lazy(() => import('./pages/DataEntryPages/CommissionOutPage'))
 
 
 // ── Loading fallback ──────────────────────────────────────────────────
@@ -146,15 +150,17 @@ function App() {
               <Route path="/staff/customers"          element={<DataEntryCustomersPage />}         />
               <Route path="/staff/customers/:id"      element={<CustomerDetailPage />}             />
               <Route path="/staff/files"              element={<DataEntryFilesPage />}             />
-              <Route path="/staff/payments/in"        element={<PaymentInPage />}                  />
-              <Route path="/staff/payments/out"       element={<PaymentOutPage />}                 />
-              <Route path="/staff/rto-payments"       element={<RTOPaymentsPage />}                />
-              <Route path="/staff/insurance-payments" element={<InsurancePaymentsPage />}          />
-              <Route path="/staff/expenses"           element={<ExpensesPage />}                   />
-              <Route path="/staff/requests"           element={<RequestsPage />}                   />
-              <Route path="/staff/modifications"      element={<StaffModificationsPage />}         />
-              <Route path="/staff/profile"            element={<AdminProfilePage />}               />
-              <Route path="/staff/settings"           element={<AdminSettingsPage />}              />
+              <Route path="/staff/payments/in"        element={<PaymentInPage />}         />
+              <Route path="/staff/payments/out"       element={<PaymentOutPage />}        />
+              <Route path="/staff/commission/in"      element={<DataEntryCommissionInPage />}      />
+              <Route path="/staff/commission/out"     element={<DataEntryCommissionOutPage />}     />
+              <Route path="/staff/rto-payments"       element={<RTOPaymentsPage />}       />
+              <Route path="/staff/insurance-payments" element={<InsurancePaymentsPage />} />
+              <Route path="/staff/expenses"           element={<ExpensesPage />}          />
+              <Route path="/staff/requests"           element={<RequestsPage />}          />
+              <Route path="/staff/modifications"      element={<StaffModificationsPage />}/>
+              <Route path="/staff/profile"            element={<DataEntryProfilePage />}  />
+              <Route path="/staff/settings"           element={<DataEntrySettingsPage />} />
             </Route>
 
             {/* ── Accountant portal ── */}

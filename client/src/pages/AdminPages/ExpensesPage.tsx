@@ -100,9 +100,14 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
   )
 }
 
-export default function ExpensesPage() {
-  const role = localStorage.getItem('user_role') || 'guest'
-  const isAdmin = role === 'admin'
+interface PageProps {
+  forceRole?: string
+  forceAdmin?: boolean
+}
+
+export default function ExpensesPage({ forceRole, forceAdmin }: PageProps = {}) {
+  const role = forceRole ?? (localStorage.getItem('user_role') || 'guest')
+  const isAdmin = forceAdmin ?? role === 'admin'
 
   const [categoriesList, setCategoriesList] = useState<ExpenseCategory[]>([])
   const [rows, setRows] = useState<Expense[]>([])
