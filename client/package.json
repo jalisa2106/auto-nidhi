@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vite",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsc -b && cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vite preview"
   },
   "dependencies": {
     "@ant-design/icons": "^5.3.7",
