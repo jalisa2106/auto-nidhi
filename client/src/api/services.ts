@@ -147,6 +147,17 @@ export const customerProfileApi = {
     const { data } = await api.get(`/customers/${customerId}/profile`)
     return data
   },
+  listDocuments: async (customerId: string): Promise<any[]> => {
+    const { data } = await api.get(`/customers/${customerId}/documents`)
+    return data
+  },
+  updateDocumentStatus: async (customerId: string, documentId: string, status: string, rejectionReason?: string): Promise<any> => {
+    const { data } = await api.patch(`/customers/${customerId}/documents/${documentId}/status`, {
+      status,
+      rejection_reason: rejectionReason
+    }, skipAuthRedirectConfig)
+    return data
+  }
 }
 
 export const brokersApi = {

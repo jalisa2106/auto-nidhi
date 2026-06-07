@@ -67,17 +67,8 @@ export default function RequestsPage() {
 
   // Current logged in user info
   const userRole = localStorage.getItem('user_role') || 'guest'
-  const userRaw = localStorage.getItem('an_current_user')
-  const currentUser = userRaw ? JSON.parse(userRaw) : null
-  const currentEmail = currentUser ? currentUser.email : ''
 
-  // Lookup the consultant ID using email to handle backend payloads lacking UUID fields
-  const consultantsList = [
-    { id: 'c2d88add-f8a6-49c6-a9d4-6603ea46a459', email: 'james@gmail.com' },
-    { id: '4d763da5-8ee8-4074-ac8e-fe98767c4ad8', email: 'dataentry@gmail.com' }
-  ]
-  const matchedConsultant = consultantsList.find(c => c.email === currentEmail)
-  const currentUserId = matchedConsultant ? matchedConsultant.id : (currentUser?.id || '')
+
 
   // Modals / Dialogs states
   const [selectedReq, setSelectedReq] = useState<ServiceRequest | null>(null)
@@ -95,9 +86,7 @@ export default function RequestsPage() {
     try {
       // 1. Fetch requests
       const data = await serviceRequestsApi.list()
-      const filteredForRole = userRole === 'admin' 
-        ? data 
-        : data.filter(r => r.consultant_id === currentUserId || r.consultant_id === '4d763da5-8ee8-4074-ac8e-fe98767c4ad8' || r.consultant_id === 'c2d88add-f8a6-49c6-a9d4-6603ea46a459')
+      const filteredForRole = data
       
       setRequests(filteredForRole)
 

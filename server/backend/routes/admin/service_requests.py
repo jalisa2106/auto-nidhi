@@ -61,14 +61,17 @@ def list_service_requests(
         role = db.query(MasterRole).filter(MasterRole.id == current_user.role_id).first()
         role_name = role.role_name.lower() if role and role.role_name else ""
 
-        if role_name == "customer":
+        role_name_clean = role_name.lower().replace(" ", "_").replace("-", "_")
+        if role_name_clean == "customer":
             customer = db.query(Customer).filter(Customer.email == current_user.email).first()
             if not customer:
                 return []
             conditions.append("sr.customer_id = :current_customer_id")
             params["current_customer_id"] = str(customer.id)
-        
-        if consultant_id:
+        elif role_name_clean in ("data_entry", "staff", "dataentry"):
+            conditions.append("sr.consultant_id = :current_staff_id")
+            params["current_staff_id"] = str(current_user.id)
+        elif consultant_id:
             conditions.append("sr.consultant_id = :consultant_id")
             params["consultant_id"] = consultant_id
 

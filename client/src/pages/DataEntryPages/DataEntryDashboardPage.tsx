@@ -5,6 +5,7 @@ import {
   Clock, CheckCircle2, Car, Users, ChevronRight,
 } from 'lucide-react'
 import api from '../../api/axios'
+import FileDetailDrawer from '../../components/app/FileDetailDrawer'
 
 // ── Types (matching DB fields from SystemUser + FileRecord) ──────────────────
 
@@ -104,6 +105,7 @@ export default function DataEntryDashboardPage() {
   const [dashboard, setDashboard] = useState<DEDashboardData>(emptyDashboard)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [drawerFileId, setDrawerFileId] = useState<string | null>(null)
 
   // Read user from localStorage (DB fields: first_name, last_name, email)
   useEffect(() => {
@@ -319,7 +321,7 @@ export default function DataEntryDashboardPage() {
                     const status = f.status_label || normalizeStatus(f.status)
                     const sc = STATUS_COLOR[status] || STATUS_COLOR.Draft
                     return (
-                      <tr key={f.id} onClick={() => navigate(`/staff/files/${f.id}`)} style={{ cursor: 'pointer' }}>
+                      <tr key={f.id} onClick={() => setDrawerFileId(f.id)} style={{ cursor: 'pointer' }}>
                         <td><span className="db-file-id">{f.display_id || f.file_number || f.id.slice(0, 8)}</span></td>
                         <td style={{ fontWeight: 500, color: 'var(--gray-800)' }}>{f.customer || '—'}</td>
                         <td>
@@ -369,6 +371,7 @@ export default function DataEntryDashboardPage() {
           </div>
         </>
       )}
+      <FileDetailDrawer fileId={drawerFileId} onClose={() => setDrawerFileId(null)} />
     </div>
   )
 }

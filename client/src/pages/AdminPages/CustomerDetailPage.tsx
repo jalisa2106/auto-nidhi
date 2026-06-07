@@ -4,6 +4,7 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, User,
   FolderOpen, TrendingUp, TrendingDown, ShieldCheck,
   Car, CreditCard, IndianRupee, Receipt, BadgeCheck, Clock,
+  AlertTriangle, CheckCircle2, Eye,
 } from 'lucide-react'
 import { customerProfileApi } from '../../api/services'
 
@@ -124,6 +125,12 @@ export default function CustomerDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Document verification states
+  const [documents, setDocuments] = useState<any[]>([])
+  const [rejectionModalDoc, setRejectionModalDoc] = useState<any | null>(null)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [processingDocId, setProcessingDocId] = useState<string | null>(null)
+
   useEffect(() => {
     if (!id) return
     load()
@@ -135,10 +142,47 @@ export default function CustomerDetailPage() {
     try {
       const data = await customerProfileApi.detail(id!)
       setCustomer(data)
+      try {
+        const docs = await customerProfileApi.listDocuments(id!)
+        setDocuments(docs)
+      } catch (err) {
+        console.error('Failed to load documents', err)
+      }
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Failed to load customer details')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleVerifyDoc = async (docId: string) => {
+    if (!id) return
+    setProcessingDocId(docId)
+    try {
+      await customerProfileApi.updateDocumentStatus(id, docId, 'verified')
+      setDocuments(prev => prev.map(d => d.id === docId ? { ...d, status: 'verified', rejection_reason: null } : d))
+    } catch (err) {
+      console.error('Failed to verify document', err)
+      alert('Failed to verify document')
+    } finally {
+      setProcessingDocId(null)
+    }
+  }
+
+  const handleRejectDocSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!id || !rejectionModalDoc || !rejectionReason.trim()) return
+    setProcessingDocId(rejectionModalDoc.id)
+    try {
+      await customerProfileApi.updateDocumentStatus(id, rejectionModalDoc.id, 'rejected', rejectionReason)
+      setDocuments(prev => prev.map(d => d.id === rejectionModalDoc.id ? { ...d, status: 'rejected', rejection_reason: rejectionReason } : d))
+      setRejectionModalDoc(null)
+      setRejectionReason('')
+    } catch (err) {
+      console.error('Failed to reject document', err)
+      alert('Failed to reject document')
+    } finally {
+      setProcessingDocId(null)
     }
   }
 
@@ -177,7 +221,11 @@ export default function CustomerDetailPage() {
       <button
         className="btn btn-outline btn-sm"
         style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6 }}
-        onClick={() => navigate('/customers')}
+        onClick={() => {
+          const userRole = localStorage.getItem('user_role') || 'guest'
+          const isStaff = userRole.toLowerCase().replace(" ", "_") === 'data_entry' || userRole.toLowerCase() === 'staff'
+          navigate(isStaff ? '/staff/customers' : '/customers')
+        }}
       >
         <ArrowLeft size={15} /> Back to Customers
       </button>
@@ -387,6 +435,195 @@ export default function CustomerDetailPage() {
           </div>
         )}
       </div>
+
+      {/* ── Documents Section ── */}
+      <div className="data-card" style={{ marginTop: 24 }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ShieldCheck size={16} color="#059669" />
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>Customer Documents</h3>
+        </div>
+        <div style={{ padding: 20 }}>
+          {documents.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8', fontSize: '0.9rem' }}>
+              No documents slot initialized.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+              {documents.map((doc) => {
+                const isUploaded = doc.status !== 'missing';
+                
+                // badge status styling
+                let statusBg = '#f1f5f9';
+                let statusColor = '#64748b';
+                let statusIcon = <Clock size={14} />;
+                if (doc.status === 'verified') {
+                  statusBg = '#dcfce7';
+                  statusColor = '#15803d';
+                  statusIcon = <CheckCircle2 size={14} />;
+                } else if (doc.status === 'rejected') {
+                  statusBg = '#fee2e2';
+                  statusColor = '#991b1b';
+                  statusIcon = <AlertTriangle size={14} />;
+                } else if (doc.status === 'pending_review') {
+                  statusBg = '#fef3c7';
+                  statusColor = '#d97706';
+                  statusIcon = <Clock size={14} />;
+                }
+
+                return (
+                  <div key={doc.id} style={{
+                    border: '1px solid #e2e8f0', borderRadius: 12, padding: 16,
+                    background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                    transition: 'box-shadow 0.2s',
+                    position: 'relative'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, width: '100%' }}>
+                      <span style={{
+                        padding: '3px 8px', borderRadius: 6, fontSize: '.7rem', fontWeight: 700,
+                        background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b',
+                        textTransform: 'uppercase'
+                      }}>
+                        {doc.category}
+                      </span>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        background: statusBg, color: statusColor, padding: '3px 9px', borderRadius: 99,
+                        fontSize: '.72rem', fontWeight: 700
+                      }}>
+                        {statusIcon}
+                        {doc.status === 'pending_review' ? 'Pending Review' : doc.status}
+                      </span>
+                    </div>
+
+                    <h4 style={{ margin: '0 0 4px 0', fontSize: '.9rem', fontWeight: 700, color: '#1e293b' }}>
+                      {doc.label}
+                    </h4>
+                    {doc.file_name ? (
+                      <div style={{ fontSize: '.78rem', color: '#64748b', wordBreak: 'break-all', marginBottom: 12 }}>
+                        📄 {doc.file_name} ({Math.round((doc.file_size || 0) / 1024)} KB)
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '.78rem', color: '#94a3b8', fontStyle: 'italic', marginBottom: 12 }}>
+                        No file uploaded
+                      </div>
+                    )}
+
+                    {doc.status === 'rejected' && doc.rejection_reason && (
+                      <div style={{
+                        background: '#fff5f5', border: '1px solid #fee2e2', borderRadius: 8,
+                        padding: '8px 10px', fontSize: '.75rem', color: '#991b1b', marginBottom: 12
+                      }}>
+                        <strong>Rejection Reason:</strong> {doc.rejection_reason}
+                      </div>
+                    )}
+
+                    {isUploaded && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
+                        <a
+                          href={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/portal/documents/${doc.id}/download`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-outline btn-xs"
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '.72rem', padding: '4px 8px' }}
+                        >
+                          <Eye size={12} /> View / Download
+                        </a>
+
+                        {doc.status === 'pending_review' && (
+                          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+                            <button
+                              disabled={processingDocId === doc.id}
+                              onClick={() => handleVerifyDoc(doc.id)}
+                              className="btn btn-xs"
+                              style={{
+                                background: '#10b981', color: '#fff', border: 'none',
+                                display: 'flex', alignItems: 'center', gap: 3, fontSize: '.72rem', padding: '4px 8px'
+                              }}
+                            >
+                              Verify
+                            </button>
+                            <button
+                              disabled={processingDocId === doc.id}
+                              onClick={() => setRejectionModalDoc(doc)}
+                              className="btn btn-xs"
+                              style={{
+                                background: '#ef4444', color: '#fff', border: 'none',
+                                display: 'flex', alignItems: 'center', gap: 3, fontSize: '.72rem', padding: '4px 8px'
+                              }}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Document Rejection Modal ── */}
+      {rejectionModalDoc && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: 16
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 16, width: '100%', maxWidth: 460,
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+            overflow: 'hidden', border: '1px solid #e2e8f0'
+          }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
+                Reject Document
+              </h3>
+              <p style={{ margin: '4px 0 0 0', fontSize: '.84rem', color: '#64748b' }}>
+                {rejectionModalDoc.label}
+              </p>
+            </div>
+            <form onSubmit={handleRejectDocSubmit}>
+              <div style={{ padding: 24 }}>
+                <label style={{ display: 'block', fontSize: '.84rem', fontWeight: 600, color: '#334155', marginBottom: 8 }}>
+                  Reason for Rejection
+                </label>
+                <textarea
+                  required
+                  placeholder="Explain why this document is being rejected (e.g. Blurry image, expired card...)"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  style={{
+                    width: '100%', height: 100, padding: '10px 12px', borderRadius: 8,
+                    border: '1px solid #cbd5e1', fontSize: '.875rem', outline: 'none', resize: 'none'
+                  }}
+                />
+              </div>
+              <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => { setRejectionModalDoc(null); setRejectionReason('') }}
+                  className="btn btn-outline btn-sm"
+                  style={{ padding: '8px 16px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-danger btn-sm"
+                  style={{ padding: '8px 16px', background: '#ef4444', border: 'none', color: '#fff' }}
+                >
+                  Confirm Reject
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
