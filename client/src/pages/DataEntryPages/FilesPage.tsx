@@ -415,7 +415,7 @@ export default function DataEntryFilesPage() {
                       fontWeight: 700, fontSize: '.82rem', color: '#2563eb',
                       cursor: 'pointer', fontFamily: 'monospace', letterSpacing: '.3px',
                     }}
-                    onClick={() => navigate(`/data-entry/files/${r.id}`)}
+                    onClick={() => navigate(`/staff/files/${r.id}`)}
                     title="View detail"
                   >
                     {r.file_number || '—'}

@@ -171,14 +171,14 @@ export default function DataEntryDashboardPage() {
               <div className="db-sub">Your assigned files and tasks — AutoNidhi</div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <Link to="/data-entry/files" className="btn btn-primary btn-sm">Manage Files</Link>
-              <Link to="/data-entry/customers" className="btn btn-outline btn-sm">Manage Customers</Link>
+              <Link to="/staff/files" className="btn btn-primary btn-sm">Manage Files</Link>
+              <Link to="/staff/customers" className="btn btn-outline btn-sm">Manage Customers</Link>
             </div>
           </div>
 
           {/* ── KPI Cards ── */}
           <div className="db-kpi-grid">
-            <div className="db-kpi-card db-kpi-blue" onClick={() => navigate('/data-entry/files')}>
+            <div className="db-kpi-card db-kpi-blue" onClick={() => navigate('/staff/files')}>
               <div className="db-kpi-icon"><FolderOpen size={22} /></div>
               <div className="db-kpi-body">
                 <div className="db-kpi-label">Active Files</div>
@@ -192,7 +192,7 @@ export default function DataEntryDashboardPage() {
               <ChevronRight size={16} className="db-kpi-arrow" />
             </div>
 
-            <div className="db-kpi-card db-kpi-green" onClick={() => navigate('/data-entry/files')}>
+            <div className="db-kpi-card db-kpi-green" onClick={() => navigate('/staff/files')}>
               <div className="db-kpi-icon"><CheckCircle2 size={22} /></div>
               <div className="db-kpi-body">
                 <div className="db-kpi-label">Completed Files</div>
@@ -204,7 +204,7 @@ export default function DataEntryDashboardPage() {
               <ChevronRight size={16} className="db-kpi-arrow" />
             </div>
 
-            <div className="db-kpi-card db-kpi-gold" onClick={() => navigate('/data-entry/customers')}>
+            <div className="db-kpi-card db-kpi-gold" onClick={() => navigate('/staff/customers')}>
               <div className="db-kpi-icon"><Users size={22} /></div>
               <div className="db-kpi-body">
                 <div className="db-kpi-label">Total Customers</div>
@@ -216,7 +216,7 @@ export default function DataEntryDashboardPage() {
               <ChevronRight size={16} className="db-kpi-arrow" />
             </div>
 
-            <div className="db-kpi-card db-kpi-red" onClick={() => navigate('/data-entry/files')}>
+            <div className="db-kpi-card db-kpi-red" onClick={() => navigate('/staff/files')}>
               <div className="db-kpi-icon"><Car size={22} /></div>
               <div className="db-kpi-body">
                 <div className="db-kpi-label">Cancelled Files</div>
@@ -234,7 +234,7 @@ export default function DataEntryDashboardPage() {
             <div className="db-card db-pipeline">
               <div className="db-card-header">
                 <div className="db-card-title"><Activity size={16} /> File Pipeline</div>
-                <Link to="/data-entry/files" className="db-see-all">View all <ArrowRight size={12} /></Link>
+                <Link to="/staff/files" className="db-see-all">View all <ArrowRight size={12} /></Link>
               </div>
               <div className="db-pipeline-grid">
                 {pipelineCounts.map(p => (
@@ -242,7 +242,7 @@ export default function DataEntryDashboardPage() {
                     key={p.status}
                     className="db-pipeline-item"
                     style={{ background: p.bg, cursor: 'pointer' }}
-                    onClick={() => navigate('/data-entry/files')}
+                    onClick={() => navigate('/staff/files')}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.dot, flexShrink: 0 }} />
@@ -275,11 +275,11 @@ export default function DataEntryDashboardPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
-                  { label: 'All Files',        to: '/data-entry/files',     icon: FolderOpen },
-                  { label: 'All Customers',    to: '/data-entry/customers', icon: Users      },
-                  { label: 'Payment IN',       to: '/data-entry/payments/in',  icon: ArrowRight },
-                  { label: 'Payment OUT',      to: '/data-entry/payments/out', icon: ArrowRight },
-                  { label: 'Expenses',         to: '/data-entry/expenses',  icon: ArrowRight },
+                  { label: 'All Files',        to: '/staff/files',     icon: FolderOpen },
+                  { label: 'All Customers',    to: '/staff/customers', icon: Users      },
+                  { label: 'Payment IN',       to: '/staff/payments/in',  icon: ArrowRight },
+                  { label: 'Payment OUT',      to: '/staff/payments/out', icon: ArrowRight },
+                  { label: 'Expenses',         to: '/staff/expenses',  icon: ArrowRight },
                 ].map(({ label, to, icon: Icon }) => (
                   <Link key={to} to={to} style={{
                     display: 'flex', alignItems: 'center', gap: 10,
@@ -302,7 +302,7 @@ export default function DataEntryDashboardPage() {
             <div className="db-card">
               <div className="db-card-header">
                 <div className="db-card-title"><FolderOpen size={16} /> Recent Files</div>
-                <Link to="/data-entry/files" className="db-see-all">All files <ArrowRight size={12} /></Link>
+                <Link to="/staff/files" className="db-see-all">All files <ArrowRight size={12} /></Link>
               </div>
               <table className="db-mini-table">
                 <thead>
@@ -319,7 +319,7 @@ export default function DataEntryDashboardPage() {
                     const status = f.status_label || normalizeStatus(f.status)
                     const sc = STATUS_COLOR[status] || STATUS_COLOR.Draft
                     return (
-                      <tr key={f.id} onClick={() => navigate(`/data-entry/files/${f.id}`)} style={{ cursor: 'pointer' }}>
+                      <tr key={f.id} onClick={() => navigate(`/staff/files/${f.id}`)} style={{ cursor: 'pointer' }}>
                         <td><span className="db-file-id">{f.display_id || f.file_number || f.id.slice(0, 8)}</span></td>
                         <td style={{ fontWeight: 500, color: 'var(--gray-800)' }}>{f.customer || '—'}</td>
                         <td>
