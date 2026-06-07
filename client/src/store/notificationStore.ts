@@ -96,3 +96,21 @@ export const clearAll = () => {
   notifications = []
   notifyListeners()
 }
+const POLL_INTERVAL = 60000;
+let pollingInterval: number | ReturnType<typeof setInterval> | null = null;
+
+export const startPolling = () => {
+  if (!pollingInterval) {
+    pollingInterval = setInterval(fetchNotifications, POLL_INTERVAL);
+  }
+};
+
+export const stopPolling = () => {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+};
+
+// Start polling immediately when store is evaluated
+startPolling();
