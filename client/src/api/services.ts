@@ -955,7 +955,7 @@ export interface ServiceRequest {
   customer_email: string
   customer_mobile: string
   request_type: 'loan' | 'rto' | 'insurance' | 'other'
-  status: 'pending' | 'processed' | 'approved' | 'rejected'
+  status: 'pending' | 'verification' | 'in_progress' | 'completed' | 'cancelled' | 'processed' | 'approved' | 'rejected'
   details: any
   remarks: string
   consultant_id?: string
@@ -994,13 +994,14 @@ export const serviceRequestsApi = {
   },
 
   updateStatus: async (
-    id: string, 
-    status: 'pending' | 'processed' | 'approved' | 'rejected', 
-    adminRemarks?: string
+    id: string,
+    status: ServiceRequest['status'],
+    adminRemarks?: string,
+    staffNotes?: string
   ): Promise<any> => {
     const { data } = await api.patch(
       `/service-requests/${id}/status`, 
-      { status, remarks: adminRemarks }, 
+      { status, remarks: adminRemarks, staff_notes: staffNotes }, 
       skipAuthRedirectConfig
     )
     return data

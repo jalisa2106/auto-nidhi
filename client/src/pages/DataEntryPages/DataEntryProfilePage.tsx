@@ -25,8 +25,8 @@ const ROLE_META: Record<string, { bg: string; color: string; border: string; lab
 }
 
 function readCurrentUser(): UserProfile {
-  const currentRole = localStorage.getItem('user_role') || ''
-  const raw = localStorage.getItem('an_current_user')
+  const currentRole = localStorage.getItem('user_role') || sessionStorage.getItem('user_role') || ''
+  const raw = localStorage.getItem('an_current_user') || sessionStorage.getItem('an_current_user')
   if (raw) {
     try {
       const u = JSON.parse(raw)
@@ -46,11 +46,15 @@ function readCurrentUser(): UserProfile {
 }
 
 function writeCurrentUser(updates: Partial<UserProfile>) {
-  const raw = localStorage.getItem('an_current_user')
+  const localRaw = localStorage.getItem('an_current_user')
+  const sessionRaw = sessionStorage.getItem('an_current_user')
+  const raw = localRaw || sessionRaw
   if (!raw) return
   try {
     const u = JSON.parse(raw)
-    localStorage.setItem('an_current_user', JSON.stringify({ ...u, ...updates, phone: updates.phone_number ?? u.phone }))
+    const newVal = JSON.stringify({ ...u, ...updates, phone: updates.phone_number ?? u.phone })
+    if (localRaw) localStorage.setItem('an_current_user', newVal)
+    else sessionStorage.setItem('an_current_user', newVal)
   } catch { /* ignore */ }
 }
 

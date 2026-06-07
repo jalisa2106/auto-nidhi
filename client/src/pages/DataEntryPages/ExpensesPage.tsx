@@ -1,3 +1,6 @@
-// Re-uses the Admin ExpensesPage component.
-// Backend team: the API calls hit /api/v1/expenses — ensure data_entry role is allowed.
-export { default } from '../AdminPages/ExpensesPage'
+import ExpensesPage from '../AdminPages/ExpensesPage'
+
+export default function StaffExpensesPage() {
+  return <ExpensesPage forceRole="data_entry" />
+}
+

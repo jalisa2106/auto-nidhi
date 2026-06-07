@@ -64,6 +64,8 @@ const AnalyticsPage          = lazy(() => import('./pages/AdminPages/AnalyticsPa
 const DataEntryDashboardPage = lazy(() => import('./pages/DataEntryPages/DataEntryDashboardPage'))
 const DataEntryCustomersPage = lazy(() => import('./pages/DataEntryPages/CustomersPage'))
 const DataEntryFilesPage     = lazy(() => import('./pages/DataEntryPages/FilesPage'))
+const DataEntryCommissionInPage  = lazy(() => import('./pages/DataEntryPages/CommissionInPage'))
+const DataEntryCommissionOutPage = lazy(() => import('./pages/DataEntryPages/CommissionOutPage'))
 
 
 // ── Loading fallback ──────────────────────────────────────────────────
@@ -150,6 +152,8 @@ function App() {
               <Route path="/staff/files"              element={<DataEntryFilesPage />}             />
               <Route path="/staff/payments/in"        element={<PaymentInPage />}         />
               <Route path="/staff/payments/out"       element={<PaymentOutPage />}        />
+              <Route path="/staff/commission/in"      element={<DataEntryCommissionInPage />}      />
+              <Route path="/staff/commission/out"     element={<DataEntryCommissionOutPage />}     />
               <Route path="/staff/rto-payments"       element={<RTOPaymentsPage />}       />
               <Route path="/staff/insurance-payments" element={<InsurancePaymentsPage />} />
               <Route path="/staff/expenses"           element={<ExpensesPage />}          />

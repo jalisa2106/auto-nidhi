@@ -1,3 +1,6 @@
-// Re-uses the Admin RTOPaymentsPage component.
-// Backend team: the API calls hit /api/v1/rto-payments — ensure data_entry role is allowed.
-export { default } from '../AdminPages/RTOPaymentsPage'
+import RTOPaymentsPage from '../AdminPages/RTOPaymentsPage'
+
+export default function StaffRTOPaymentsPage() {
+  return <RTOPaymentsPage forceRole="data_entry" />
+}
+
