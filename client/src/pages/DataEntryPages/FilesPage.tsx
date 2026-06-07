@@ -146,7 +146,7 @@ export default function DataEntryFilesPage() {
   useEffect(() => {
     if (!createOpen) return
     if (customers.length === 0) {
-      api.get('/customers?limit=1000')
+      api.get('/customers/?limit=1000')
         .then(r => setCustomers(Array.isArray(r.data) ? r.data : r.data?.data ?? []))
         .catch(() => {})
     }

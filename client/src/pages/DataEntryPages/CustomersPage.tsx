@@ -78,7 +78,7 @@ export default function CustomersPage() {
       if (debouncedSearch) params.search = debouncedSearch
       if (tab !== 'all') params.customer_type = tab
 
-      const res = await api.get('/customers', { params })
+      const res = await api.get('/customers/', { params })
       const data = Array.isArray(res.data) ? res.data : []
       setAllRows(data)
     } catch (e: any) {
