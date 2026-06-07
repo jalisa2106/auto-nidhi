@@ -147,6 +147,17 @@ export const customerProfileApi = {
     const { data } = await api.get(`/customers/${customerId}/profile`)
     return data
   },
+  listDocuments: async (customerId: string): Promise<any[]> => {
+    const { data } = await api.get(`/customers/${customerId}/documents`)
+    return data
+  },
+  updateDocumentStatus: async (customerId: string, documentId: string, status: string, rejectionReason?: string): Promise<any> => {
+    const { data } = await api.patch(`/customers/${customerId}/documents/${documentId}/status`, {
+      status,
+      rejection_reason: rejectionReason
+    }, skipAuthRedirectConfig)
+    return data
+  }
 }
 
 export const brokersApi = {
@@ -382,18 +393,19 @@ export const insurancePaymentsApi = {
 
 export const companySettingsApi = {
   get: async () => {
-    const { data } = await api.get('/settings/company')
-    return data
+    const { data } = await api.get('/settings/company/');
+    return data;
   },
   create: async (payload: Record<string, any>) => {
-    const { data } = await api.post('/settings/company', payload, skipAuthRedirectConfig)
-    return data
+    const { data } = await api.post('/settings/company/', payload, skipAuthRedirectConfig);
+    return data;
   },
-    update: async (id: string, payload: Record<string, any>) => {
-    const { data } = await api.put(`/settings/company/${id}`, payload, skipAuthRedirectConfig)
-    return data
+
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/settings/company/${id}`, payload, skipAuthRedirectConfig);
+    return data;
   },
-}
+};
 
 export const expensesApi = {
   list: async (): Promise<Expense[]> => {
