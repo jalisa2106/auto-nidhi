@@ -75,6 +75,13 @@ def customer_file_detail(
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
 
+    # Fetch Payment Summary
+    from backend.models import PaymentIn
+    payments = db.query(PaymentIn).filter(PaymentIn.file_id == file.id).all()
+    # Handle the fact that PaymentIn might not have is_deleted
+    total_paid = sum([float(p.paid_amount) for p in payments if p.paid_amount is not None])
+    latest_remaining = float(payments[0].remaining_amount) if payments and payments[0].remaining_amount is not None else 0.0
+
     return {
         "id": str(file.id),
         "file_number": file.file_number,
@@ -86,6 +93,11 @@ def customer_file_detail(
         "remarks": file.remarks,
         "finance_amount": float(file.finance_info.loan_amount) if file.finance_info and file.finance_info.loan_amount is not None else None,
         "finance_bank": file.finance_info.bank.bank_name if file.finance_info and file.finance_info.bank else None,
+        "lan_number": file.finance_info.lan_number if file.finance_info else None,
+        "insurance_policy_number": file.insurance_info.policy_number if file.insurance_info else None,
+        "insurance_valid_to": str(file.insurance_info.valid_to) if file.insurance_info and file.insurance_info.valid_to else None,
+        "payment_paid": total_paid,
+        "payment_outstanding": latest_remaining,
         "created_at": file.created_at.isoformat() if hasattr(file.created_at, "isoformat") else str(file.created_at) if file.created_at else None,
         "updated_at": file.updated_at.isoformat() if hasattr(file.updated_at, "isoformat") else str(file.updated_at) if file.updated_at else None,
     }

@@ -566,7 +566,7 @@ export default function CustomerRTOPage() {
         <div className="modal-backdrop" onClick={() => !uploading && setIsModalOpen(false)}>
           <div className="modal" style={{ maxWidth: 540, width: '100%' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Request RTO Service Application</h3>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Request RTO Service</h3>
               <button className="btn btn-ghost btn-sm" disabled={uploading} onClick={() => setIsModalOpen(false)}>✕</button>
             </div>
 
