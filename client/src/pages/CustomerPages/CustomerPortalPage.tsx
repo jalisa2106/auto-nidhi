@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   FolderOpen, Clock, AlertCircle, CheckCircle2,
   ArrowRight, FileText, Car, ShieldCheck,
-  ChevronRight,
+  ChevronRight, CreditCard,
 } from 'lucide-react'
 import { customerDashboardApi } from '../../api/services'
 import api from '../../api/axios'
@@ -65,6 +65,11 @@ export default function CustomerPortalPage() {
   const navigate = useNavigate()
   const [allFiles, setAllFiles] = useState<FileRecord[]>([])
   const [insuranceCount, setInsuranceCount] = useState<number | null>(null)
+  const [paymentSummary, setPaymentSummary] = useState({
+  totalPaid: 0,
+  totalOutstanding: 0,
+  count: 0,
+})
   const [actionRequired, setActionRequired] = useState<ActionRequiredData | null>(null)
   // FIXED: Removed the 'unread' variable to resolve TS6133, but kept the setter.
   const [, setUnread] = useState(unreadCount())
@@ -96,14 +101,38 @@ export default function CustomerPortalPage() {
       .then(res => setActionRequired(res.data))
       .catch(() => setActionRequired(null))
 
-    // 5. Fetch notifications
+    // 5. Fetch payment summary
+   const p5 = api.get('/portal/payments')
+  .then(res => {
+    const payments = res.data || []
+
+    const totalPaid = payments.reduce(
+      (sum: number, p: any) => sum + (Number(p.paid_amount) || 0),
+      0
+    )
+
+    const totalOutstanding = payments.reduce(
+      (sum: number, p: any) => sum + (Number(p.remaining_amount) || 0),
+      0
+    )
+
+    setPaymentSummary({
+      totalPaid,
+      totalOutstanding,
+      count: payments.length,
+    })
+  })
+  .catch(() => {})
+
+    // 6. Fetch notifications
     fetchNotifications()
 
-    Promise.all([p1, p2, p3, p4]).finally(() => setLoading(false))
+    Promise.all([p1, p2, p3, p4, p5]).finally(() => setLoading(false))
 
-    // 6. Subscribe to notifications unread updates
+    // 7. Subscribe to notifications unread updates
     const unsub = subscribe(() => setUnread(unreadCount()))
     return unsub
+   
   }, [])
 
   // Derived stats
@@ -329,6 +358,88 @@ export default function CustomerPortalPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Payment Summary */}
+        <div className="db-card">
+         <div className="db-card-header">
+          <div className="db-card-title">
+           <CreditCard size={16} /> Payment Summary
+          </div>
+
+          <Link to="/portal/payments" className="db-see-all">
+            View all <ArrowRight size={12} />
+          </Link>
+        </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 12,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: '.72rem',
+                  color: '#94a3b8',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Paid
+              </div>
+
+              <div
+                style={{
+                  fontSize: '1.4rem',
+                  fontWeight: 800,
+                  color: '#16a34a',
+                }}
+              >
+                ₹{paymentSummary.totalPaid.toLocaleString('en-IN')}
+              </div>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: '.72rem',
+                  color: '#94a3b8',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Outstanding
+              </div>
+
+              <div
+                style={{
+                  fontSize: '1.4rem',
+                  fontWeight: 800,
+                  color:
+                    paymentSummary.totalOutstanding > 0
+                      ? '#b91c1c'
+                      : '#16a34a',
+                }}
+              >
+                ₹{paymentSummary.totalOutstanding.toLocaleString('en-IN')}
+              </div>
+            </div>
+          </div>
+
+          {paymentSummary.count === 0 && (
+            <div
+              style={{
+                fontSize: '.8rem',
+                color: '#94a3b8',
+                marginTop: 8,
+              }}
+            >
+              No payments recorded yet
+            </div>
+          )}
         </div>
 
         {/* Quick Actions */}
