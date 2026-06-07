@@ -222,34 +222,74 @@ def update_request_status(
     current_user: SystemUser = Depends(get_current_staff)
 ):
     """
-    Update the status of a service request (e.g. pending -> processed)
+    Update the status of a service request (e.g. pending -> verification -> in_progress -> completed).
+    Only the consultant assigned to the request may update its phase.
     """
     try:
         status_val = payload.get("status")
         remarks = payload.get("remarks")
+        staff_notes = payload.get("staff_notes")
         
         if not status_val:
             raise HTTPException(status_code=400, detail="status is required")
+
+        request_row = db.execute(
+            text("SELECT consultant_id, customer_id FROM service_requests WHERE id = :request_id"),
+            {"request_id": str(request_id)}
+        ).mappings().first()
+
+        if not request_row:
+            raise HTTPException(status_code=404, detail="Service request not found")
+
+        if request_row.get("consultant_id") is None or str(request_row["consultant_id"]) != str(current_user.id):
+            raise HTTPException(status_code=403, detail="You can only update service requests assigned to you")
             
         update_query = text("""
             UPDATE service_requests
             SET status = :status,
-                remarks = CASE WHEN :remarks IS NOT NULL THEN CONCAT(remarks, '\nConsultant update: ', :remarks) ELSE remarks END,
+                remarks = CASE
+                    WHEN :remarks IS NOT NULL THEN CONCAT(COALESCE(remarks, ''), '\nConsultant update: ', :remarks)
+                    ELSE remarks
+                END,
+                staff_notes = CASE
+                    WHEN :staff_notes IS NOT NULL THEN CONCAT(COALESCE(staff_notes, ''), '\n', :staff_notes)
+                    ELSE staff_notes
+                END,
                 updated_at = NOW()
             WHERE id = :request_id
             RETURNING id, customer_id
         """)
         
         result = db.execute(update_query, {
-            "request_id": str(request_id), 
-            "status": status_val, 
-            "remarks": remarks
+            "request_id": str(request_id),
+            "status": status_val,
+            "remarks": remarks,
+            "staff_notes": staff_notes
         }).mappings().first()
         
         if not result:
             raise HTTPException(status_code=404, detail="Service request not found")
             
         db.commit()
+
+        # Notify the customer about the updated status.
+        try:
+            from backend.utils import get_system_user_for_customer
+
+            customer_user = get_system_user_for_customer(db, UUID(str(result["customer_id"])))
+            if customer_user:
+                send_targeted_notification(
+                    db=db,
+                    target_user_id=customer_user.id,
+                    message=f"Your service request has been updated to: {status_val}",
+                    notification_type="general"
+                )
+                db.commit()
+            else:
+                # If the customer is not mapped to a system user, skip notification but keep the status update.
+                pass
+        except Exception:
+            db.rollback()
 
         # Audit Log
         record_dashboard_event(

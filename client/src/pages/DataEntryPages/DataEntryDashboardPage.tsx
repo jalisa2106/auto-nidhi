@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   FolderOpen, ArrowRight, Activity,
   Clock, CheckCircle2, Car, Users, ChevronRight,
+  ClipboardList, ShieldAlert, AlertTriangle,
 } from 'lucide-react'
 import api from '../../api/axios'
 import FileDetailDrawer from '../../components/app/FileDetailDrawer'
@@ -45,11 +46,22 @@ type DEActivity = {
   created_at?: string
 }
 
+type InsuranceExpiringItem = {
+  file_id?: string
+  file?: string
+  customer?: string
+  policy?: string
+  insurance_type?: string
+  expires_on?: string
+  days_label?: string
+}
+
 type DEDashboardData = {
   stats: DEStats
   pipeline: DEPipelineItem[]
   recent_files: DERecentFile[]
   activity: DEActivity[]
+  insurance_expiring?: InsuranceExpiringItem[]
   user?: { name?: string; first_name?: string; email?: string }
 }
 
@@ -106,6 +118,9 @@ export default function DataEntryDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [drawerFileId, setDrawerFileId] = useState<string | null>(null)
+  const [serviceRequestSummary, setServiceRequestSummary] = useState({ total: 0, pending: 0, unseen: 0, overdue: 0 })
+  const [pendingModifications, setPendingModifications] = useState(0)
+  const [summaryError, setSummaryError] = useState('')
 
   // Read user from localStorage (DB fields: first_name, last_name, email)
   useEffect(() => {
@@ -146,6 +161,47 @@ export default function DataEntryDashboardPage() {
     return () => { ignore = true }
   }, [])
 
+  useEffect(() => {
+    let ignore = false
+
+    async function loadSummary() {
+      try {
+        setSummaryError('')
+
+        const [serviceRes, modificationsRes] = await Promise.all([
+          api.get('/service-requests/'),
+          api.get('/customer/modifications'),
+        ])
+
+        const serviceList = Array.isArray(serviceRes.data) ? serviceRes.data : []
+        const pendingMods = Array.isArray(modificationsRes.data) ? modificationsRes.data.filter((r: any) => r.status === 'pending').length : 0
+
+        const overdueCount = serviceList.filter((r: any) => {
+          const created = new Date(r.created_at).getTime()
+          const threshold = Date.now() - (3 * 24 * 60 * 60 * 1000)
+          return r.status === 'pending' && !r.viewed_by_consultant && created < threshold
+        }).length
+
+        if (!ignore) {
+          setServiceRequestSummary({
+            total: serviceList.length,
+            pending: serviceList.filter((r: any) => r.status === 'pending').length,
+            unseen: serviceList.filter((r: any) => !r.viewed_by_consultant).length,
+            overdue: overdueCount,
+          })
+          setPendingModifications(pendingMods)
+        }
+      } catch (err: any) {
+        if (!ignore) {
+          setSummaryError('Unable to load request summary. Some dashboard counts may be unavailable.')
+        }
+      }
+    }
+
+    loadSummary()
+    return () => { ignore = true }
+  }, [])
+
   const stats = dashboard.stats
   const pipelineStatuses = ['Draft', 'Login', 'Under Process', 'Sanctioned', 'Disbursed']
   const pipelineCounts = pipelineStatuses.map(status => ({
@@ -156,11 +212,25 @@ export default function DataEntryDashboardPage() {
 
   const recentFiles  = dashboard.recent_files.slice(0, 5)
   const recentActivity = dashboard.activity.slice(0, 4)
+  const insuranceExpiringCount = dashboard.insurance_expiring?.length ?? 0
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'
 
   return (
     <div className="db-root">
       {error && <div className="form-error" style={{ marginBottom: 14 }}>{error}</div>}
+      {summaryError && <div className="form-error" style={{ marginBottom: 14 }}>{summaryError}</div>}
+      {serviceRequestSummary.overdue > 0 && (
+        <div style={{
+          background: '#fff7ed', border: '1px solid #fed7aa', borderLeft: '4px solid #f97316',
+          borderRadius: 12, padding: '16px 18px', color: '#c2410c', marginBottom: 18,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <AlertTriangle size={20} />
+          <div style={{ fontSize: '.94rem', fontWeight: 700 }}>
+            You have {serviceRequestSummary.overdue} pending service request{serviceRequestSummary.overdue === 1 ? '' : 's'} that have not been viewed for over 3 days. Please review them in Service Requests.
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="data-empty" style={{ marginBottom: 14 }}>Loading dashboard...</div>
@@ -279,10 +349,13 @@ export default function DataEntryDashboardPage() {
                 {[
                   { label: 'All Files',        to: '/staff/files',     icon: FolderOpen },
                   { label: 'All Customers',    to: '/staff/customers', icon: Users      },
+                  { label: 'Service Requests', to: '/staff/requests',  icon: ClipboardList, badge: serviceRequestSummary.unseen > 0 ? serviceRequestSummary.unseen : 0 },
+                  { label: 'Modifications',    to: '/staff/modifications', icon: ShieldAlert, badge: pendingModifications > 0 ? pendingModifications : 0 },
                   { label: 'Payment IN',       to: '/staff/payments/in',  icon: ArrowRight },
                   { label: 'Payment OUT',      to: '/staff/payments/out', icon: ArrowRight },
+                  { label: 'Insurance',        to: '/staff/insurance-payments', icon: ShieldAlert },
                   { label: 'Expenses',         to: '/staff/expenses',  icon: ArrowRight },
-                ].map(({ label, to, icon: Icon }) => (
+                ].map(({ label, to, icon: Icon, badge }) => (
                   <Link key={to} to={to} style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '9px 12px', borderRadius: 10,
@@ -291,10 +364,35 @@ export default function DataEntryDashboardPage() {
                     transition: 'background .12s',
                   }}>
                     <Icon size={14} color="#2563eb" />
-                    {label}
-                    <ArrowRight size={13} color="#94a3b8" style={{ marginLeft: 'auto' }} />
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                      {label}
+                      {badge ? (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          minWidth: 22, height: 22, padding: '0 8px', borderRadius: 999,
+                          background: '#f8d7da', color: '#991b1b', fontSize: '.72rem', fontWeight: 700,
+                        }}>{badge}</span>
+                      ) : null}
+                    </span>
+                    <ArrowRight size={13} color="#94a3b8" />
                   </Link>
                 ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Insurance Expiring Summary ── */}
+          <div className="db-row2" style={{ marginTop: 18 }}>
+            <div className="db-card db-card-yellow" style={{ minWidth: 280 }}>
+              <div className="db-card-header">
+                <div className="db-card-title"><ShieldAlert size={16} /> Insurance Expiring Soon</div>
+              </div>
+              <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: '2rem', fontWeight: 900 }}>{insuranceExpiringCount}</div>
+                <div style={{ color: '#475569', fontSize: '.92rem' }}>
+                  Policies expiring in the next 30 days for your assigned files.
+                </div>
+                <Link to="/staff/insurance-payments" className="db-see-all" style={{ marginTop: 8 }}>Review insurance <ArrowRight size={12} /></Link>
               </div>
             </div>
           </div>

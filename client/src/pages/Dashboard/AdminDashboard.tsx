@@ -77,6 +77,8 @@ const dataEntryNav: NavGroup[] = [
     title: 'Finance', items: [
       { to: '/staff/payments/in',         label: 'Payment IN',         icon: ArrowDownToLine  },
       { to: '/staff/payments/out',        label: 'Payment OUT',        icon: ArrowUpFromLine  },
+      { to: '/staff/commission/in',       label: 'Commission IN',       icon: BadgePercent     },
+      { to: '/staff/commission/out',      label: 'Commission OUT',      icon: HandCoins        },
       { to: '/staff/rto-payments',        label: 'RTO Payments',       icon: Receipt          },
       { to: '/staff/insurance-payments',  label: 'Insurance Payments', icon: ShieldCheck      },
       { to: '/staff/expenses',            label: 'Expenses',           icon: Wallet           },

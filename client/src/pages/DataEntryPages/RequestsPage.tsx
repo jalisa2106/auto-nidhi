@@ -76,7 +76,18 @@ export default function RequestsPage() {
   const [showProcessModal, setShowProcessModal] = useState(false)
   const [processRemarks, setProcessRemarks] = useState('')
   const [processing, setProcessing] = useState(false)
-  const [submitStatus, setSubmitStatus] = useState<'processed' | 'approved' | 'rejected'>('processed')
+  const [submitStatus, setSubmitStatus] = useState<ServiceRequest['status']>('processed')
+
+  const statusOptions: ServiceRequest['status'][] = [
+    'pending',
+    'verification',
+    'in_progress',
+    'completed',
+    'cancelled',
+    'processed',
+    'approved',
+    'rejected'
+  ]
 
   // Warning for unseen requests older than 3 days
   const [unseenOverdueRequests, setUnseenOverdueRequests] = useState<ServiceRequest[]>([])
@@ -175,10 +186,11 @@ export default function RequestsPage() {
   const handleOpenProcess = (req: ServiceRequest) => {
     setSelectedReq(req)
     setProcessRemarks('')
+    setSubmitStatus(req.status)
     setShowProcessModal(true)
   }
 
-  // Submit status update (processed / approved / rejected)
+  // Submit status update
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedReq) return
@@ -186,7 +198,7 @@ export default function RequestsPage() {
     setProcessing(true)
     try {
       await serviceRequestsApi.updateStatus(selectedReq.id, submitStatus, processRemarks)
-      message.success(`Request status updated to ${submitStatus.toUpperCase()}.`)
+      message.success(`Request status updated to ${submitStatus.replace('_', ' ')}.`)
       setShowProcessModal(false)
       loadData()
       // Dispatch event to update sidebar badges
@@ -284,6 +296,10 @@ export default function RequestsPage() {
           >
             <option value="all">All Statuses</option>
             <option value="pending">Pending</option>
+            <option value="verification">Verification</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
             <option value="processed">Processed</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
@@ -363,6 +379,10 @@ export default function RequestsPage() {
                         {(() => {
                           const sStyles: Record<string, { bg: string; color: string; label: string }> = {
                             pending: { bg: '#fffbeb', color: '#b45309', label: '● Pending' },
+                            verification: { bg: '#eff6ff', color: '#1d4ed8', label: '● Verification' },
+                            in_progress: { bg: '#eef2ff', color: '#4338ca', label: '● In Progress' },
+                            completed: { bg: '#dcfce7', color: '#15803d', label: '✓ Completed' },
+                            cancelled: { bg: '#fef2f2', color: '#b91c1c', label: '✕ Cancelled' },
                             processed: { bg: '#eff6ff', color: '#1d4ed8', label: '⚙ Processed' },
                             approved: { bg: '#dcfce7', color: '#15803d', label: '✓ Approved' },
                             rejected: { bg: '#fef2f2', color: '#b91c1c', label: '✕ Rejected' },
@@ -392,7 +412,7 @@ export default function RequestsPage() {
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: 8 }}>
+                        <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                           <button 
                             className="btn btn-ghost btn-xs" 
                             style={{ display: 'flex', alignItems: 'center', gap: 4, height: 28 }}
@@ -401,7 +421,7 @@ export default function RequestsPage() {
                             <Eye size={13} /> View
                           </button>
                           
-                          {r.status === 'pending' && userRole !== 'admin' && (
+                          {!['completed', 'cancelled'].includes(r.status) && userRole !== 'admin' && (
                             <button 
                               className="btn btn-outline btn-xs" 
                               style={{ display: 'flex', alignItems: 'center', gap: 4, height: 28, borderColor: '#bfdbfe', color: '#2563eb' }}
@@ -518,14 +538,30 @@ export default function RequestsPage() {
             <form onSubmit={handleFormSubmit}>
               <div className="modal-body" style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <p style={{ margin: 0, fontSize: '0.88rem', color: '#64748b' }}>
-                  Confirm processing request for <strong>{selectedReq.customer_name}</strong>. Provide comments below:
+                  Update the current phase for <strong>{selectedReq.customer_name}</strong>. Choose the new status and add any notes.
                 </p>
 
                 <div>
-                  <label className="form-label">Processing Remarks</label>
+                  <label className="form-label">Request Status</label>
+                  <select
+                    value={submitStatus}
+                    onChange={e => setSubmitStatus(e.target.value as ServiceRequest['status'])}
+                    className="form-input"
+                    style={{ width: '100%' }}
+                    disabled={processing}
+                  >
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {status === 'in_progress' ? 'In Progress' : status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">Processing Notes</label>
                   <textarea 
                     rows={3} 
-                    required 
                     placeholder="Enter details about documents received, status updates, or action notes..." 
                     value={processRemarks} 
                     onChange={e => setProcessRemarks(e.target.value)} 
@@ -539,30 +575,10 @@ export default function RequestsPage() {
                 <button type="button" className="btn btn-outline btn-sm" disabled={processing} onClick={() => setShowProcessModal(false)}>Cancel</button>
                 <button 
                   type="submit" 
-                  className="btn btn-sm" 
-                  disabled={processing} 
-                  onClick={() => setSubmitStatus('rejected')} 
-                  style={{ background: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+                  className="btn btn-primary btn-sm" 
+                  disabled={processing}
                 >
-                  Reject
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-sm" 
-                  disabled={processing} 
-                  onClick={() => setSubmitStatus('processed')} 
-                  style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8' }}
-                >
-                  Mark Processed
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-sm" 
-                  disabled={processing} 
-                  onClick={() => setSubmitStatus('approved')} 
-                  style={{ background: '#10b981', borderColor: '#10b981', color: '#fff' }}
-                >
-                  Approve
+                  Update Status
                 </button>
               </div>
             </form>

@@ -203,6 +203,29 @@ def _notification_enabled(db: Session, user_id: UUID, preference_key: str) -> bo
     return True if row is None else bool(row["enabled"])
 
 
+def get_system_user_for_customer(db: Session, customer_id: UUID) -> Optional[SystemUser]:
+    from backend.models import Customer, MasterRole
+
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        return None
+
+    customer_role = db.query(MasterRole).filter(func.lower(MasterRole.role_name) == 'customer').first()
+    if not customer_role:
+        return None
+
+    query = db.query(SystemUser).filter(
+        SystemUser.role_id == customer_role.id,
+        (
+            (func.lower(SystemUser.email) == func.lower(customer.email)) |
+            (SystemUser.phone_number == customer.mobile_1) |
+            (SystemUser.phone_number == customer.mobile_2)
+        )
+    ).first()
+
+    return query
+
+
 def record_dashboard_event(
     db: Session,
     user: SystemUser,

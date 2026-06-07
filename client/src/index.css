@@ -163,6 +163,7 @@ input::-webkit-inner-spin-button {
 }
 input[type=number] {
   -moz-appearance: textfield; /* Firefox */
+  appearance: textfield;       /* Standard — satisfies cross-browser compatibility */
 }
 
 .input-wrapper {

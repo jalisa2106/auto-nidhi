@@ -55,9 +55,14 @@ const EMPTY_FORM = {
   remarks: '',
 }
 
-export default function PaymentInPage() {
-  const role = localStorage.getItem('user_role') || 'admin';
-  const isAdmin = role === 'admin';
+interface PageProps {
+  forceRole?: string
+  forceAdmin?: boolean
+}
+
+export default function PaymentInPage({ forceRole, forceAdmin }: PageProps = {}) {
+  const role = forceRole ?? (localStorage.getItem('user_role') || 'admin');
+  const isAdmin = forceAdmin ?? role === 'admin';
 
   const [rows, setRows]           = useState<any[]>([])
   const [totalRows, setTotalRows] = useState(0)
