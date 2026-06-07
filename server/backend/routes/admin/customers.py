@@ -7,12 +7,12 @@ from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from uuid import UUID
-from datetime import date
+from datetime import date, datetime
 from backend.email_utils import send_email
 
 from backend.database import get_db
-from backend.models import Customer, FileRecord, SystemUser, MasterRole, PaymentIn, PaymentOut, InsurancePayment, RTOPayment, FinanceInfo
-from backend.utils import get_current_staff, get_current_admin, record_dashboard_event, get_password_hash
+from backend.models import Customer, FileRecord, SystemUser, MasterRole, PaymentIn, PaymentOut, InsurancePayment, RTOPayment, FinanceInfo, CustomerDocument
+from backend.utils import get_current_staff, get_current_admin, record_dashboard_event, get_password_hash, send_targeted_notification
 
 router = APIRouter(prefix="/api/v1/customers", tags=["Admin Customers"])
 
@@ -61,12 +61,22 @@ def list_customers(
     limit: int = 50,
     search: Optional[str] = None,
     customer_type: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_staff)
 ):
     query = db.query(
         Customer, 
         func.count(FileRecord.id).label("active_files_count")
     ).outerjoin(FileRecord).group_by(Customer.id)
+
+    role_name = current_user.role.role_name.lower() if current_user.role else ""
+    if role_name == 'data_entry':
+        assigned_customer_ids = db.query(FileRecord.customer_id).filter(
+            FileRecord.assigned_to == current_user.id,
+            FileRecord.is_deleted == False
+        ).distinct().all()
+        cust_ids = [r[0] for r in assigned_customer_ids if r[0] is not None]
+        query = query.filter(Customer.id.in_(cust_ids))
 
     if search:
         search_term = f"%{search}%"
@@ -295,12 +305,23 @@ def deactivate_customer(
 def get_customer_profile(
     customer_id: UUID,
     db: Session = Depends(get_db),
-    _: SystemUser = Depends(get_current_admin),
+    current_user: SystemUser = Depends(get_current_staff),
 ):
-    """Full customer profile with all financial activity — shown to admin when clicking a customer row."""
+    """Full customer profile with all financial activity — shown to admin/staff when clicking a customer row."""
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
+
+    role_name = current_user.role.role_name.lower() if current_user.role else ""
+    if role_name in ("data_entry", "staff", "dataentry"):
+        # Ensure staff is assigned to at least one of customer's files
+        assigned = db.query(FileRecord).filter(
+            FileRecord.customer_id == customer_id,
+            FileRecord.assigned_to == current_user.id,
+            FileRecord.is_deleted == False
+        ).first()
+        if not assigned:
+            raise HTTPException(status_code=403, detail="You are not authorized to view this customer's profile")
 
     # ── Files ────────────────────────────────────────────────────────────────
     files_q = db.query(FileRecord).filter(
@@ -440,3 +461,97 @@ def get_customer_profile(
         # Recent files
         "recent_files": recent_files_data,
     }
+
+
+class DocumentStatusUpdate(BaseModel):
+    status: str
+    rejection_reason: Optional[str] = None
+
+
+@router.get("/{customer_id}/documents")
+def list_customer_documents(
+    customer_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_staff)
+):
+    # Ensure customer exists
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Scoping: if staff, check if they are assigned to any of the customer's files
+    role_name = current_user.role.role_name.lower() if current_user.role else ""
+    if role_name in ("data_entry", "staff", "dataentry"):
+        assigned = db.query(FileRecord).filter(
+            FileRecord.customer_id == customer_id,
+            FileRecord.assigned_to == current_user.id,
+            FileRecord.is_deleted == False
+        ).first()
+        if not assigned:
+            raise HTTPException(status_code=403, detail="You are not authorized to view this customer's documents")
+
+    # Make sure default slots exist
+    from backend.routes.customer.documents import ensure_slots, serialize
+    ensure_slots(db, customer)
+
+    docs = db.query(CustomerDocument).filter(
+        CustomerDocument.customer_id == customer_id
+    ).order_by(CustomerDocument.category, CustomerDocument.created_at).all()
+
+    return [serialize(doc) for doc in docs]
+
+
+@router.patch("/{customer_id}/documents/{document_id}/status")
+def update_customer_document_status(
+    customer_id: UUID,
+    document_id: UUID,
+    payload: DocumentStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_staff)
+):
+    doc = db.query(CustomerDocument).filter(
+        CustomerDocument.id == document_id,
+        CustomerDocument.customer_id == customer_id
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    role_name = current_user.role.role_name.lower() if current_user.role else ""
+    if role_name in ("data_entry", "staff", "dataentry"):
+        # Ensure staff is assigned to at least one of customer's files
+        assigned = db.query(FileRecord).filter(
+            FileRecord.customer_id == customer_id,
+            FileRecord.assigned_to == current_user.id,
+            FileRecord.is_deleted == False
+        ).first()
+        if not assigned:
+            raise HTTPException(status_code=403, detail="You are not authorized to update this customer's document status")
+
+    doc.status = payload.status
+    if payload.status == 'rejected':
+        doc.rejection_reason = payload.rejection_reason
+    else:
+        doc.rejection_reason = None
+        
+    doc.updated_at = datetime.utcnow()
+    doc.reviewed_by = current_user.id
+    doc.reviewed_at = datetime.utcnow()
+
+    # Find customer's user id to notify them
+    customer_user = db.query(SystemUser).join(
+        Customer, Customer.email == SystemUser.email
+    ).filter(Customer.id == customer_id).first()
+
+    if customer_user:
+        notif_msg = f"Your document '{doc.label}' has been {payload.status}."
+        if payload.status == 'rejected':
+            notif_msg += " Please re-upload."
+        send_targeted_notification(
+            db=db,
+            target_user_id=customer_user.id,
+            message=notif_msg,
+            notification_type="document_rejected" if payload.status == 'rejected' else "document_approved"
+        )
+
+    db.commit()
+    return {"status": "success", "message": "Document status updated and customer notified."}

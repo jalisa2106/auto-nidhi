@@ -378,25 +378,227 @@ def _get_extended_stats(db: Session):
     ).mappings().first()
 
 
+def _get_stats_for_staff(db: Session, staff_id: str):
+    return db.execute(
+        text(
+            """
+            WITH file_counts AS (
+                SELECT
+                    COUNT(*) AS total_files,
+                    COUNT(*) FILTER (WHERE status NOT IN ('completed', 'cancelled')) AS active_files,
+                    COUNT(*) FILTER (WHERE status = 'completed') AS completed_files,
+                    COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled_files,
+                    COUNT(*) FILTER (WHERE file_type = 'new_vehicle' AND status NOT IN ('completed', 'cancelled')) AS new_files,
+                    COUNT(*) FILTER (WHERE file_type = 'used_vehicle' AND status NOT IN ('completed', 'cancelled')) AS used_files,
+                    COUNT(*) FILTER (WHERE file_type = 'renewal' AND status NOT IN ('completed', 'cancelled')) AS renewal_files
+                FROM file_record
+                WHERE is_deleted = FALSE AND assigned_to = :staff_id
+            ),
+            customer_counts AS (
+                SELECT COUNT(DISTINCT customer_id) AS total_customers 
+                FROM file_record 
+                WHERE assigned_to = :staff_id AND is_deleted = FALSE
+            )
+            SELECT 
+                file_counts.total_files,
+                file_counts.active_files,
+                file_counts.completed_files,
+                file_counts.cancelled_files,
+                file_counts.new_files,
+                file_counts.used_files,
+                file_counts.renewal_files,
+                customer_counts.total_customers,
+                0 AS total_users,
+                0 AS active_users,
+                0 AS inactive_users,
+                0 AS active_staff
+            FROM file_counts, customer_counts
+            """
+        ),
+        {"staff_id": staff_id}
+    ).mappings().first()
+
+
+def _get_pipeline_for_staff(db: Session, staff_id: str):
+    return _rows(
+        db,
+        """
+        SELECT
+            status::text AS status,
+            CASE status::text
+                WHEN 'draft' THEN 'Draft'
+                WHEN 'login' THEN 'Login'
+                WHEN 'under_process' THEN 'Under Process'
+                WHEN 'sanctioned' THEN 'Sanctioned'
+                WHEN 'disbursed' THEN 'Disbursed'
+                WHEN 'completed' THEN 'Completed'
+                WHEN 'cancelled' THEN 'Cancelled'
+                ELSE status::text
+            END AS label,
+            COUNT(*) AS count
+        FROM file_record
+        WHERE is_deleted = FALSE AND assigned_to = :staff_id
+        AND status IN ('draft', 'login', 'under_process', 'sanctioned', 'disbursed')
+        GROUP BY status
+        ORDER BY CASE status::text
+            WHEN 'draft' THEN 1
+            WHEN 'login' THEN 2
+            WHEN 'under_process' THEN 3
+            WHEN 'sanctioned' THEN 4
+            WHEN 'disbursed' THEN 5
+            ELSE 99
+        END
+        """,
+        {"staff_id": staff_id}
+    )
+
+
+def _get_recent_files_for_staff(db: Session, staff_id: str, limit: int = 5):
+    return _rows(
+        db,
+        """
+        SELECT
+            f.id::text AS id,
+            f.file_number,
+            COALESCE(f.file_number, f.id::text) AS display_id,
+            c.full_name AS customer,
+            f.file_type::text AS type,
+            CASE f.file_type::text
+                WHEN 'new_vehicle' THEN 'New Vehicle'
+                WHEN 'used_vehicle' THEN 'Used Vehicle'
+                WHEN 'renewal' THEN 'Renewal'
+                ELSE f.file_type::text
+            END AS type_label,
+            f.status::text AS status,
+            CASE f.status::text
+                WHEN 'draft' THEN 'Draft'
+                WHEN 'login' THEN 'Login'
+                WHEN 'under_process' THEN 'Under Process'
+                WHEN 'sanctioned' THEN 'Sanctioned'
+                WHEN 'disbursed' THEN 'Disbursed'
+                WHEN 'completed' THEN 'Completed'
+                WHEN 'cancelled' THEN 'Cancelled'
+                ELSE f.status::text
+            END AS status_label,
+            COALESCE(assigned.first_name, '') AS assigned,
+            f.created_at
+        FROM file_record f
+        JOIN customer c ON c.id = f.customer_id
+        LEFT JOIN system_user assigned ON assigned.id = f.assigned_to
+        WHERE f.is_deleted = FALSE AND f.assigned_to = :staff_id
+        ORDER BY f.created_at DESC
+        LIMIT :limit
+        """,
+        {"staff_id": staff_id, "limit": limit},
+    )
+
+
+def _get_insurance_expiring_for_staff(db: Session, staff_id: str, days: int = 7):
+    return _rows(
+        db,
+        """
+        WITH expiring_policies AS (
+            SELECT
+                f.id AS file_id,
+                f.file_number,
+                c.full_name AS customer,
+                ii.policy_number AS policy,
+                mit.insurance_type_name AS insurance_type,
+                ii.valid_to AS expires_on
+            FROM file_record f
+            JOIN customer c ON c.id = f.customer_id
+            JOIN insurance_info ii ON ii.file_id = f.id
+            LEFT JOIN master_insurance_type mit ON mit.id = ii.insurance_type_id
+            WHERE f.is_deleted = FALSE AND f.assigned_to = :staff_id
+            AND ii.valid_to IS NOT NULL
+
+            UNION ALL
+
+            SELECT
+                f.id AS file_id,
+                f.file_number,
+                c.full_name AS customer,
+                NULL AS policy,
+                mic.company_name AS insurance_type,
+                ip.valid_to AS expires_on
+            FROM insurance_payment ip
+            JOIN file_record f ON f.id = ip.file_id
+            JOIN customer c ON c.id = f.customer_id
+            LEFT JOIN master_insurance_company mic ON mic.id = ip.insurance_company_id
+            WHERE f.is_deleted = FALSE AND f.assigned_to = :staff_id
+            AND ip.is_deleted = FALSE
+            AND ip.valid_to IS NOT NULL
+        )
+        SELECT
+            file_id::text AS file_id,
+            file_number,
+            COALESCE(file_number, file_id::text) AS file,
+            customer,
+            policy,
+            insurance_type,
+            expires_on,
+            (expires_on - CURRENT_DATE) AS expires_in,
+            CONCAT((expires_on - CURRENT_DATE), ' days') AS days_label
+        FROM expiring_policies
+        WHERE expires_on >= CURRENT_DATE
+        AND expires_on <= CURRENT_DATE + (:days * INTERVAL '1 day')
+        ORDER BY expires_on ASC
+        LIMIT 10
+        """,
+        {"staff_id": staff_id, "days": days},
+    )
+
+
 def _build_dashboard(db: Session, current_admin: SystemUser):
-    stats = dict(_get_stats(db))
-    financials = dict(_get_financials(db))
+    role_name = current_admin.role.role_name if current_admin.role else ""
+    role_name_clean = role_name.lower().replace(" ", "_").replace("-", "_")
+    is_staff = role_name_clean in ("data_entry", "staff", "dataentry")
+
+    if is_staff:
+        stats = dict(_get_stats_for_staff(db, str(current_admin.id)))
+        financials = {
+            "payment_in": 0, "payment_in_transactions": 0,
+            "payment_out": 0, "payment_out_transactions": 0,
+            "commission_in": 0, "commission_in_transactions": 0,
+            "commission_out": 0, "commission_out_transactions": 0,
+            "net_position": 0
+        }
+        extended = {
+            "expenses_mtd": 0, "expenses_transactions": 0,
+            "rto_mtd": 0, "rto_transactions": 0,
+            "total_advanced": 0, "total_recovered": 0,
+            "advances_outstanding": 0, "advances_pending_count": 0,
+            "total_loans": 0, "total_loan_amount": 0, "running_loans": 0,
+            "insurance_payments_mtd": 0, "insurance_transactions": 0
+        }
+        pipeline = _get_pipeline_for_staff(db, str(current_admin.id))
+        recent_files = _get_recent_files_for_staff(db, str(current_admin.id))
+        insurance_expiring = _get_insurance_expiring_for_staff(db, str(current_admin.id))
+        activity = []
+    else:
+        stats = dict(_get_stats(db))
+        financials = dict(_get_financials(db))
+        extended_raw = _get_extended_stats(db)
+        extended = dict(extended_raw) if extended_raw else {}
+        pipeline = _get_pipeline(db)
+        recent_files = _get_recent_files(db)
+        insurance_expiring = _get_insurance_expiring(db)
+        activity = _get_activity(db)
+
     notifications = _get_notifications(db, current_admin)
-    extended_raw = _get_extended_stats(db)
-    extended = dict(extended_raw) if extended_raw else {}
 
     return {
-        "message": "Admin dashboard data fetched successfully",
+        "message": "Dashboard data fetched successfully",
         "admin": _admin_payload(current_admin),
         "stats": stats,
         "financials": financials,
         "extended": extended,
-        "pipeline": _get_pipeline(db),
-        "recent_files": _get_recent_files(db),
-        "insurance_expiring": _get_insurance_expiring(db),
+        "pipeline": pipeline,
+        "recent_files": recent_files,
+        "insurance_expiring": insurance_expiring,
         "notifications": notifications["items"],
         "unread_notifications": notifications["unread_count"],
-        "activity": _get_activity(db),
+        "activity": activity,
     }
 
 
@@ -414,7 +616,11 @@ def get_dashboard_pipeline(
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_staff),
 ):
-    return {"pipeline": _get_pipeline(db), "admin": _admin_payload(current_admin)}
+    role_name = current_admin.role.role_name if current_admin.role else ""
+    role_name_clean = role_name.lower().replace(" ", "_").replace("-", "_")
+    is_staff = role_name_clean in ("data_entry", "staff", "dataentry")
+    pipeline_data = _get_pipeline_for_staff(db, str(current_admin.id)) if is_staff else _get_pipeline(db)
+    return {"pipeline": pipeline_data, "admin": _admin_payload(current_admin)}
 
 
 @router.get("/recent-files")
@@ -423,8 +629,12 @@ def get_dashboard_recent_files(
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_staff),
 ):
+    role_name = current_admin.role.role_name if current_admin.role else ""
+    role_name_clean = role_name.lower().replace(" ", "_").replace("-", "_")
+    is_staff = role_name_clean in ("data_entry", "staff", "dataentry")
+    recent_data = _get_recent_files_for_staff(db, str(current_admin.id), limit) if is_staff else _get_recent_files(db, limit)
     return {
-        "recent_files": _get_recent_files(db, limit),
+        "recent_files": recent_data,
         "admin": _admin_payload(current_admin),
     }
 
@@ -434,8 +644,18 @@ def get_dashboard_financials(
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_staff),
 ):
+    role_name = current_admin.role.role_name if current_admin.role else ""
+    role_name_clean = role_name.lower().replace(" ", "_").replace("-", "_")
+    is_staff = role_name_clean in ("data_entry", "staff", "dataentry")
+    financials_data = {
+        "payment_in": 0, "payment_in_transactions": 0,
+        "payment_out": 0, "payment_out_transactions": 0,
+        "commission_in": 0, "commission_in_transactions": 0,
+        "commission_out": 0, "commission_out_transactions": 0,
+        "net_position": 0
+    } if is_staff else dict(_get_financials(db))
     return {
-        "financials": dict(_get_financials(db)),
+        "financials": financials_data,
         "admin": _admin_payload(current_admin),
     }
 
@@ -446,8 +666,12 @@ def get_dashboard_insurance_expiring(
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_staff),
 ):
+    role_name = current_admin.role.role_name if current_admin.role else ""
+    role_name_clean = role_name.lower().replace(" ", "_").replace("-", "_")
+    is_staff = role_name_clean in ("data_entry", "staff", "dataentry")
+    expiring_data = _get_insurance_expiring_for_staff(db, str(current_admin.id), days) if is_staff else _get_insurance_expiring(db, days)
     return {
-        "insurance_expiring": _get_insurance_expiring(db, days),
+        "insurance_expiring": expiring_data,
         "admin": _admin_payload(current_admin),
     }
 
@@ -472,4 +696,8 @@ def get_dashboard_activity(
     db: Session = Depends(get_db),
     current_admin: SystemUser = Depends(get_current_staff),
 ):
-    return {"activity": _get_activity(db, limit), "admin": _admin_payload(current_admin)}
+    role_name = current_admin.role.role_name if current_admin.role else ""
+    role_name_clean = role_name.lower().replace(" ", "_").replace("-", "_")
+    is_staff = role_name_clean in ("data_entry", "staff", "dataentry")
+    activity_data = [] if is_staff else _get_activity(db, limit)
+    return {"activity": activity_data, "admin": _admin_payload(current_admin)}

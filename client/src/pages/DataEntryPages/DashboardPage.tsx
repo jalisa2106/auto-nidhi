@@ -57,7 +57,7 @@ export default function DashboardPage() {
             ))}
           </div>
           <div style={{ marginTop: 16, textAlign: "right" }}>
-            <Link to="/data-entry/files" className="auth-link">View all files <ArrowRight size={14} /></Link>
+            <Link to="/staff/files" className="auth-link">View all files <ArrowRight size={14} /></Link>
           </div>
         </div>
 

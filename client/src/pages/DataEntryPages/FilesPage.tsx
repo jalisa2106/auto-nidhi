@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+
 import {
-  Plus, Search, Filter, Edit2, Trash2, X, RefreshCw,
-  FolderOpen, Calendar, User, Building2, FileText, AlertTriangle,
+  Plus, Search, Filter, Edit2, X, RefreshCw,
+  FolderOpen, Calendar, User, Building2, FileText,
 } from 'lucide-react'
 import { filesApi } from '../../api/services'
 import api from '../../api/axios'
+import FileDetailDrawer from '../../components/app/FileDetailDrawer'
 
 // ── DB field mappings (FileRecord model) ─────────────────────────────────────
 // id, customer_id, created_by_user_id, assigned_to, file_number,
@@ -78,7 +79,6 @@ const EMPTY_FORM = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DataEntryFilesPage() {
-  const navigate = useNavigate()
 
   // List state
   const [rows, setRows]         = useState<any[]>([])
@@ -105,13 +105,16 @@ export default function DataEntryFilesPage() {
   const [updating, setUpdating]   = useState(false)
   const [editError, setEditError] = useState('')
 
-  // Delete confirm
-  const [deleteRow, setDeleteRow]     = useState<any>(null)
-  const [deleteOpen, setDeleteOpen]   = useState(false)
-  const [deleting, setDeleting]       = useState(false)
-
   // Banner
   const [banner, setBanner] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
+
+  // Drawer
+  const [drawerFileId, setDrawerFileId] = useState<string | null>(null)
+
+  // Pagination
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const ROWS_PER_PAGE = 10
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -124,14 +127,18 @@ export default function DataEntryFilesPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await filesApi.list(1, 200, statusF || undefined, typeF || undefined)
+      const res = await filesApi.list(page, ROWS_PER_PAGE, statusF || undefined, typeF || undefined)
       setRows(Array.isArray(res.data) ? res.data : res.data ?? [])
+      setTotal(res.total || 0)
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || 'Failed to load files')
     } finally {
       setLoading(false)
     }
-  }, [statusF, typeF])
+  }, [statusF, typeF, page])
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1) }, [search, typeF, statusF])
 
   useEffect(() => { loadFiles() }, [loadFiles])
 
@@ -232,27 +239,7 @@ export default function DataEntryFilesPage() {
     }
   }
 
-  const openDelete = (row: any) => {
-    setDeleteRow(row)
-    setDeleteOpen(true)
-  }
 
-  const handleDelete = async () => {
-    if (!deleteRow) return
-    setDeleting(true)
-    try {
-      await filesApi.remove(deleteRow.id)
-      showBanner('ok', `File ${deleteRow.file_number} deleted.`)
-      setDeleteOpen(false)
-      loadFiles()
-    } catch (e: any) {
-      showBanner('err', e?.response?.data?.detail || 'Failed to delete file')
-      setDeleteOpen(false)
-    } finally {
-      setDeleting(false)
-      setDeleteRow(null)
-    }
-  }
 
   // ── Inline field helpers ──────────────────────────────────────────────────
 
@@ -415,7 +402,7 @@ export default function DataEntryFilesPage() {
                       fontWeight: 700, fontSize: '.82rem', color: '#2563eb',
                       cursor: 'pointer', fontFamily: 'monospace', letterSpacing: '.3px',
                     }}
-                    onClick={() => navigate(`/data-entry/files/${r.id}`)}
+                    onClick={() => setDrawerFileId(r.id)}
                     title="View detail"
                   >
                     {r.file_number || '—'}
@@ -485,18 +472,7 @@ export default function DataEntryFilesPage() {
                     >
                       <Edit2 size={13} />
                     </button>
-                    <button
-                      onClick={() => openDelete(r)}
-                      style={{
-                        width: 30, height: 30, borderRadius: 7,
-                        background: '#fff1f2', border: '1px solid #fecdd3',
-                        color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', transition: 'all .15s',
-                      }}
-                      title="Delete file"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+
                   </div>
                 </td>
               </tr>
@@ -507,10 +483,38 @@ export default function DataEntryFilesPage() {
         {/* Footer count */}
         {!loading && filtered.length > 0 && (
           <div style={{ padding: '9px 14px', borderTop: '1px solid #f1f5f9', fontSize: 12, color: '#94a3b8' }}>
-            Showing {filtered.length} of {rows.length} file{rows.length !== 1 ? 's' : ''}
+            Showing {filtered.length} of {total} file{total !== 1 ? 's' : ''}
             {(search || typeF || statusF) && ' (filtered)'}
           </div>
         )}
+
+        {/* Pagination */}
+        {!loading && total > 0 && (() => {
+          const totalPages = Math.ceil(total / ROWS_PER_PAGE)
+          return (
+            <div style={{ padding: '10px 14px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+              <button
+                className="btn btn-outline btn-sm"
+                disabled={page === 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                style={{ padding: '4px 12px', fontSize: 12 }}
+              >
+                Previous
+              </button>
+              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                Page {page} of {totalPages}
+              </span>
+              <button
+                className="btn btn-outline btn-sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(p => p + 1)}
+                style={{ padding: '4px 12px', fontSize: 12 }}
+              >
+                Next
+              </button>
+            </div>
+          )
+        })()}
       </div>
 
       {/* ── CREATE MODAL ─────────────────────────────────────────────────────── */}
@@ -754,54 +758,7 @@ export default function DataEntryFilesPage() {
         </div>
       )}
 
-      {/* ── DELETE CONFIRM ───────────────────────────────────────────────────── */}
-      {deleteOpen && deleteRow && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(15,23,42,.45)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 1200, padding: 16,
-          }}
-          onClick={() => setDeleteOpen(false)}
-        >
-          <div
-            style={{
-              background: '#fff', borderRadius: 18, width: '100%', maxWidth: 400,
-              boxShadow: '0 24px 60px rgba(15,23,42,.22)', overflow: 'hidden',
-              animation: 'modalIn .2s ease',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ padding: '22px 22px 0' }}>
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: '#fff1f2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-                <AlertTriangle size={22} color="#dc2626" />
-              </div>
-              <div style={{ fontWeight: 800, fontSize: 16, color: '#0f172a', marginBottom: 6 }}>Delete File?</div>
-              <div style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.6 }}>
-                Are you sure you want to delete file{' '}
-                <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{deleteRow.file_number}</strong>{' '}
-                for <strong>{deleteRow.customer}</strong>? This action cannot be undone.
-              </div>
-            </div>
-            <div style={{ padding: '18px 22px', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setDeleteOpen(false)}>Cancel</button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  background: '#dc2626', color: '#fff', border: 'none',
-                  borderRadius: 8, padding: '7px 16px', fontSize: 13, fontWeight: 600,
-                  cursor: 'pointer', opacity: deleting ? 0.7 : 1,
-                }}
-              >
-                <Trash2 size={13} />
-                {deleting ? 'Deleting…' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <FileDetailDrawer fileId={drawerFileId} onClose={() => setDrawerFileId(null)} />
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

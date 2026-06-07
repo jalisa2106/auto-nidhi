@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PlusCircle, ShieldAlert } from 'lucide-react'
+import { PlusCircle, ShieldAlert, AlertCircle } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import api from '../../api/axios'
 import { filesApi } from '../../api/services'
@@ -12,11 +12,15 @@ interface ModificationRequest {
   reason: string
   status: string
   created_at: string
+  decision_note?: string
+  reviewed_by_name?: string
+  reviewed_at?: string
 }
 
 export default function StaffModificationsPage() {
   const [requests, setRequests] = useState<ModificationRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -29,28 +33,13 @@ export default function StaffModificationsPage() {
 
   const loadRequests = async () => {
     setLoading(true)
+    setError('')
     try {
-      // 🔌 Scoped endpoint for tracking staff-submitted change entries
       const res = await api.get('/customer/modifications')
       setRequests(res.data || [])
-    } catch (err) {
-      console.warn('Failed to stream staff requests queue, using local fallback:', err)
-      const raw = localStorage.getItem('modification_requests')
-      if (raw) {
-        const allReqs = JSON.parse(raw)
-        const staffReqs = allReqs.filter((r: any) => r.submitted_by_role === 'Data Entry' || r.submitted_by_role === 'staff' || r.submitted_by_role === 'data_entry')
-        setRequests(staffReqs)
-      } else {
-        const defaultReqs = [
-          {
-            id: 't-1', entity_type: 'file_record', entity_id: 'FILE/2026/010', request_type: 'update',
-            reason: 'Customer requested backtracking status to update incorrect downpayment metadata arrays.',
-            status: 'pending', created_at: new Date().toISOString(), submitted_by_name: 'Yatri Patel', submitted_by_role: 'Data Entry'
-          }
-        ]
-        localStorage.setItem('modification_requests', JSON.stringify(defaultReqs))
-        setRequests(defaultReqs)
-      }
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err?.message || 'Failed to load requests. Please try again.')
+      setRequests([])
     } finally {
       setLoading(false)
     }
@@ -83,36 +72,12 @@ export default function StaffModificationsPage() {
         reason: reason
       })
       loadRequests()
-    } catch (err) {
-      console.warn('Error logging override transaction, using local fallback:', err)
-      const raw = localStorage.getItem('modification_requests')
-      const allReqs = raw ? JSON.parse(raw) : []
-      let userName = 'Yatri Patel'
-      try {
-        const stored = localStorage.getItem('an_current_user')
-        if (stored) {
-          const u = JSON.parse(stored)
-          userName = u.first_name || u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Yatri Patel'
-        }
-      } catch {}
-      const newReq = {
-        id: `t-staff-${Date.now()}`,
-        entity_type: entityType,
-        entity_id: entityId,
-        request_type: requestType,
-        reason: reason,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        submitted_by_name: userName,
-        submitted_by_role: 'Data Entry'
-      }
-      allReqs.unshift(newReq)
-      localStorage.setItem('modification_requests', JSON.stringify(allReqs))
-      loadRequests()
-    } finally {
       setIsModalOpen(false)
       setEntityId('')
       setReason('')
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Failed to submit request. Please try again.')
+    } finally {
       setSubmitting(false)
     }
   }
@@ -120,13 +85,25 @@ export default function StaffModificationsPage() {
   return (
     <>
       <PageHeader 
-        title="Data Modification Desk" 
-        subtitle="Escalate administrative data override or change requests for operations records." 
+        title="Modification Requests" 
+        subtitle="Request changes to records that need admin approval." 
       />
+
+      {error && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px',
+          background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
+          color: '#b91c1c', fontSize: '.88rem', fontWeight: 500, marginBottom: 16,
+        }}>
+          <AlertCircle size={16} />
+          {error}
+          <button onClick={loadRequests} className="btn btn-outline btn-sm" style={{ marginLeft: 'auto', fontSize: '.78rem' }}>Retry</button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
         <button className="btn btn-primary btn-sm" onClick={() => setIsModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <PlusCircle size={14} /> Escalate Change Request
+          <PlusCircle size={14} /> New Request
         </button>
       </div>
 
@@ -134,23 +111,23 @@ export default function StaffModificationsPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Target Type</th>
-              <th>System Row ID / Reference</th>
-              <th>Operation Scope</th>
-              <th>Justification Reason</th>
+              <th>What to Change</th>
+              <th>Target Record</th>
+              <th>Action</th>
+              <th>Reason</th>
               <th>Status</th>
               <th>Submitted</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#64748b' }}>Streaming modification logs...</td></tr>
-            ) : requests.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#94a3b8' }}>No active modification tracking entries logged.</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#64748b' }}>Loading requests...</td></tr>
+            ) : requests.length === 0 && !error ? (
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#94a3b8' }}>No modification requests yet.</td></tr>
             ) : (
               requests.map((r) => (
                 <tr key={r.id}>
-                  <td style={{ fontWeight: 700, textTransform: 'capitalize' }}>{r.entity_type.replace('_', ' ')}</td>
+                  <td style={{ fontWeight: 700, textTransform: 'capitalize' }}>{r.entity_type.replace(/_/g, ' ')}</td>
                   <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{r.entity_id}</td>
                   <td>
                     <span style={{
@@ -161,13 +138,20 @@ export default function StaffModificationsPage() {
                       {r.request_type}
                     </span>
                   </td>
-                  <td style={{ fontSize: '0.84rem', color: '#475569' }}>{r.reason}</td>
+                  <td style={{ fontSize: '0.84rem', color: '#475569', maxWidth: 280 }}>
+                    {r.reason}
+                    {r.decision_note && (
+                      <div style={{ marginTop: 4, fontSize: '.76rem', color: '#64748b', fontStyle: 'italic' }}>
+                        Admin note: {r.decision_note}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <span style={{
                       color: r.status === 'approved' ? '#166534' : r.status === 'rejected' ? '#991b1b' : '#b45309',
                       fontWeight: 700, fontSize: '0.8rem'
                     }}>
-                      {r.status === 'approved' ? '✓ Approved' : r.status === 'rejected' ? '✕ Rejected' : '● Pending Review'}
+                      {r.status === 'approved' ? '✓ Approved' : r.status === 'rejected' ? '✕ Rejected' : '● Pending'}
                     </span>
                   </td>
                   <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString('en-IN')}</td>
@@ -178,7 +162,7 @@ export default function StaffModificationsPage() {
         </table>
       </div>
 
-      {/* MODAL WORKSPACE FORM */}
+      {/* REQUEST MODAL */}
       {isModalOpen && (
         <div className="modal-backdrop" onClick={() => !submitting && setIsModalOpen(false)}>
           <div className="modal" style={{ maxWidth: 460, width: '100%' }} onClick={e => e.stopPropagation()}>
@@ -191,18 +175,18 @@ export default function StaffModificationsPage() {
             <form onSubmit={handleSubmit}>
               <div className="modal-body" style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div>
-                  <label className="form-label">Data Module / Domain Target</label>
+                  <label className="form-label">What do you want to change? <span style={{ color: '#ef4444' }}>*</span></label>
                   <select value={entityType} onChange={e => setEntityType(e.target.value)} className="form-input">
-                    <option value="file_record">File Record Context (Backtrack Status)</option>
-                    <option value="customer_profile">Customer Information / Profile Fields</option>
-                    <option value="insurance_metadata">Insurance Contract Metadata</option>
+                    <option value="file_record">File Record</option>
+                    <option value="customer_profile">Customer Profile</option>
+                    <option value="insurance_metadata">Insurance Details</option>
                   </select>
                 </div>
 
                 <div>
                   {entityType === 'file_record' ? (
                     <>
-                      <label className="form-label">Target File Record <span style={{ color: '#ef4444' }}>*</span></label>
+                      <label className="form-label">Select File <span style={{ color: '#ef4444' }}>*</span></label>
                       <select 
                         required 
                         value={entityId} 
@@ -219,7 +203,7 @@ export default function StaffModificationsPage() {
                     </>
                   ) : (
                     <>
-                      <label className="form-label">Target System Record Number or ID <span style={{ color: '#ef4444' }}>*</span></label>
+                      <label className="form-label">Record ID or Name <span style={{ color: '#ef4444' }}>*</span></label>
                       <input 
                         type="text" 
                         required 
@@ -233,22 +217,22 @@ export default function StaffModificationsPage() {
                 </div>
 
                 <div>
-                  <label className="form-label">Modification Strategy</label>
+                  <label className="form-label">Request Type</label>
                   <select value={requestType} onChange={e => setRequestType(e.target.value)} className="form-input">
-                    <option value="update">Correct/Update Data Values</option>
-                    <option value="delete">Hard Purge / Erase Row Record</option>
+                    <option value="update">Update / Correct Data</option>
+                    <option value="delete">Delete Record</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="form-label">Administrative Justification Notes</label>
-                  <textarea rows={3} required value={reason} onChange={e => setReason(e.target.value)} placeholder="State explicitly why this administrative core record requires an manual override modification..." className="form-input" style={{ fontFamily: 'inherit' }} />
+                  <label className="form-label">Reason <span style={{ color: '#ef4444' }}>*</span></label>
+                  <textarea rows={3} required value={reason} onChange={e => setReason(e.target.value)} placeholder="Explain why this change is needed..." className="form-input" style={{ fontFamily: 'inherit' }} />
                 </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline btn-sm" disabled={submitting} onClick={() => setIsModalOpen(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
-                  {submitting ? 'Routing Ticket...' : 'Escalate to Admin'}
+                  {submitting ? 'Submitting...' : 'Submit to Admin'}
                 </button>
               </div>
             </form>
