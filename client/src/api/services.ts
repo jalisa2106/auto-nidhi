@@ -393,18 +393,19 @@ export const insurancePaymentsApi = {
 
 export const companySettingsApi = {
   get: async () => {
-    const { data } = await api.get('/settings/company')
-    return data
+    const { data } = await api.get('/settings/company/');
+    return data;
   },
   create: async (payload: Record<string, any>) => {
-    const { data } = await api.post('/settings/company', payload, skipAuthRedirectConfig)
-    return data
+    const { data } = await api.post('/settings/company/', payload, skipAuthRedirectConfig);
+    return data;
   },
-    update: async (id: string, payload: Record<string, any>) => {
-    const { data } = await api.put(`/settings/company/${id}`, payload, skipAuthRedirectConfig)
-    return data
+
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/settings/company/${id}`, payload, skipAuthRedirectConfig);
+    return data;
   },
-}
+};
 
 export const expensesApi = {
   list: async (): Promise<Expense[]> => {
