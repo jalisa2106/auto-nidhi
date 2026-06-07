@@ -58,24 +58,42 @@ export default function CustomerSettingsPage() {
   const [security, setSecurity] = useState<Record<string, SecurityStatus>>({})
 
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const [savedPrefs, sessionData, securityData] = await Promise.all([
-          customerSettingsApi.getNotificationPreferences(),
-          customerSettingsApi.getSession(),
-          customerSettingsApi.getSecurity(),
-        ])
+  const loadSettings = async () => {
+    try {
+      const [savedPrefs, sessionData, securityData] = await Promise.all([
+        customerSettingsApi.getNotificationPreferences(),
+        customerSettingsApi.getSession(),
+        customerSettingsApi.getSecurity(),
+      ])
 
-        setPrefs(applyPrefs(savedPrefs))
-        setSession(sessionData)
-        setSecurity(securityData)
-      } catch (err) {
-        console.error('Failed to load customer settings', err)
+      const prefMap: Record<string, boolean> = {}
+
+      savedPrefs.forEach((p: any) => {
+        prefMap[p.pref_key] = p.is_enabled
+      })
+
+      setPrefs(applyPrefs(prefMap))
+      setSession(sessionData)
+      setSecurity(securityData)
+
+    } catch (err) {
+      console.error('Failed to load customer settings', err)
+
+      // localStorage fallback ONLY when API fails
+      try {
+        const local = localStorage.getItem('notif_prefs')
+
+        if (local) {
+          setPrefs(applyPrefs(JSON.parse(local)))
+        }
+      } catch {
+        // ignore fallback errors
       }
     }
+  }
 
-    loadSettings()
-  }, [])
+  loadSettings()
+}, [])
 
   const togglePref = (key: string) => {
     setPrefs(prev => prev.map(p => p.key === key ? { ...p, enabled: !p.enabled } : p))
@@ -83,14 +101,20 @@ export default function CustomerSettingsPage() {
   }
 
   const handleSave = async () => {
-    try {
-      await customerSettingsApi.updateNotificationPreferences(prefsToMap(prefs))
-      setPrefSaved(true)
-      setTimeout(() => setPrefSaved(false), 2500)
-    } catch (err) {
-      console.error('Failed to save customer notification preferences', err)
-    }
+  try {
+    await customerSettingsApi.updateNotificationPreferences(
+      prefsToMap(prefs)
+    )
+
+    setPrefSaved(true)
+    setTimeout(() => setPrefSaved(false), 2500)
+  } catch (err) {
+    console.error(
+      'Failed to save customer notification preferences',
+      err
+    )
   }
+}
 
   const enabledCount = prefs.filter(p => p.enabled).length
 

@@ -546,3 +546,25 @@ class CustomerStaffAllocation(Base):
     customer      = relationship("Customer",    foreign_keys=[customer_id])
     staff         = relationship("SystemUser",  foreign_keys=[staff_id])
     allocated_by_user = relationship("SystemUser", foreign_keys=[allocated_by])
+
+
+class CustomerNotificationPreference(Base):
+    __tablename__ = "customer_notification_preferences"
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    
+    customer_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("customer.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    pref_key = Column(String(50), nullable=False)
+
+    is_enabled = Column(Boolean, default=True)
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
