@@ -12,6 +12,8 @@ import RoleBasedRouter from './pages/RoleBasedRouter'
 // ── Layouts (eager — shared shell) ───────────────────────────────────
 import CustomerLayout from './pages/CustomerPages/CustomerLayout'
 import AdminLayout    from './pages/Dashboard/AdminDashboard'
+import DataEntryProfilePage from './pages/DataEntryPages/DataEntryProfilePage'
+import DataEntrySettingsPage from './pages/DataEntryPages/DataEntrySettingsPage'
 
 // ── Customer portal (lazy) ────────────────────────────────────────────
 const CustomerPortalPage     = lazy(() => import('./pages/CustomerPages/CustomerPortalPage'))
@@ -147,8 +149,8 @@ function App() {
               <Route path="/staff/expenses"           element={<ExpensesPage />}          />
               <Route path="/staff/requests"           element={<RequestsPage />}          />
               <Route path="/staff/modifications"      element={<StaffModificationsPage />}/>
-              <Route path="/staff/profile"            element={<AdminProfilePage />}      />
-              <Route path="/staff/settings"           element={<AdminSettingsPage />}     />
+              <Route path="/staff/profile"            element={<DataEntryProfilePage />}  />
+              <Route path="/staff/settings"           element={<DataEntrySettingsPage />} />
             </Route>
 
             {/* ── Accountant portal ── */}
