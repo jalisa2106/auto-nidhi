@@ -7,21 +7,21 @@ import API_BASE from '../../lib/apiConfig'
 
 // ── DB fields from SystemUser model ──────────────────────────────────────────
 interface UserProfile {
-  first_name:   string   // system_user.first_name  VARCHAR(100)
-  last_name:    string   // system_user.last_name   VARCHAR(100)
-  email:        string   // system_user.email       VARCHAR(255)
+  first_name: string   // system_user.first_name  VARCHAR(100)
+  last_name: string   // system_user.last_name   VARCHAR(100)
+  email: string   // system_user.email       VARCHAR(255)
   phone_number: string   // system_user.phone_number VARCHAR(15)
-  role:         string   // via master_role.role_name
-  is_active:    boolean  // system_user.is_active
-  last_login:   string   // system_user.last_login
-  created_at:   string   // system_user.created_at
+  role: string   // via master_role.role_name
+  is_active: boolean  // system_user.is_active
+  last_login: string   // system_user.last_login
+  created_at: string   // system_user.created_at
 }
 
 const ROLE_META: Record<string, { bg: string; color: string; border: string; label: string; icon: string }> = {
-  admin:      { bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)', color: '#1d4ed8', border: '#bfdbfe', label: 'Administrator', icon: '🛡️' },
-  accountant: { bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', color: '#15803d', border: '#bbf7d0', label: 'Accountant',    icon: '📊' },
-  data_entry: { bg: 'linear-gradient(135deg,#fefce8,#fef9c3)', color: '#a16207', border: '#fde68a', label: 'Data Entry',    icon: '📝' },
-  customer:   { bg: 'linear-gradient(135deg,#fdf4ff,#fae8ff)', color: '#7e22ce', border: '#e9d5ff', label: 'Customer',      icon: '👤' },
+  admin: { bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)', color: '#1d4ed8', border: '#bfdbfe', label: 'Administrator', icon: '🛡️' },
+  accountant: { bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', color: '#15803d', border: '#bbf7d0', label: 'Accountant', icon: '📊' },
+  data_entry: { bg: 'linear-gradient(135deg,#fefce8,#fef9c3)', color: '#a16207', border: '#fde68a', label: 'Data Entry', icon: '📝' },
+  customer: { bg: 'linear-gradient(135deg,#fdf4ff,#fae8ff)', color: '#7e22ce', border: '#e9d5ff', label: 'Customer', icon: '👤' },
 }
 
 function readCurrentUser(): UserProfile {
@@ -31,14 +31,14 @@ function readCurrentUser(): UserProfile {
     try {
       const u = JSON.parse(raw)
       return {
-        first_name:   u.first_name   || '',
-        last_name:    u.last_name    || '',
-        email:        u.email        || '',
-        phone_number: u.phone        || u.phone_number || '',
-        role:         u.role         || currentRole    || 'data_entry',
-        is_active:    u.is_active    !== false,
-        last_login:   u.last_login   || '',
-        created_at:   u.created_at   || '',
+        first_name: u.first_name || '',
+        last_name: u.last_name || '',
+        email: u.email || '',
+        phone_number: u.phone || u.phone_number || '',
+        role: u.role || currentRole || 'data_entry',
+        is_active: u.is_active !== false,
+        last_login: u.last_login || '',
+        created_at: u.created_at || '',
       }
     } catch { /* ignore */ }
   }
@@ -62,19 +62,19 @@ function fmt(iso: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DataEntryProfilePage() {
-  const [profile,   setProfile]   = useState<UserProfile>(readCurrentUser)
-  const [editing,   setEditing]   = useState(false)
-  const [editForm,  setEditForm]  = useState<UserProfile>(readCurrentUser)
-  const [saving,    setSaving]    = useState(false)
-  const [banner,    setBanner]    = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
+  const [profile, setProfile] = useState<UserProfile>(readCurrentUser)
+  const [editing, setEditing] = useState(false)
+  const [editForm, setEditForm] = useState<UserProfile>(readCurrentUser)
+  const [saving, setSaving] = useState(false)
+  const [banner, setBanner] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
 
-  const [pwdOpen,   setPwdOpen]   = useState(false)
-  const [curPwd,    setCurPwd]    = useState('')
-  const [newPwd,    setNewPwd]    = useState('')
-  const [confPwd,   setConfPwd]   = useState('')
-  const [showCur,   setShowCur]   = useState(false)
-  const [showNew,   setShowNew]   = useState(false)
-  const [showConf,  setShowConf]  = useState(false)
+  const [pwdOpen, setPwdOpen] = useState(false)
+  const [curPwd, setCurPwd] = useState('')
+  const [newPwd, setNewPwd] = useState('')
+  const [confPwd, setConfPwd] = useState('')
+  const [showCur, setShowCur] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [showConf, setShowConf] = useState(false)
   const [pwdBanner, setPwdBanner] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
   const [pwdSaving, setPwdSaving] = useState(false)
 
@@ -103,7 +103,7 @@ export default function DataEntryProfilePage() {
 
   const handleSave = async () => {
     if (!editForm.first_name.trim()) { showBanner('err', 'First name is required.'); return }
-    if (!editForm.last_name.trim())  { showBanner('err', 'Last name is required.');  return }
+    if (!editForm.last_name.trim()) { showBanner('err', 'Last name is required.'); return }
     setSaving(true)
     try {
       const token = localStorage.getItem('access_token')
@@ -111,8 +111,8 @@ export default function DataEntryProfilePage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          first_name:   editForm.first_name.trim(),
-          last_name:    editForm.last_name.trim(),
+          first_name: editForm.first_name.trim(),
+          last_name: editForm.last_name.trim(),
           phone_number: editForm.phone_number.trim() || null,
         }),
       })
@@ -136,8 +136,8 @@ export default function DataEntryProfilePage() {
   }
 
   const handlePwdChange = async () => {
-    if (!curPwd)            { setPwdBanner({ type: 'err', msg: 'Enter your current password.' }); return }
-    if (newPwd.length < 8)  { setPwdBanner({ type: 'err', msg: 'New password must be at least 8 characters.' }); return }
+    if (!curPwd) { setPwdBanner({ type: 'err', msg: 'Enter your current password.' }); return }
+    if (newPwd.length < 8) { setPwdBanner({ type: 'err', msg: 'New password must be at least 8 characters.' }); return }
     if (newPwd !== confPwd) { setPwdBanner({ type: 'err', msg: 'Passwords do not match.' }); return }
     setPwdSaving(true)
     try {
@@ -291,12 +291,12 @@ export default function DataEntryProfilePage() {
         <div style={{ fontSize: 13, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.6px', padding: '16px 0 8px' }}>
           Account Information
         </div>
-        {field('First Name',   <User size={16} />,   profile.first_name   || '—')}
-        {field('Last Name',    <User size={16} />,   profile.last_name    || '—')}
-        {field('Email',        <Mail size={16} />,   profile.email        || '—')}
-        {field('Phone Number', <Phone size={16} />,  profile.phone_number || '—')}
-        {field('Role',         <Shield size={16} />, roleMeta.label)}
-        {field('Last Login',   <Clock size={16} />,  fmt(profile.last_login))}
+        {field('First Name', <User size={16} />, profile.first_name || '—')}
+        {field('Last Name', <User size={16} />, profile.last_name || '—')}
+        {field('Email', <Mail size={16} />, profile.email || '—')}
+        {field('Phone Number', <Phone size={16} />, profile.phone_number || '—')}
+        {field('Role', <Shield size={16} />, roleMeta.label)}
+        {field('Last Login', <Clock size={16} />, fmt(profile.last_login))}
         {field('Member Since', <Calendar size={16} />, fmt(profile.created_at))}
       </div>
 
@@ -332,7 +332,7 @@ export default function DataEntryProfilePage() {
             )}
             {([
               { label: 'Current Password', val: curPwd, set: setCurPwd, show: showCur, setShow: setShowCur },
-              { label: 'New Password',     val: newPwd, set: setNewPwd, show: showNew, setShow: setShowNew },
+              { label: 'New Password', val: newPwd, set: setNewPwd, show: showNew, setShow: setShowNew },
               { label: 'Confirm Password', val: confPwd, set: setConfPwd, show: showConf, setShow: setShowConf },
             ] as const).map(({ label, val, set, show, setShow }) => (
               <div key={label} style={{ marginBottom: 14 }}>
