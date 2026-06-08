@@ -14,6 +14,7 @@ import CustomerLayout from './pages/CustomerPages/CustomerLayout'
 import AdminLayout    from './pages/Dashboard/AdminDashboard'
 import DataEntryProfilePage from './pages/DataEntryPages/DataEntryProfilePage'
 import DataEntrySettingsPage from './pages/DataEntryPages/DataEntrySettingsPage'
+import AccountantLayout from './pages/AccountantPages/AccountantLayout'
 
 // ── Customer portal (lazy) ────────────────────────────────────────────
 const CustomerPortalPage     = lazy(() => import('./pages/CustomerPages/CustomerPortalPage'))
@@ -168,7 +169,7 @@ function App() {
             </Route>
 
             {/* ── Accountant portal ── */}
-            <Route element={<AdminLayout />}>
+            <Route element={<AccountantLayout />}>
               <Route path="/accountant/dashboard"          element={<DashboardPage />}              />
               <Route path="/accountant/files"              element={<FilesPage />}                  />
               <Route path="/accountant/payments/in"        element={<AccountantPaymentInPage />}    />
