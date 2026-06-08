@@ -14,6 +14,7 @@ import CustomerLayout from './pages/CustomerPages/CustomerLayout'
 import AdminLayout    from './pages/Dashboard/AdminDashboard'
 import DataEntryProfilePage from './pages/DataEntryPages/DataEntryProfilePage'
 import DataEntrySettingsPage from './pages/DataEntryPages/DataEntrySettingsPage'
+import AccountantLayout from './pages/AccountantPages/AccountantLayout'
 
 // ── Customer portal (lazy) ────────────────────────────────────────────
 const CustomerPortalPage     = lazy(() => import('./pages/CustomerPages/CustomerPortalPage'))
@@ -60,6 +61,8 @@ const StaffModificationsPage      = lazy(() => import('./pages/DataEntryPages/St
 const AccountantModificationsPage = lazy(() => import('./pages/AccountantPages/AccountantModificationsPage'))
 const AccountantPaymentInPage     = lazy(() => import('./pages/AccountantPages/PaymentInPage'))
 const AccountantPaymentOutPage    = lazy(() => import('./pages/AccountantPages/PaymentOutPage'))
+const AccountantCommissionInPage  = lazy(() => import('./pages/AccountantPages/CommissionInPage'))
+const AccountantCommissionOutPage = lazy(() => import('./pages/AccountantPages/CommissionOutPage'))
 const AdminReviewDeskPage    = lazy(() => import('./pages/AdminPages/AdminReviewDeskPage'))
 const AnalyticsPage          = lazy(() => import('./pages/AdminPages/AnalyticsPage'))
 
@@ -166,11 +169,13 @@ function App() {
             </Route>
 
             {/* ── Accountant portal ── */}
-            <Route element={<AdminLayout />}>
+            <Route element={<AccountantLayout />}>
               <Route path="/accountant/dashboard"          element={<DashboardPage />}              />
               <Route path="/accountant/files"              element={<FilesPage />}                  />
               <Route path="/accountant/payments/in"        element={<AccountantPaymentInPage />}    />
               <Route path="/accountant/payments/out"       element={<AccountantPaymentOutPage />}   />
+              <Route path="/accountant/commission/in"     element={<AccountantCommissionInPage />}  />
+              <Route path="/accountant/commission/out"    element={<AccountantCommissionOutPage />} />
               <Route path="/accountant/rto-payments"       element={<RTOPaymentsPage />}            />
               <Route path="/accountant/insurance-payments" element={<InsurancePaymentsPage />}      />
               <Route path="/accountant/expenses"           element={<ExpensesPage />}               />
