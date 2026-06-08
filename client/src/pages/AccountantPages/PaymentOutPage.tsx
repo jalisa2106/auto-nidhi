@@ -338,8 +338,8 @@ export default function PaymentOutPage() {
 
     const ws = XLSX.utils.json_to_sheet(data)
     ws['!cols'] = [
-      { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 },
-      { wch: 10 }, { wch: 12 }, { w0: 20 }, { wch: 25 }
+      { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 },
+      { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 20 }, { wch: 25 }
     ]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Payment OUT')

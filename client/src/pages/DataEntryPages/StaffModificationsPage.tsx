@@ -148,10 +148,10 @@ export default function StaffModificationsPage() {
                   </td>
                   <td>
                     <span style={{
-                      color: r.status === 'approved' ? '#166534' : r.status === 'rejected' ? '#991b1b' : '#b45309',
+                      color: r.status === 'completed' ? '#166534' : r.status === 'rejected' ? '#991b1b' : '#b45309',
                       fontWeight: 700, fontSize: '0.8rem'
                     }}>
-                      {r.status === 'approved' ? '✓ Approved' : r.status === 'rejected' ? '✕ Rejected' : '● Pending'}
+                      {r.status === 'completed' ? '✓ Completed' : r.status === 'rejected' ? '✕ Rejected' : '● Pending'}
                     </span>
                   </td>
                   <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString('en-IN')}</td>
