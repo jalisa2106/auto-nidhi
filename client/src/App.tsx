@@ -58,6 +58,8 @@ const UserDetailPage         = lazy(() => import('./pages/AdminPages/UserDetailP
 const RequestsPage           = lazy(() => import('./pages/DataEntryPages/RequestsPage'))
 const StaffModificationsPage      = lazy(() => import('./pages/DataEntryPages/StaffModificationsPage'))
 const AccountantModificationsPage = lazy(() => import('./pages/AccountantPages/AccountantModificationsPage'))
+const AccountantPaymentInPage     = lazy(() => import('./pages/AccountantPages/PaymentInPage'))
+const AccountantPaymentOutPage    = lazy(() => import('./pages/AccountantPages/PaymentOutPage'))
 const AdminReviewDeskPage    = lazy(() => import('./pages/AdminPages/AdminReviewDeskPage'))
 const AnalyticsPage          = lazy(() => import('./pages/AdminPages/AnalyticsPage'))
 
@@ -167,8 +169,8 @@ function App() {
             <Route element={<AdminLayout />}>
               <Route path="/accountant/dashboard"          element={<DashboardPage />}              />
               <Route path="/accountant/files"              element={<FilesPage />}                  />
-              <Route path="/accountant/payments/in"        element={<PaymentInPage />}              />
-              <Route path="/accountant/payments/out"       element={<PaymentOutPage />}             />
+              <Route path="/accountant/payments/in"        element={<AccountantPaymentInPage />}    />
+              <Route path="/accountant/payments/out"       element={<AccountantPaymentOutPage />}   />
               <Route path="/accountant/rto-payments"       element={<RTOPaymentsPage />}            />
               <Route path="/accountant/insurance-payments" element={<InsurancePaymentsPage />}      />
               <Route path="/accountant/expenses"           element={<ExpensesPage />}               />
