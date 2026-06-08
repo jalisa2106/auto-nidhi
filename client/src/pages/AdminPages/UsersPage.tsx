@@ -270,21 +270,27 @@ export default function UsersPage() {
     return Object.keys(e).length === 0
   }
 
-  async function handleDelete() {
-    if (!deleteId) return
-    setDeleting(true)
+  async function handleEdit() {
+    if (!editUser || !validateEdit()) return
+    setSavingEdit(true)
     try {
-      // Pass the reason to the API
-      await usersSettingsApi.remove(deleteId.id, deleteReason.trim() || undefined)
-      message.success('User removed successfully')
-      setDeleteId(null)
-      setDeleteReason('') // <-- Reset reason
+      await usersSettingsApi.update(editUser.id, {
+        first_name: editForm.first_name.trim(),
+        last_name: editForm.last_name.trim() || null,
+        email: editForm.email.trim().toLowerCase(),
+        phone_number: editForm.phone_number.trim() || null,
+        role_id: editForm.role_id || null,
+        is_active: editForm.is_active,
+      })
+      message.success('User updated successfully')
+      setEditUser(null)
       loadUsers()
     } catch (err: any) {
       const detail = err?.response?.data?.detail
-      message.error(typeof detail === 'string' ? detail : 'Cannot remove this user.')
+      if (typeof detail === 'string') message.error(detail)
+      else message.error('Failed to update user')
     } finally {
-      setDeleting(false)
+      setSavingEdit(false)
     }
   }
 
@@ -323,9 +329,10 @@ export default function UsersPage() {
     if (!deleteId) return
     setDeleting(true)
     try {
-      await usersSettingsApi.remove(deleteId.id)
+      await usersSettingsApi.remove(deleteId.id, deleteReason.trim() || undefined)
       message.success('User removed successfully')
       setDeleteId(null)
+      setDeleteReason('')
       loadUsers()
     } catch (err: any) {
       const detail = err?.response?.data?.detail
@@ -791,7 +798,6 @@ export default function UsersPage() {
                 This will safely deactivate the user and block them from logging in. Any historical records (Files, Payments, Customers) created by this user will remain intact.
               </p>
               
-              {/* Added Reason Field */}
               <div className="form-group" style={{ marginTop: 20 }}>
                 <label className="form-label">Reason for Deletion (Optional)</label>
                 <textarea
@@ -803,10 +809,8 @@ export default function UsersPage() {
                   style={{ resize: 'vertical' }}
                 />
               </div>
-
             </div>
             <div className="modal-footer">
-              {/* Also ensure you clear the reason if they click Cancel */}
               <button className="btn btn-outline btn-sm" onClick={() => { setDeleteId(null); setDeleteReason(''); }}>Cancel</button>
               <button
                 id="user-delete-confirm-btn"
