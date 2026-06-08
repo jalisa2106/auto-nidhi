@@ -329,9 +329,9 @@ export default function CustomerDocumentsPage() {
               <button className="btn btn-ghost btn-sm" disabled={uploading} onClick={() => setUploadModalOpen(false)}>✕</button>
             </div>
 
-            <div className="modal-body" style={{ padding: '16px 0' }}>
-              <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem', color: 'var(--gray-500)' }}>
-                Please upload an official verifiable digital record asset. Supported format structures include **PDF, JPEG, or PNG** binary media layouts. Maximum constraint footprint limit per payload is **5MB**.
+            <div className="modal-body" style={{ padding: '20px 24px' }}>
+              <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem', color: 'var(--gray-500)', lineHeight: '1.5' }}>
+                Please upload an official verifiable digital record asset. Supported format structures include <strong>PDF, JPEG, or PNG</strong> binary media layouts. Maximum constraint footprint limit per payload is <strong>5MB</strong>.
               </p>
 
               {/* Central Active Upload Dropzone Matrix Component Frame */}
@@ -374,7 +374,7 @@ export default function CustomerDocumentsPage() {
               )}
             </div>
 
-            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 24px', borderTop: '1px solid var(--gray-200)', background: '#f8fafc' }}>
               <button type="button" className="btn btn-outline btn-sm" disabled={uploading} onClick={() => setUploadModalOpen(false)}>
                 Cancel
               </button>

@@ -81,6 +81,20 @@ def customer_dashboard(
         {"customer_id": customer_id},
     )
 
+    allocated_staff = db.execute(
+        text("""
+        SELECT su.first_name, su.last_name, su.email,
+               csa.allocated_since
+        FROM customer_staff_allocation csa
+        JOIN system_user su ON su.id = csa.staff_id
+        WHERE csa.customer_id = :customer_id
+        AND csa.is_active = TRUE
+        ORDER BY csa.allocated_since DESC
+        LIMIT 1
+        """),
+        {"customer_id": customer_id}
+    ).mappings().first()
+
     return {
         "user": {
             "id": user_id,
@@ -93,6 +107,11 @@ def customer_dashboard(
             "total_files": total_files,
             "completed_files": completed_files,
             "recent_files": recent_files,
+            "allocated_staff": {
+                "name": f"{allocated_staff['first_name']} {allocated_staff['last_name'] or ''}".strip(),
+                "email": allocated_staff["email"],
+                "since": allocated_staff["allocated_since"].isoformat() if allocated_staff["allocated_since"] else None,
+            } if allocated_staff else None,
         },
     }
 

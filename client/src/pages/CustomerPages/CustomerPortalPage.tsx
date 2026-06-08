@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   FolderOpen, Clock, AlertCircle, CheckCircle2,
   ArrowRight, FileText, Car, ShieldCheck,
-  ChevronRight, CreditCard,
+  ChevronRight, CreditCard, User, UserCircle2
 } from 'lucide-react'
 import { customerDashboardApi } from '../../api/services'
 import api from '../../api/axios'
@@ -75,14 +75,17 @@ export default function CustomerPortalPage() {
   const [, setUnread] = useState(unreadCount())
   const [loading, setLoading] = useState(true)
   const [firstName, setFirstName] = useState('Customer')
+  const [allocatedStaff, setAllocatedStaff] = useState<{name: string, email: string, since: string} | null>(null)
 
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'
 
   useEffect(() => {
-    // 1. Fetch dashboard welcome/greeting name
     const p1 = customerDashboardApi.get()
       .then(res => {
         setFirstName(res.user?.first_name || 'Customer')
+        if (res.dashboard?.allocated_staff) {
+          setAllocatedStaff(res.dashboard.allocated_staff)
+        }
       })
       .catch(() => {})
 
@@ -454,6 +457,33 @@ export default function CustomerPortalPage() {
             </div>
           )}
         </div>
+
+        {/* Allocated Staff Card */}
+        {allocatedStaff ? (
+          <div className="db-card">
+            <div className="db-card-header">
+              <div className="db-card-title"><User size={16} /> Your Allocated Consultant</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <UserCircle2 size={24} color="#2563eb" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, color: '#0f172a' }}>{allocatedStaff.name}</div>
+                <div style={{ fontSize: '.78rem', color: '#64748b' }}>{allocatedStaff.email}</div>
+                <div style={{ fontSize: '.72rem', color: '#94a3b8', marginTop: 3 }}>
+                  Allocated since {new Date(allocatedStaff.since).toLocaleDateString('en-IN')}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="db-card" style={{ opacity: 0.5 }}>
+            <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '.84rem' }}>
+              No consultant allocated yet. Contact AutoNidhi.
+            </div>
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="db-card">

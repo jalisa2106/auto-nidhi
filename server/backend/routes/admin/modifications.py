@@ -15,7 +15,6 @@ from backend.utils import (
     send_targeted_notification,
 )
 
-
 router = APIRouter(tags=["Modification Requests"])
 
 VALID_ENTITY_TYPES = {
@@ -28,7 +27,9 @@ VALID_ENTITY_TYPES = {
     "advances_outstanding",
 }
 VALID_REQUEST_TYPES = {"update", "delete"}
-VALID_DECISIONS = {"approve", "reject"}
+
+# Updated Pipeline Stages
+VALID_DECISIONS = {"verification", "in_progress", "completed", "rejected"}
 
 
 class ModificationCreate(BaseModel):
@@ -74,7 +75,7 @@ class ModificationDecision(BaseModel):
     def validate_decision(cls, value: str) -> str:
         value = value.strip().lower()
         if value not in VALID_DECISIONS:
-            raise ValueError("Decision must be approve or reject")
+            raise ValueError(f"Decision must be one of {VALID_DECISIONS}")
         return value
 
 
@@ -211,24 +212,31 @@ def evaluate_modification(
     if not request:
         raise HTTPException(status_code=404, detail="Modification request not found")
 
-    if request.status != "pending":
-        raise HTTPException(status_code=400, detail="Modification request has already been evaluated")
+    # Prevent editing if it's already finalized
+    if request.status in ["completed", "rejected"]:
+        raise HTTPException(status_code=400, detail="Modification request is already finalized and cannot be changed.")
 
     old_values = _serialize(request)
-    request.status = "approved" if payload.decision == "approve" else "rejected"
+    request.status = payload.decision
     request.reviewed_by = current_admin.id
     request.reviewed_at = datetime.datetime.utcnow()
     request.updated_at = datetime.datetime.utcnow()
-    request.decision_note = payload.note.strip() if payload.note else None
+    
+    note = payload.note.strip() if payload.note else None
+    request.decision_note = note
+    if payload.decision == "rejected":
+        request.rejection_reason = note
+    else:
+        request.admin_notes = note
 
     try:
         record_dashboard_event(
             db,
             current_admin,
-            action=f"{request.status} modification request",
+            action=f"moved modification request to {request.status}",
             table_name="modification_request",
             record_id=request.id,
-            message=f"Modification request {request.entity_id} was {request.status}",
+            message=f"Modification request {request.entity_id} was updated to {request.status.replace('_', ' ')}",
             preference_key="updated",
             old_values=old_values,
             new_values=_serialize(request),
@@ -236,7 +244,7 @@ def evaluate_modification(
         send_targeted_notification(
             db=db,
             target_user_id=request.submitted_by,
-            message=f"Your modification request for {request.entity_type}: {request.entity_id} was {request.status}.",
+            message=f"Your modification request for {request.entity_type}: {request.entity_id} is now {request.status.replace('_', ' ')}.",
             notification_type="general",
         )
         db.commit()

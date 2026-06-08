@@ -4,8 +4,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import SystemUser
-from backend.utils import get_current_customer, verify_password, get_password_hash
+from backend.models import SystemUser, Customer, ModificationRequest
+from backend.utils import get_current_customer, verify_password, get_password_hash, get_current_customer_profile
 
 router = APIRouter(prefix="/api/v1/customer", tags=["Customer Profile"])
 
@@ -122,3 +122,36 @@ async def change_customer_password(
     db.commit()
 
     return {"message": "Password changed successfully"}
+
+@router.post("/modification-requests")
+def submit_customer_modification_request(
+    payload: dict,
+    current_user: SystemUser = Depends(get_current_customer),
+    customer = Depends(get_current_customer_profile),
+    db: Session = Depends(get_db),
+):
+    mod_req = ModificationRequest(
+        entity_type="customer_staff_allocation",
+        entity_id=str(customer.id),
+        request_type="update",
+        reason=payload.get("reason", ""),
+        submitted_by=current_user.id,
+        status="pending"
+    )
+    db.add(mod_req)
+    db.commit()
+
+    # Notify only admins
+    from backend.models import MasterRole
+    from backend.utils import send_targeted_notification
+        
+    admins = db.query(SystemUser).join(MasterRole).filter(MasterRole.role_name.ilike('admin')).all()
+    for admin in admins:
+        send_targeted_notification(
+            db=db,
+            target_user_id=admin.id,
+            message=f"New staff change request from {customer.full_name}.",
+            notification_type="general"
+        )
+
+    return {"submitted": True, "id": str(mod_req.id)}

@@ -9,9 +9,14 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Customer, CustomerDocument, SystemUser
-from backend.utils import get_current_customer, get_current_customer_profile, record_dashboard_event
+from backend.utils import get_current_customer, get_current_customer_profile, record_dashboard_event, get_current_staff, send_targeted_notification, get_system_user_for_customer
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/v1/portal/documents", tags=["Customer Documents"])
+
+class DocumentVerifyPayload(BaseModel):
+    status: str
+    rejection_reason: str = ""
 
 BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 UPLOAD_DIR = os.getenv("CUSTOMER_DOCUMENT_UPLOAD_DIR") or os.path.join(
@@ -239,3 +244,31 @@ def download_document(
         filename=doc.file_name,
         media_type=doc.content_type,
     )
+
+@router.patch("/{document_id}/verify")
+def verify_document(
+    document_id: UUID,
+    payload: DocumentVerifyPayload,
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_staff)
+):
+    doc = db.query(CustomerDocument).filter(CustomerDocument.id == document_id).first()
+    if not doc:
+        raise HTTPException(404, "Document not found")
+        
+    doc.status = payload.status
+    doc.reviewed_by = current_user.id
+    doc.reviewed_at = datetime.now(timezone.utc)
+    if payload.status == 'rejected':
+        doc.rejection_reason = payload.rejection_reason
+    else:
+        doc.rejection_reason = None
+        
+    db.commit()
+
+    customer_user = get_system_user_for_customer(db, doc.customer_id)
+    if customer_user:
+        notif_type = 'document_approved' if payload.status == 'verified' else 'document_rejected'
+        send_targeted_notification(db, customer_user.id, f"Your document '{doc.label}' has been {payload.status}.", notif_type)
+        
+    return {"updated": True}

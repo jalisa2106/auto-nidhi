@@ -87,6 +87,10 @@ export default function CustomerProfilePage() {
   const [pwdBanner, setPwdBanner] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
   const [pwdSaving, setPwdSaving] = useState(false)
 
+  const [staffChangeReason, setStaffChangeReason] = useState('')
+  const [staffChangeSubmitting, setStaffChangeSubmitting] = useState(false)
+  const [staffChangeBanner, setStaffChangeBanner] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
+
   const strength      = pwdStrength(newPwd)
   const strengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong'][strength]
   const strengthColor = ['', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e'][strength]
@@ -163,6 +167,34 @@ export default function CustomerProfilePage() {
       setPwdBanner({ type: 'err', msg: 'Server unreachable. Try again later.' })
     } finally {
       setPwdSaving(false)
+    }
+  }
+
+  const handleRequestStaffChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!staffChangeReason.trim()) {
+      setStaffChangeBanner({ type: 'err', msg: 'Please provide a reason for the request.' })
+      return
+    }
+    setStaffChangeSubmitting(true)
+    try {
+      const token = localStorage.getItem('access_token')
+      const res = await fetch(`${API_BASE}/api/v1/customer/modification-requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ request_type: 'staff_change', reason: staffChangeReason }),
+      })
+      if (!res.ok) {
+        const d = await res.json()
+        setStaffChangeBanner({ type: 'err', msg: d.detail || 'Failed to submit request.' })
+      } else {
+        setStaffChangeBanner({ type: 'ok', msg: 'Your request has been sent to AutoNidhi. You will be notified once reviewed.' })
+        setStaffChangeReason('')
+      }
+    } catch {
+      setStaffChangeBanner({ type: 'err', msg: 'Server unreachable. Try again later.' })
+    } finally {
+      setStaffChangeSubmitting(false)
     }
   }
 
@@ -443,6 +475,58 @@ export default function CustomerProfilePage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* ── Request Staff Change Card ── */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: 14 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '16px 20px', borderBottom: '1px solid #f1f5f9',
+        }}>
+          <div style={{ width: 3, height: 16, background: 'linear-gradient(#f59e0b,#ea580c)', borderRadius: 2 }} />
+          <span style={{ fontWeight: 700, fontSize: 14.5, color: '#0f172a' }}>Request Staff Change</span>
+        </div>
+        <div style={{ padding: 20 }}>
+          {staffChangeBanner && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: staffChangeBanner.type === 'ok' ? '#f0fdf4' : '#fff1f2',
+              border: `1px solid ${staffChangeBanner.type === 'ok' ? '#bbf7d0' : '#fecdd3'}`,
+              borderLeft: `3px solid ${staffChangeBanner.type === 'ok' ? '#22c55e' : '#f43f5e'}`,
+              borderRadius: 10, padding: '10px 14px', marginBottom: 18,
+              color: staffChangeBanner.type === 'ok' ? '#166534' : '#be123c', fontSize: 13, fontWeight: 500,
+            }}>
+              {staffChangeBanner.type === 'ok' ? <CheckCircle size={14}/> : <X size={14}/>}
+              {staffChangeBanner.msg}
+            </div>
+          )}
+          <form onSubmit={handleRequestStaffChange}>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+              Reason for Request
+            </label>
+            <textarea
+              value={staffChangeReason}
+              onChange={(e) => setStaffChangeReason(e.target.value)}
+              placeholder="Why would you like to request a change of consultant?"
+              style={{
+                width: '100%', height: 100, padding: '10px 12px',
+                border: '1.5px solid #e2e8f0', borderRadius: 10,
+                fontSize: 13.5, color: '#0f172a', background: '#fff',
+                boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', resize: 'vertical'
+              }}
+              onFocus={e => { e.target.style.borderColor = '#6366f1' }}
+              onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}
+            />
+            <button
+              type="submit"
+              disabled={staffChangeSubmitting}
+              className="btn btn-primary btn-sm"
+              style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <User size={14} /> {staffChangeSubmitting ? 'Submitting…' : 'Submit Request'}
+            </button>
+          </form>
+        </div>
       </div>
 
       <style>{`
