@@ -33,9 +33,7 @@ export default function AccountantModificationsPage() {
       const res = await api.get('/customer/modifications')
       setRequests(res.data || [])
     } catch (err: any) {
-      console.warn('Failed to load modification requests:', err)
-      setError(err?.response?.data?.detail || 'Failed to load requests.')
-      message.error('Failed to load modification requests')
+      setError('Failed to load requests.')
     } finally {
       setLoading(false)
     }
@@ -120,10 +118,13 @@ export default function AccountantModificationsPage() {
                   <td style={{ fontSize: '0.84rem', color: '#475569' }}>{r.reason}</td>
                   <td>
                     <span style={{
-                      color: r.status === 'approved' ? '#15803d' : r.status === 'rejected' ? '#b91c1c' : '#d97706',
-                      fontWeight: 700, fontSize: '0.8rem'
+                      color: r.status === 'completed' ? '#166534' : 
+                            r.status === 'rejected' ? '#991b1b' : 
+                            r.status === 'in_progress' ? '#1d4ed8' : 
+                            '#b45309',
+                      fontWeight: 700, fontSize: '0.8rem', textTransform: 'capitalize'
                     }}>
-                      {r.status === 'approved' ? '✓ Approved' : r.status === 'rejected' ? '✕ Denied' : '🕒 Pending Admin Action'}
+                      {r.status.replace('_', ' ')}
                     </span>
                   </td>
                   <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString('en-IN')}</td>

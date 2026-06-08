@@ -38,8 +38,7 @@ export default function StaffModificationsPage() {
       const res = await api.get('/customer/modifications')
       setRequests(res.data || [])
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.message || 'Failed to load requests. Please try again.')
-      setRequests([])
+      setError('Failed to load requests.')
     } finally {
       setLoading(false)
     }
@@ -148,10 +147,13 @@ export default function StaffModificationsPage() {
                   </td>
                   <td>
                     <span style={{
-                      color: r.status === 'completed' ? '#166534' : r.status === 'rejected' ? '#991b1b' : '#b45309',
-                      fontWeight: 700, fontSize: '0.8rem'
+                      color: r.status === 'completed' ? '#166534' : 
+                            r.status === 'rejected' ? '#991b1b' : 
+                            r.status === 'in_progress' ? '#1d4ed8' : 
+                            '#b45309',
+                      fontWeight: 700, fontSize: '0.8rem', textTransform: 'capitalize'
                     }}>
-                      {r.status === 'completed' ? '✓ Completed' : r.status === 'rejected' ? '✕ Rejected' : '● Pending'}
+                      {r.status.replace('_', ' ')}
                     </span>
                   </td>
                   <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString('en-IN')}</td>
