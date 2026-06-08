@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { PlusCircle, Landmark } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import api from '../../api/axios'
+import { message } from 'antd'
 
 interface ModificationRequest {
   id: string
@@ -29,11 +30,12 @@ export default function AccountantModificationsPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await api.get('/api/v1/modifications/my-requests')
+      const res = await api.get('/customer/modifications')
       setRequests(res.data || [])
     } catch (err: any) {
       console.warn('Failed to load modification requests:', err)
       setError(err?.response?.data?.detail || 'Failed to load requests.')
+      message.error('Failed to load modification requests')
     } finally {
       setLoading(false)
     }
@@ -49,19 +51,21 @@ export default function AccountantModificationsPage() {
 
     setSubmitting(true)
     try {
-      await api.post('/api/v1/modifications/', {
+      // Corrected: Removed the double /api/v1 prefix.
+      await api.post('/customer/modifications', {
         entity_type: entityType,
         entity_id: entityId,
         request_type: requestType,
         reason: reason
       })
+      message.success('Request submitted successfully')
       setIsModalOpen(false)
       setEntityId('')
       setReason('')
       loadRequests()
     } catch (err: any) {
       console.warn('Error submitting modification request:', err)
-      alert(err?.response?.data?.detail || 'Failed to submit request.')
+      message.error(err?.response?.data?.detail || 'Failed to submit request.')
     } finally {
       setSubmitting(false)
     }
@@ -119,7 +123,7 @@ export default function AccountantModificationsPage() {
                       color: r.status === 'approved' ? '#15803d' : r.status === 'rejected' ? '#b91c1c' : '#d97706',
                       fontWeight: 700, fontSize: '0.8rem'
                     }}>
-                      {r.status === 'approved' ? '✓ Compiled' : r.status === 'rejected' ? '✕ Denied' : '🕒 Pending Admin Action'}
+                      {r.status === 'approved' ? '✓ Approved' : r.status === 'rejected' ? '✕ Denied' : '🕒 Pending Admin Action'}
                     </span>
                   </td>
                   <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString('en-IN')}</td>
