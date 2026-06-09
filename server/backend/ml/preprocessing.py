@@ -79,6 +79,9 @@ def preprocess_data(dataset_path, output_dir):
         # ==========================================================
         # 5. HANDLE MISSING VALUES
         # ==========================================================
+        for col in df.columns:
+            print(f"{col} --> {df[col].dtype}")
+
         print("\nHandling missing values...")
 
         for col in df.columns:
@@ -89,7 +92,17 @@ def preprocess_data(dataset_path, output_dir):
                 continue
 
             # Categorical
-            if df[col].dtype == "object":
+            from pandas.api.types import (
+                is_numeric_dtype,
+                is_string_dtype,
+                is_object_dtype
+            )
+
+            # Categorical / Text
+            if (
+                is_object_dtype(df[col])
+                or is_string_dtype(df[col])
+            ):
 
                 df[col] = (
                     df[col]
@@ -99,7 +112,7 @@ def preprocess_data(dataset_path, output_dir):
                 )
 
             # Numeric
-            else:
+            elif is_numeric_dtype(df[col]):
 
                 median_value = df[col].median()
 
@@ -107,6 +120,15 @@ def preprocess_data(dataset_path, output_dir):
                     median_value = 0
 
                 df[col] = df[col].fillna(median_value)
+
+            # Fallback
+            else:
+
+                df[col] = (
+                    df[col]
+                    .astype(str)
+                    .fillna("Missing")
+                )
 
         # ==========================================================
         # 6. ENCODE CATEGORICAL FEATURES
@@ -120,7 +142,15 @@ def preprocess_data(dataset_path, output_dir):
             if col == TARGET_COLUMN:
                 continue
 
-            if df[col].dtype == "object":
+            from pandas.api.types import (
+                is_string_dtype,
+                is_object_dtype
+            )
+
+            if (
+                is_object_dtype(df[col])
+                or is_string_dtype(df[col])
+            ):
 
                 encoder = LabelEncoder()
 
