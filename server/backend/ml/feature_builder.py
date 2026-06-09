@@ -12,25 +12,13 @@ engine = create_engine(DATABASE_URL)
 
 query = """
 SELECT
-    c.*,
-    fr.*,
-    fi.*,
-    a.*,
-    pi.*,
-    po.*
-FROM customer c
-LEFT JOIN file_record fr
-    ON c.id = fr.customer_id
-LEFT JOIN finance_info fi
-    ON fr.id = fi.file_id
-LEFT JOIN advances a
-    ON fr.id = a.file_id
-LEFT JOIN payment_in pi
-    ON fr.id = pi.file_id
-LEFT JOIN payment_out po
-    ON fr.id = po.file_id
+    (SELECT COUNT(*) FROM customer) AS customer_count,
+    (SELECT COUNT(*) FROM file_record) AS file_count,
+    (SELECT COUNT(*) FROM finance_info) AS finance_count,
+    (SELECT COUNT(*) FROM advances) AS advances_count,
+    (SELECT COUNT(*) FROM payment_in) AS payment_in_count,
+    (SELECT COUNT(*) FROM payment_out) AS payment_out_count
 """
-
 df = pd.read_sql(query, engine)
 
 output_file = "master_dataset.csv"
