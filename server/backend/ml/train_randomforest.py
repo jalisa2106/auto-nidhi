@@ -4,12 +4,9 @@ train_randomforest.py
 Phase 3: Train Random Forest Classifier on feature-engineered data.
 
 Pipeline:
-  1. Load feature_data/feature_engineered_dataset.csv
-  2. Encode categorical columns with LabelEncoder
-  3. Train/Test split (80/20, stratified)
-  4. Cross-validation (5-fold)
-  5. Train final model on full train set
-  6. Save model + encoders + split data to models/
+  1. Load pre-existing data splits from data_splits/
+  2. Train final model on full train set
+  3. Save model + encoders + split data to models/
 
 Run:
   python train_randomforest.py
@@ -22,9 +19,7 @@ import numpy as np
 import pandas as pd
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.preprocessing import LabelEncoder
-from pandas.api.types import is_object_dtype, is_string_dtype
+from sklearn.model_selection import cross_val_score
 
 
 # ==========================================================
@@ -33,7 +28,6 @@ from pandas.api.types import is_object_dtype, is_string_dtype
 
 TARGET_COLUMN = "ml_recommendation"
 RANDOM_STATE  = 42
-TEST_SIZE     = 0.20
 N_ESTIMATORS  = 200
 CV_FOLDS      = 5
 N_JOBS        = -1   # use all CPU cores
@@ -44,12 +38,8 @@ N_JOBS        = -1   # use all CPU cores
 # ==========================================================
 
 SCRIPT_DIR      = os.path.dirname(os.path.abspath(__file__))
-FEATURE_DIR     = os.path.join(SCRIPT_DIR, "feature_data")
-PROCESSED_DIR   = os.path.join(SCRIPT_DIR, "processed_data")
 MODELS_DIR      = os.path.join(SCRIPT_DIR, "models")
-
-INPUT_PATH      = os.path.join(FEATURE_DIR, "feature_engineered_dataset.csv")
-TARGET_ENC_PATH = os.path.join(PROCESSED_DIR, "target_encoder.pkl")
+DATA_SPLITS_DIR = os.path.join(SCRIPT_DIR, "data_splits")
 
 MODEL_PATH      = os.path.join(MODELS_DIR, "rf_model.pkl")
 FEAT_ENC_PATH   = os.path.join(MODELS_DIR, "rf_feature_encoders.pkl")
@@ -67,90 +57,41 @@ Y_TEST_PATH     = os.path.join(MODELS_DIR, "rf_y_test.csv")
 def train():
     print("\n========== RANDOM FOREST TRAINING STARTED ==========\n")
 
-    # ----------------------------------------------------------
-    # 1. Load feature-engineered dataset
-    # ----------------------------------------------------------
-    if not os.path.exists(INPUT_PATH):
-        raise FileNotFoundError(
-            f"Feature dataset not found: {INPUT_PATH}\n"
-            "Run feature_engineering.py first."
-        )
+    # 1. Paths to pre-existing data splits
+    x_train_split_path = os.path.join(DATA_SPLITS_DIR, "X_train.csv")
+    x_test_split_path = os.path.join(DATA_SPLITS_DIR, "X_test.csv")
+    y_train_split_path = os.path.join(DATA_SPLITS_DIR, "y_train.csv")
+    y_test_split_path = os.path.join(DATA_SPLITS_DIR, "y_test.csv")
+    target_encoder_split_path = os.path.join(DATA_SPLITS_DIR, "target_encoder.pkl")
+    feature_encoders_split_path = os.path.join(DATA_SPLITS_DIR, "feature_encoders.pkl")
 
-    print(f"Loading: {INPUT_PATH}")
-    df = pd.read_csv(INPUT_PATH)
-    print(f"  Shape: {df.shape}")
+    # Check if files exist
+    for path in [x_train_split_path, y_train_split_path, x_test_split_path, y_test_split_path, target_encoder_split_path, feature_encoders_split_path]:
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Required split file not found: {path}. Run split_data.py first.")
 
-    # ----------------------------------------------------------
-    # 2. Validate target column
-    # ----------------------------------------------------------
-    if TARGET_COLUMN not in df.columns:
-        raise ValueError(
-            f"Target column '{TARGET_COLUMN}' not found in dataset."
-        )
+    # 2. Load dataset splits
+    print("Loading pre-existing data splits from data_splits/...")
+    X_train = pd.read_csv(x_train_split_path)
+    X_test = pd.read_csv(x_test_split_path)
+    y_train = pd.read_csv(y_train_split_path)[TARGET_COLUMN].values
+    y_test = pd.read_csv(y_test_split_path)[TARGET_COLUMN].values
+    target_encoder = joblib.load(target_encoder_split_path)
+    feature_encoders = joblib.load(feature_encoders_split_path)
 
-    # ----------------------------------------------------------
-    # 3. Encode categorical feature columns
-    # ----------------------------------------------------------
-    print("\nEncoding categorical feature columns...")
+    print(f"  Train features shape: {X_train.shape}")
+    print(f"  Train target shape  : {y_train.shape}")
+    print(f"  Test features shape : {X_test.shape}")
+    print(f"  Test target shape   : {y_test.shape}")
+    print(f"  Classes             : {list(target_encoder.classes_)}")
 
-    feature_encoders = {}
-    df_encoded = df.copy()
-
-    for col in df_encoded.columns:
-        if col == TARGET_COLUMN:
-            continue
-        if is_object_dtype(df_encoded[col]) or is_string_dtype(df_encoded[col]):
-            enc = LabelEncoder()
-            df_encoded[col] = enc.fit_transform(
-                df_encoded[col].astype(str)
-            )
-            feature_encoders[col] = enc
-
-    print(f"  Encoded {len(feature_encoders)} categorical column(s).")
-
-    # ----------------------------------------------------------
-    # 4. Separate features (X) and target (y)
-    # ----------------------------------------------------------
-    # Load the already-fitted target encoder from preprocessing
-    if not os.path.exists(TARGET_ENC_PATH):
-        raise FileNotFoundError(
-            f"Target encoder not found: {TARGET_ENC_PATH}\n"
-            "Run preprocessing.py first."
-        )
-
-    target_encoder = joblib.load(TARGET_ENC_PATH)
-
-    X = df_encoded.drop(columns=[TARGET_COLUMN])
-    y = target_encoder.transform(df_encoded[TARGET_COLUMN])
-
-    print(f"\n  Features : {X.shape[1]}")
-    print(f"  Samples  : {X.shape[0]}")
-    print(f"  Classes  : {list(target_encoder.classes_)}")
-
-    class_dist = pd.Series(y).value_counts().sort_index()
-    print("\n  Class Distribution:")
+    class_dist = pd.Series(y_train).value_counts().sort_index()
+    print("\n  Train Class Distribution:")
     for cls_idx, count in class_dist.items():
         cls_label = target_encoder.inverse_transform([cls_idx])[0]
         print(f"    {cls_label}: {count} samples")
 
-    # ----------------------------------------------------------
-    # 5. Train/Test split (stratified)
-    # ----------------------------------------------------------
-    print(f"\nSplitting data (80% train / 20% test, stratified)...")
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=TEST_SIZE,
-        random_state=RANDOM_STATE,
-        stratify=y
-    )
-
-    print(f"  Train : {X_train.shape[0]} samples")
-    print(f"  Test  : {X_test.shape[0]} samples")
-
-    # ----------------------------------------------------------
-    # 6. Cross-Validation
-    # ----------------------------------------------------------
+    # 3. Cross-Validation
     print(f"\nRunning {CV_FOLDS}-fold Cross-Validation...")
 
     cv_model = RandomForestClassifier(
@@ -174,9 +115,7 @@ def train():
     print(f"  Mean CV Accuracy     : {cv_scores.mean():.4f} ({cv_scores.mean()*100:.2f}%)")
     print(f"  Std Dev              : {cv_scores.std():.4f}")
 
-    # ----------------------------------------------------------
-    # 7. Final Training on full training set
-    # ----------------------------------------------------------
+    # 4. Final Training on full training set
     print("\nTraining final Random Forest on full train set...")
 
     model = RandomForestClassifier(
@@ -191,9 +130,7 @@ def train():
     model.fit(X_train, y_train)
     print("  Training complete.")
 
-    # ----------------------------------------------------------
-    # 8. Feature Importances (top 10)
-    # ----------------------------------------------------------
+    # 5. Feature Importances (top 10)
     importances = pd.Series(
         model.feature_importances_,
         index=X_train.columns
@@ -203,9 +140,7 @@ def train():
     for feat, score in importances.head(10).items():
         print(f"  {feat:<45} {score:.4f}")
 
-    # ----------------------------------------------------------
-    # 9. Save everything
-    # ----------------------------------------------------------
+    # 6. Save everything
     os.makedirs(MODELS_DIR, exist_ok=True)
 
     joblib.dump(model,           MODEL_PATH)
