@@ -9,13 +9,13 @@
   "top_10_features": [
     "payment_amount",
     "emi_amount",
-    "total_amount",
     "disbursement_amount",
     "amount",
     "fc_sc_gst_amount",
-    "loan_amount",
+    "total_amount",
     "paid_amount",
+    "loan_amount",
     "id",
-    "id_payment_in"
+    "id_payment_out"
   ]
 }
