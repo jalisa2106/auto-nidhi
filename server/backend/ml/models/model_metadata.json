@@ -1,0 +1,22 @@
+{
+  "model_type": "RandomForestClassifier",
+  "n_estimators": 200,
+  "max_depth": "None",
+  "random_state": 42,
+  "training_samples": 1160,
+  "features": 99,
+  "cv_mean_accuracy": 0.9983,
+  "cv_std": 0.0034,
+  "top_features": [
+    "emi_amount",
+    "payment_amount",
+    "disbursement_amount",
+    "amount",
+    "fc_sc_gst_amount",
+    "loan_amount",
+    "paid_amount",
+    "total_amount",
+    "id_payment_in",
+    "file_id_advances"
+  ]
+}
