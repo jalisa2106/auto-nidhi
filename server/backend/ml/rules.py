@@ -5,11 +5,15 @@
 def calculate_risk_score(
     loan_amount,
     emi_amount,
-    active_overdue_amount,
-    overdue_emi_count
+    remaining_amount,
+    amount_recovered,
+    old_loan_amount
 ):
     """
     Returns risk score between 0 and 10
+
+    Higher score = Higher risk
+    Lower score = Safer customer
     """
 
     score = 0
@@ -41,35 +45,50 @@ def calculate_risk_score(
         score += 2
 
     # ======================================================
-    # ACTIVE OVERDUE AMOUNT
+    # REMAINING AMOUNT
     # ======================================================
 
-    if active_overdue_amount <= 10000:
+    if remaining_amount <= 10000:
         score += 0
 
-    elif active_overdue_amount <= 50000:
-        score += 2
-
-    else:
-        score += 3
-
-    # ======================================================
-    # OVERDUE EMI COUNT
-    # ======================================================
-
-    if overdue_emi_count == 0:
-        score += 0
-
-    elif overdue_emi_count == 1:
+    elif remaining_amount <= 50000:
         score += 1
 
-    elif overdue_emi_count <= 3:
+    elif remaining_amount <= 100000:
         score += 2
 
     else:
         score += 3
 
-    return int(score)
+    # ======================================================
+    # RECOVERY STATUS
+    # ======================================================
+
+    if amount_recovered <= 0:
+        score += 2
+
+    elif amount_recovered < remaining_amount:
+        score += 1
+
+    else:
+        score += 0
+
+    # ======================================================
+    # OLD LOAN HISTORY
+    # ======================================================
+
+    if old_loan_amount <= 0:
+        score += 0
+
+    elif old_loan_amount <= 500000:
+        score += 1
+
+    else:
+        score += 2
+
+    # Maximum score capped at 10
+
+    return min(int(score), 10)
 
 
 # ==========================================================
@@ -81,10 +100,10 @@ def get_recommendation(risk_score):
     Converts risk score into recommendation
     """
 
-    if risk_score <= 2:
+    if risk_score <= 3:
         return "Likely Approved"
 
-    elif risk_score <= 5:
+    elif risk_score <= 6:
         return "Needs Manual Review"
 
     return "High Risk / Likely Rejected"
@@ -97,15 +116,13 @@ def get_recommendation(risk_score):
 def get_confidence_score(risk_score):
     """
     Rule-based confidence score.
-
-    Used only as a fallback.
-    ML model probability should be preferred later.
+    Used only as fallback.
     """
 
-    if risk_score <= 2:
+    if risk_score <= 3:
         return 85.0
 
-    elif risk_score <= 5:
+    elif risk_score <= 6:
         return 75.0
 
     return 90.0
@@ -118,8 +135,9 @@ def get_confidence_score(risk_score):
 def get_decision(
     loan_amount,
     emi_amount,
-    active_overdue_amount,
-    overdue_emi_count
+    remaining_amount,
+    amount_recovered,
+    old_loan_amount
 ):
     """
     Returns:
@@ -133,8 +151,9 @@ def get_decision(
     risk_score = calculate_risk_score(
         loan_amount=loan_amount,
         emi_amount=emi_amount,
-        active_overdue_amount=active_overdue_amount,
-        overdue_emi_count=overdue_emi_count
+        remaining_amount=remaining_amount,
+        amount_recovered=amount_recovered,
+        old_loan_amount=old_loan_amount
     )
 
     recommendation = get_recommendation(
@@ -161,8 +180,9 @@ if __name__ == "__main__":
     result = get_decision(
         loan_amount=1400000,
         emi_amount=32000,
-        active_overdue_amount=60000,
-        overdue_emi_count=3
+        remaining_amount=120000,
+        amount_recovered=10000,
+        old_loan_amount=600000
     )
 
     print(result)

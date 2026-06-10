@@ -9,19 +9,31 @@ from rules import calculate_risk_score
 # ==========================================================
 
 DROP_COLUMNS = [
-    "customer_name",
+    "full_name",
     "email",
     "mobile_1",
     "mobile_2",
+    "address",
     "aadhar_number",
     "pan_number",
-    "address",
     "remarks",
+    "remarks_payment_in",
+    "remarks_payment_out",
+    "remarks_advances",
+
     "cheque_no",
     "cheque_date",
+    "cheque_no_payment_out",
+    "cheque_date_payment_out",
+
+    "date_of_birth",
+
     "created_by_user_id",
+    "created_by",
+    "created_by_advances",
+
     "is_deleted",
-    "date_of_birth"
+    "is_deleted_advances"
 ]
 
 
@@ -32,12 +44,12 @@ DROP_COLUMNS = [
 def create_customer_tenure(df):
     """
     Creates customer_tenure_months
-    using created_at_cust timestamp.
+    using created_at_customer timestamp.
     """
 
-    if "created_at_cust" not in df.columns:
+    if "created_at_customer" not in df.columns:
         print(
-            "WARNING: created_at_cust not found. "
+            "WARNING: created_at_customer not found. "
             "Skipping customer tenure creation."
         )
         return df
@@ -45,12 +57,12 @@ def create_customer_tenure(df):
     current_timestamp = pd.Timestamp.now().timestamp()
 
     tenure_days = (
-        current_timestamp - df["created_at_cust"]
+        current_timestamp - df["created_at_customer"]
     ) / (60 * 60 * 24)
 
     df["customer_tenure_months"] = (
         tenure_days / 30
-    ).fillna(0).astype(int)
+    ).clip(lower=0).fillna(0).astype(int)
 
     print("Created: customer_tenure_months")
 
@@ -66,8 +78,9 @@ def create_risk_score(df):
     required_columns = [
         "loan_amount",
         "emi_amount",
-        "active_overdue_amount",
-        "overdue_emi_count"
+        "remaining_amount",
+        "amount_recovered",
+        "old_loan_amount"
     ]
 
     missing_columns = [
@@ -91,8 +104,9 @@ def create_risk_score(df):
         lambda row: calculate_risk_score(
             loan_amount=row["loan_amount"],
             emi_amount=row["emi_amount"],
-            active_overdue_amount=row["active_overdue_amount"],
-            overdue_emi_count=row["overdue_emi_count"]
+            remaining_amount=row["remaining_amount"],
+            amount_recovered=row["amount_recovered"],
+            old_loan_amount=row["old_loan_amount"]
         ),
         axis=1
     )
@@ -100,7 +114,6 @@ def create_risk_score(df):
     print("Created: risk_score")
 
     return df
-
 
 # ==========================================================
 # LOAN BURDEN SCORE
@@ -130,6 +143,28 @@ def create_loan_burden_score(df):
 
     return df
 
+# ==========================================================
+# ADVANCE RATIO
+# ==========================================================
+
+def create_advance_ratio(df):
+
+    if (
+        "amount_advances" not in df.columns
+        or "loan_amount" not in df.columns
+    ):
+        df["advance_ratio"] = 0
+        return df
+
+    df["advance_ratio"] = (
+        df["amount_advances"]
+        /
+        df["loan_amount"].replace(0, 1)
+    )
+
+    print("Created: advance_ratio")
+
+    return df
 
 # ==========================================================
 # OVERDUE SEVERITY
@@ -138,11 +173,11 @@ def create_loan_burden_score(df):
 def create_overdue_severity(df):
 
     if (
-        "active_overdue_amount" not in df.columns
-        or "overdue_emi_count" not in df.columns
+        "remaining_amount" not in df.columns
+        or "emi_amount" not in df.columns
     ):
         print(
-            "WARNING: overdue columns not found."
+            "WARNING: required columns not found."
         )
 
         df["overdue_severity"] = 0
@@ -150,15 +185,42 @@ def create_overdue_severity(df):
         return df
 
     df["overdue_severity"] = (
-        df["active_overdue_amount"]
-        *
-        df["overdue_emi_count"]
+        df["remaining_amount"]
+        /
+        df["emi_amount"].replace(0, 1)
     )
 
     print("Created: overdue_severity")
 
     return df
 
+# ==========================================================
+# RECOVERY PERCENTAGE
+# ==========================================================
+
+def create_recovery_percentage(df):
+
+    if (
+        "amount_recovered" not in df.columns
+        or "amount_advances" not in df.columns
+    ):
+        df["recovery_percentage"] = 0
+        return df
+
+    df["recovery_percentage"] = (
+        df["amount_recovered"]
+        /
+        df["amount_advances"].replace(0, 1)
+    ) * 100
+
+    df["recovery_percentage"] = (
+        df["recovery_percentage"]
+        .clip(lower=0, upper=100)
+    )
+
+    print("Created: recovery_percentage")
+
+    return df
 
 # ==========================================================
 # FEATURE ENGINEERING PIPELINE
@@ -228,10 +290,21 @@ def feature_engineering(input_path, output_dir):
         df = create_loan_burden_score(df)
 
         # --------------------------------------------------
+        # Advance Ratio
+        # --------------------------------------------------
+
+        df = create_advance_ratio(df)
+        # --------------------------------------------------
         # Overdue Severity
         # --------------------------------------------------
 
         df = create_overdue_severity(df)
+
+        # -------------------------------------------------- 
+        # Recovery Percentage
+        # --------------------------------------------------
+
+        df = create_recovery_percentage(df)
 
         # --------------------------------------------------
         # Save Dataset
