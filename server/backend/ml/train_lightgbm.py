@@ -38,7 +38,47 @@ def load_and_prepare_data(data_dir):
     
     return X_train, X_test, y_train, y_test, target_encoder
 
+# ==========================================================
+# PART 2: MODEL TRAINING & EVALUATION (Member 2)
+# ==========================================================
 
+def train_and_evaluate_model(X_train, X_test, y_train, y_test, target_encoder, model_dir):
+    """
+    Trains LGBMClassifier, runs predictions, evaluates metrics, and saves model.
+    """
+    # Model Initialization
+    model = LGBMClassifier(
+        n_estimators=300,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="multiclass",
+        random_state=RANDOM_STATE,
+        verbose=-1
+    )
+
+    print("\nTraining LightGBM...")
+    model.fit(X_train, y_train)
+
+    # Evaluation
+    predictions = model.predict(X_test)
+    accuracy = accuracy_score(y_test, predictions)
+
+    print(f"\nAccuracy: {accuracy:.4f}")
+    print("\nClassification Report:\n")
+    print(classification_report(y_test, predictions, target_names=target_encoder.classes_))
+
+    print("\nConfusion Matrix:\n")
+    print(confusion_matrix(y_test, predictions))
+
+    # Save Model
+    os.makedirs(model_dir, exist_ok=True)
+    model_path = os.path.join(model_dir, "lightgbm_model.pkl")
+    joblib.dump(model, model_path)
+
+    print(f"\nModel saved to:\n{model_path}")
+    
 # ==========================================================
 # MAIN EXECUTION PIPELINE
 # ==========================================================
