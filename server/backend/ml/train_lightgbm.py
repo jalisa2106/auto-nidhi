@@ -54,6 +54,7 @@ def train_and_evaluate_model(X_train, X_test, y_train, y_test, target_encoder, m
         subsample=0.8,
         colsample_bytree=0.8,
         objective="multiclass",
+        num_class=len(target_encoder.classes_),
         random_state=RANDOM_STATE,
         verbose=-1
     )
@@ -90,7 +91,14 @@ if __name__ == "__main__":
         model_dir = os.path.join(script_dir, "models")
 
         X_train, X_test, y_train, y_test, target_encoder = load_and_prepare_data(data_dir)
-        # train_and_evaluate_model(X_train, X_test, y_train, y_test, target_encoder, model_dir)
+        train_and_evaluate_model(
+            X_train,
+            X_test,
+            y_train,
+            y_test,
+            target_encoder,
+            model_dir
+        )
 
         print("\n========== LIGHTGBM PIPELINE COMPLETED ==========\n")
 
