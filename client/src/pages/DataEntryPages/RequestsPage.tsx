@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
-import { serviceRequestsApi, type ServiceRequest } from '../../api/services'
+import { serviceRequestsApi, advancesApi, type ServiceRequest } from '../../api/services'
 import { addNotification } from '../../store/notificationStore'
 import { message } from 'antd'
 
@@ -73,6 +73,8 @@ export default function RequestsPage() {
   // Modals / Dialogs states
   const [selectedReq, setSelectedReq] = useState<ServiceRequest | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [mlLoading, setMlLoading] = useState(false)
+  const [mlResult, setMlResult] = useState<any>(null)
   const [showProcessModal, setShowProcessModal] = useState(false)
   const [processRemarks, setProcessRemarks] = useState('')
   const [processing, setProcessing] = useState(false)
@@ -164,6 +166,7 @@ export default function RequestsPage() {
   const handleViewDetails = async (req: ServiceRequest) => {
     setSelectedReq(req)
     setShowDetailModal(true)
+    setMlResult(null)
     
     // Mark as viewed if unseen
     if (!req.viewed_by_consultant) {
@@ -179,6 +182,20 @@ export default function RequestsPage() {
       } catch (err) {
         console.error("Failed to mark request as viewed:", err)
       }
+    }
+
+    setMlLoading(true)
+    try {
+      const result = await advancesApi.predictRisk({
+        party_type: 'customer',
+        party_id: req.customer_id,
+        amount: req.request_type === 'loan' ? Number(req.details?.loan_amount || 0) : 0
+      })
+      setMlResult(result)
+    } catch (err) {
+      console.error("Failed to fetch ML prediction:", err)
+    } finally {
+      setMlLoading(false)
     }
   }
 
@@ -499,6 +516,81 @@ export default function RequestsPage() {
                 <p style={{ margin: 0, fontSize: '0.88rem', color: '#334155', background: '#f8fafc', padding: 10, borderRadius: 8, border: '1px solid #f1f5f9', whiteSpace: 'pre-line' }}>
                   {selectedReq.remarks || 'No remarks provided.'}
                 </p>
+              </div>
+
+              <div style={{
+                border: '1px solid #e2e8f0',
+                borderRadius: 12,
+                padding: '16px 20px',
+                background: 'linear-gradient(to bottom right, #f8fafc, #f1f5f9)',
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12
+              }}>
+                <h4 style={{ margin: 0, fontSize: '0.82rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ShieldCheck size={16} style={{ color: 'var(--brand-600)' }} /> AI Risk Assessment (AutoNidhi AI)
+                </h4>
+                
+                {mlLoading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.84rem', color: '#64748b', padding: '10px 0' }}>
+                    <Loader2 size={16} className="animate-spin" /> Assessing customer profile risk...
+                  </div>
+                ) : mlResult ? (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <span style={{ fontSize: '0.84rem', color: '#475569', fontWeight: 600 }}>Recommendation:</span>
+                      <span style={{
+                        background: mlResult.recommendation === 'Likely Approved' ? '#dcfce7' : mlResult.recommendation === 'Needs Manual Review' ? '#fef3c7' : '#fee2e2',
+                        color: mlResult.recommendation === 'Likely Approved' ? '#15803d' : mlResult.recommendation === 'Needs Manual Review' ? '#b45309' : '#b91c1c',
+                        padding: '4px 12px',
+                        borderRadius: 99,
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                      }}>
+                        {mlResult.recommendation}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                      <span style={{ fontSize: '0.84rem', color: '#475569', fontWeight: 600 }}>Confidence:</span>
+                      <div style={{ flex: 1, height: 6, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${mlResult.confidence}%`,
+                          height: '100%',
+                          background: mlResult.recommendation === 'Likely Approved' ? '#10b981' : mlResult.recommendation === 'Needs Manual Review' ? '#f59e0b' : '#ef4444',
+                          borderRadius: 99
+                        }} />
+                      </div>
+                      <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1e293b' }}>{mlResult.confidence}%</span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: '0.8rem', borderTop: '1px solid #e2e8f0', paddingTop: 10 }}>
+                      <div>
+                        <span style={{ color: '#64748b' }}>Risk Score (0-10): </span>
+                        <strong style={{ color: mlResult.risk_score > 6 ? '#ef4444' : mlResult.risk_score > 3 ? '#f59e0b' : '#10b981' }}>
+                          {mlResult.risk_score} / 10
+                        </strong>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748b' }}>Tenure Months: </span>
+                        <strong style={{ color: '#334155' }}>{mlResult.key_metrics?.tenure_months || 0}</strong>
+                      </div>
+                      {mlResult.key_metrics?.remaining_amount > 0 && (
+                        <div style={{ gridColumn: 'span 2', marginTop: 4 }}>
+                          <span style={{ color: '#ef4444', fontWeight: 600 }}>Active Overdue: </span>
+                          <strong style={{ color: '#ef4444' }}>₹{Number(mlResult.key_metrics.remaining_amount).toLocaleString('en-IN')}</strong>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', padding: '10px 0' }}>
+                    No AI model assessment data available.
+                  </div>
+                )}
               </div>
 
               {selectedReq.viewed_at && (

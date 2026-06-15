@@ -589,6 +589,18 @@ export const advancesApi = {
   remove: async (id: string) => {
     await api.delete(`/advances/${id}`, skipAuthRedirectConfig)
   },
+
+  predictRisk: async (payload: {
+    party_type: 'dealer' | 'broker'
+    party_id: string
+    amount: number
+    mode?: string
+    utr_cheque_number?: string
+    purpose?: string
+  }) => {
+    const { data } = await api.post('/advances/predict-risk', payload, skipAuthRedirectConfig)
+    return data
+  },
 }
 
 export const expenseCategoriesApi = {

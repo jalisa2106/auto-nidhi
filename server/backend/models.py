@@ -146,6 +146,8 @@ class FileRecord(Base):
     file_type = Column(String) 
     status = Column(String, nullable=False, default='draft')
     remarks = Column(String)
+    reference_dealer_id = Column(UUID(as_uuid=True), ForeignKey("master_dealer.id"), nullable=True)
+    reference_broker_id = Column(UUID(as_uuid=True), ForeignKey("master_broker.id"), nullable=True)
     is_deleted = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
@@ -153,6 +155,8 @@ class FileRecord(Base):
     customer = relationship("Customer")
     creator = relationship("SystemUser", foreign_keys=[created_by_user_id])
     assignee = relationship("SystemUser", foreign_keys=[assigned_to])
+    reference_dealer = relationship("MasterDealer", foreign_keys=[reference_dealer_id])
+    reference_broker = relationship("MasterBroker", foreign_keys=[reference_broker_id])
     finance_info = relationship("FinanceInfo", uselist=False, back_populates="file")
     insurance_info = relationship("InsuranceInfo", uselist=False, back_populates="file")
 

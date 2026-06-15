@@ -30,6 +30,10 @@ MODELS_DIR    = os.path.join(SCRIPT_DIR, "models")
 
 MODEL_PATH    = os.path.join(MODELS_DIR, "best_model.pkl")
 FEAT_ENC_PATH = os.path.join(PROCESSED_DIR, "feature_encoders.pkl")
+if not os.path.exists(FEAT_ENC_PATH):
+    FEAT_ENC_PATH = os.path.join(SCRIPT_DIR, "data_splits", "feature_encoders.pkl")
+if not os.path.exists(FEAT_ENC_PATH):
+    FEAT_ENC_PATH = os.path.join(MODELS_DIR, "rf_feature_encoders.pkl")
 TGT_ENC_PATH  = os.path.join(PROCESSED_DIR, "target_encoder.pkl")
 META_PATH     = os.path.join(MODELS_DIR, "model_metadata.json")
 
