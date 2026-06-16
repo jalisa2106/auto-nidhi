@@ -80,17 +80,6 @@ export default function RequestsPage() {
   const [processing, setProcessing] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<ServiceRequest['status']>('processed')
 
-  const statusOptions: ServiceRequest['status'][] = [
-    'pending',
-    'verification',
-    'in_progress',
-    'completed',
-    'cancelled',
-    'processed',
-    'approved',
-    'rejected'
-  ]
-
   // Warning for unseen requests older than 3 days
   const [unseenOverdueRequests, setUnseenOverdueRequests] = useState<ServiceRequest[]>([])
 

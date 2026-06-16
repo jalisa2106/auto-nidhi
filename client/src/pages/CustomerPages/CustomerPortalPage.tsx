@@ -162,12 +162,7 @@ export default function CustomerPortalPage() {
   const active    = allFiles.filter(f => !['completed', 'cancelled'].includes(normalizeStatus(f.status))).length
   const completed = allFiles.filter(f => normalizeStatus(f.status) === 'completed').length
 
-  // Pipeline counts
-  const pipeline = PIPELINE_STATUSES.map(key => ({
-    key,
-    cfg: STATUS_CONFIG[key],
-    count: allFiles.filter(f => normalizeStatus(f.status) === key).length,
-  }))
+  // Pipeline logic removed as it's no longer used in UI
 
   async function handleAssignStaff() {
     if (!selectedStaffId) return
