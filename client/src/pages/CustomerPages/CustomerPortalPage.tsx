@@ -57,7 +57,7 @@ function StatusBadge({ status }: { status?: string }) {
   )
 }
 
-const PIPELINE_STATUSES = ['draft', 'login', 'under_process', 'sanctioned', 'disbursed']
+// PIPELINE_STATUSES removed as it is no longer used
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
