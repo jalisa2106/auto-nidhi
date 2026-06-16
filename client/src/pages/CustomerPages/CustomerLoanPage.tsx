@@ -220,24 +220,18 @@ export default function CustomerLoanPage() {
       return 
     }
 
-    setSubmitting(true)
-    try {
-      // 1. Create structured Service Request in database (localStorage fallback)
-      const userRaw = localStorage.getItem('an_current_user')
-      const user = userRaw ? JSON.parse(userRaw) : null
-      await serviceRequestsApi.create({
-        customer_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Customer',
-        customer_email: user?.email || '',
-        customer_mobile: user?.phone_number || '9876543210',
-        request_type: 'loan',
-        details: {
-          vehicle_make: vehicleMake,
-          vehicle_model: vehicleModel,
-          loan_amount: Number(loanAmount),
-          tenure: Number(tenure)
-        },
-        remarks: remarks
-      })
+      setSubmitting(true)
+      try {
+        await serviceRequestsApi.create({
+          request_type: 'loan',
+          details: {
+            vehicle_make: vehicleMake,
+            vehicle_model: vehicleModel,
+            loan_amount: Number(loanAmount),
+            tenure: Number(tenure)
+          },
+          remarks: remarks
+        })
 
       // 2. Notify Admin via backend communications endpoint (legacy)
       try {
