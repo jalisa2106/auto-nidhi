@@ -12,6 +12,7 @@ import { insurancePaymentsApi, filesApi, bankAccountsApi, insuranceCompaniesApi 
 import PageHeader from '../../components/app/PageHeader'
 import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
 import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
+import FileDetailDrawer from '../../components/app/FileDetailDrawer'
 
 
 const SYSTEM_ANCHOR_DATE = "2026-05-26" 
@@ -63,6 +64,7 @@ export default function InsurancePaymentsPage({ forceRole, forceAdmin }: PagePro
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
   const [confirmDeleteInsurance, setConfirmDeleteInsurance] = useState<any>(null)
+  const [drawerFileId, setDrawerFileId] = useState<string | null>(null)
 
   const [form, setForm] = useState<InsurancePaymentForm>({
     file_id: '', insurance_company_id: '', amount: '', mode: 'UPI',
@@ -521,7 +523,12 @@ export default function InsurancePaymentsPage({ forceRole, forceAdmin }: PagePro
                         <td style={{ fontFamily: 'monospace', color: 'var(--gray-400)', fontSize: '0.82rem' }}>
                           {safeId.startsWith('temp') ? '—' : safeId.slice(0, 8)}
                         </td>
-                        <td><span className="db-file-id">{r.file_number}</span></td>
+                        <td><span
+                          className="db-file-id"
+                          style={{ cursor: 'pointer' }}
+                          title="Click to view file details"
+                          onClick={() => setDrawerFileId(r.file_id || null)}
+                        >{r.file_number}</span></td>
                         <td style={{ fontWeight: 500, color: 'var(--gray-800)' }}>{r.payee_name || r.insurance_company_name || '—'}</td>
                         <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>₹{Number(r.amount || 0).toLocaleString('en-IN')}</td>
                         <td>
@@ -1006,6 +1013,7 @@ export default function InsurancePaymentsPage({ forceRole, forceAdmin }: PagePro
           )
         }}
       />
+      {drawerFileId && <FileDetailDrawer fileId={drawerFileId} onClose={() => setDrawerFileId(null)} />}
     </>
   )
 }

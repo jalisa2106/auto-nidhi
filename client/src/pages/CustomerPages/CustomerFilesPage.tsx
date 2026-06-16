@@ -161,18 +161,37 @@ export default function CustomerFilesPage() {
               <tr>
                 <th>File No.</th>
                 <th>Type</th>
+                <th>Progress</th>
                 <th>Status</th>
                 <th>Assigned To</th>
                 <th>Finance Details</th>
                 <th>Created</th>
+                <th>Last Updated</th>
                 <th style={{ textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {paginatedFiles.map((file) => (
+              {paginatedFiles.map((file) => {
+                const STEPS = ['draft','login','under_process','sanctioned','disbursed','completed']
+                const stepIdx = STEPS.indexOf(file.status)
+                const progress = stepIdx === -1 ? 0 : Math.round(((stepIdx + 1) / STEPS.length) * 100)
+                const isCancelled = file.status === 'cancelled'
+                return (
                 <tr key={file.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/portal/files/${file.id}`)}>
                   <td className="file-number" style={{ fontWeight: 600, color: 'var(--brand-700)' }}>{file.file_number}</td>
                   <td className="file-type">{file.file_type.replace(/_/g, ' ').toUpperCase()}</td>
+                  <td style={{ minWidth: 100 }}>
+                    {isCancelled ? (
+                      <span style={{ fontSize: '.72rem', color: '#ef4444', fontWeight: 700 }}>Cancelled</span>
+                    ) : (
+                      <div>
+                        <div style={{ height: 6, borderRadius: 4, background: '#f1f5f9', overflow: 'hidden', marginBottom: 3 }}>
+                          <div style={{ height: '100%', width: `${progress}%`, background: progress === 100 ? '#22c55e' : '#6366f1', borderRadius: 4, transition: 'width .4s' }} />
+                        </div>
+                        <span style={{ fontSize: '.68rem', color: '#64748b' }}>{progress}%</span>
+                      </div>
+                    )}
+                  </td>
                   <td><FileStatusBadge status={file.status} size="small" /></td>
                   <td>{file.assigned_to || '—'}</td>
                   <td>
@@ -184,13 +203,17 @@ export default function CustomerFilesPage() {
                     ) : '—'}
                   </td>
                   <td>{new Date(file.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
+                  <td style={{ fontSize: '.78rem', color: '#64748b' }}>
+                    {file.updated_at ? new Date(file.updated_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
+                  </td>
                   <td style={{ textAlign: 'right' }}>
                     <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/portal/files/${file.id}`); }}>
                       View Details →
                     </button>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
           <Pagination

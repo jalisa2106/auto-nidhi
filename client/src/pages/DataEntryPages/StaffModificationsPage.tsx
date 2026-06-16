@@ -35,7 +35,7 @@ export default function StaffModificationsPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await api.get('/customer/modifications')
+      const res = await api.get('/api/v1/customer/modifications')
       setRequests(res.data || [])
     } catch (err: any) {
       setError('Failed to load requests.')
@@ -64,7 +64,7 @@ export default function StaffModificationsPage() {
 
     setSubmitting(true)
     try {
-      await api.post('/customer/modifications', {
+      await api.post('/api/v1/customer/modifications', {
         entity_type: entityType,
         entity_id: entityId,
         request_type: requestType,

@@ -4,9 +4,10 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, User,
   FolderOpen, TrendingUp, TrendingDown, ShieldCheck,
   Car, CreditCard, IndianRupee, Receipt, BadgeCheck, Clock,
-  AlertTriangle, CheckCircle2, Eye,
+  AlertTriangle, CheckCircle2, Eye, UserCheck, RefreshCw,
 } from 'lucide-react'
-import { customerProfileApi } from '../../api/services'
+import { customerProfileApi, customersApi } from '../../api/services'
+import api from '../../api/axios'
 
 interface CustomerDetail {
   id: string
@@ -121,9 +122,21 @@ function KPICard({
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const userRole = (localStorage.getItem('user_role') || '').toLowerCase().replace(' ', '_')
+  const isAdminUser = userRole === 'admin'
   const [customer, setCustomer] = useState<CustomerDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [editingType, setEditingType] = useState(false)
+  const [savingType, setSavingType] = useState(false)
+  const [pendingType, setPendingType] = useState<'individual' | 'business'>('individual')
+
+  // Assigned staff states (admin only)
+  const [assignedStaff, setAssignedStaff] = useState<{ id: string; name: string; email: string } | null>(null)
+  const [staffList, setStaffList] = useState<{ id: string; name: string; email: string }[]>([])
+  const [assigningStaff, setAssigningStaff] = useState(false)
+  const [selectedStaffId, setSelectedStaffId] = useState('')
+  const [showAssignDropdown, setShowAssignDropdown] = useState(false)
 
   // Document verification states
   const [documents, setDocuments] = useState<any[]>([])
@@ -134,6 +147,7 @@ export default function CustomerDetailPage() {
   useEffect(() => {
     if (!id) return
     load()
+    if (isAdminUser) loadStaffData()
   }, [id])
 
   async function load() {
@@ -148,10 +162,63 @@ export default function CustomerDetailPage() {
       } catch (err) {
         console.error('Failed to load documents', err)
       }
+      // Load assigned staff for this customer
+      if (isAdminUser) {
+        try {
+          const res = await api.get(`/customers/${id}/assigned-staff`)
+          if (res.data?.staff_id) {
+            setAssignedStaff({ id: res.data.staff_id, name: res.data.staff_name, email: res.data.staff_email || '' })
+            setSelectedStaffId(res.data.staff_id)
+          }
+        } catch { /* no assignment yet */ }
+      }
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Failed to load customer details')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadStaffData() {
+    try {
+      // /service-requests/consultants lists active data_entry/staff users
+      const res = await api.get('/service-requests/consultants')
+      const users = Array.isArray(res.data) ? res.data : []
+      setStaffList(users.map((u: any) => ({
+        id: u.id,
+        name: u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+        email: u.email || ''
+      })))
+    } catch { /* silent */ }
+  }
+
+  async function handleAssignStaff() {
+    if (!selectedStaffId || !id) return
+    setAssigningStaff(true)
+    try {
+      await api.post(`/customers/${id}/assign-staff`, { staff_id: selectedStaffId })
+      const found = staffList.find(s => s.id === selectedStaffId)
+      if (found) setAssignedStaff(found)
+      setShowAssignDropdown(false)
+    } catch (e: any) {
+      alert(e?.response?.data?.detail || 'Failed to assign staff')
+    } finally {
+      setAssigningStaff(false)
+    }
+  }
+
+  const handleTypeChange = async () => {
+    if (!id || !customer) return
+    setSavingType(true)
+    try {
+      await customersApi.update(id, { customer_type: pendingType })
+      setCustomer(prev => prev ? { ...prev, customer_type: pendingType } : prev)
+      setEditingType(false)
+    } catch (e) {
+      console.error('Failed to update customer type', e)
+      alert('Failed to update customer type. Please try again.')
+    } finally {
+      setSavingType(false)
     }
   }
 
@@ -253,12 +320,62 @@ export default function CustomerDetailPage() {
             <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
               {customer.full_name}
             </h2>
-            <span style={{
-              padding: '3px 10px', borderRadius: 99, fontSize: '.72rem', fontWeight: 700,
-              background: typeColor.bg, color: typeColor.color,
-            }}>
-              {typeLabel}
-            </span>
+            {/* Customer Type — editable toggle */}
+            {editingType ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <select
+                  value={pendingType}
+                  onChange={e => setPendingType(e.target.value as 'individual' | 'business')}
+                  style={{
+                    fontSize: '.78rem', fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+                    border: '1px solid #cbd5e1', outline: 'none', background: '#fff'
+                  }}
+                >
+                  <option value="individual">Individual</option>
+                  <option value="business">Business</option>
+                </select>
+                <button
+                  onClick={handleTypeChange}
+                  disabled={savingType}
+                  style={{
+                    fontSize: '.72rem', fontWeight: 700, padding: '3px 10px', borderRadius: 6,
+                    background: '#6366f1', color: '#fff', border: 'none', cursor: 'pointer'
+                  }}
+                >
+                  {savingType ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setEditingType(false)}
+                  disabled={savingType}
+                  style={{
+                    fontSize: '.72rem', fontWeight: 600, padding: '3px 8px', borderRadius: 6,
+                    background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{
+                  padding: '3px 10px', borderRadius: 99, fontSize: '.72rem', fontWeight: 700,
+                  background: typeColor.bg, color: typeColor.color,
+                }}>
+                  {typeLabel}
+                </span>
+                <button
+                  onClick={() => { setPendingType(customer.customer_type as 'individual' | 'business'); setEditingType(true) }}
+                  title="Change customer type"
+                  style={{
+                    fontSize: '.7rem', color: '#6366f1', fontWeight: 600,
+                    background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px',
+                    textDecoration: 'underline', textUnderlineOffset: 2
+                  }}
+                >
+                  Change
+                </button>
+              </div>
+            )}
             <span style={{
               padding: '3px 10px', borderRadius: 99, fontSize: '.72rem', fontWeight: 700,
               background: '#dcfce7', color: '#166534',
@@ -435,6 +552,84 @@ export default function CustomerDetailPage() {
           </div>
         )}
       </div>
+
+      {/* ── Assigned Staff Section (admin only) ── */}
+      {isAdminUser && (
+        <div style={{
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14,
+          padding: '20px 24px', marginBottom: 24, boxShadow: '0 1px 4px rgba(0,0,0,.04)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <UserCheck size={16} color="#6366f1" />
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>Assigned Staff</h3>
+            </div>
+            <button
+              onClick={() => setShowAssignDropdown(v => !v)}
+              style={{
+                fontSize: '.78rem', fontWeight: 600, padding: '5px 12px',
+                borderRadius: 8, border: '1px solid #cbd5e1',
+                background: showAssignDropdown ? '#6366f1' : '#fff',
+                color: showAssignDropdown ? '#fff' : '#475569', cursor: 'pointer'
+              }}
+            >
+              {showAssignDropdown ? 'Cancel' : assignedStaff ? 'Change Staff' : 'Assign Staff'}
+            </button>
+          </div>
+
+          {assignedStaff && !showAssignDropdown ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{
+                width: 42, height: 42, borderRadius: '50%',
+                background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontWeight: 800, fontSize: '1rem', flexShrink: 0
+              }}>
+                {assignedStaff.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '.92rem' }}>{assignedStaff.name}</div>
+                {assignedStaff.email && <div style={{ fontSize: '.78rem', color: '#64748b' }}>{assignedStaff.email}</div>}
+                <div style={{ fontSize: '.72rem', color: '#22c55e', fontWeight: 600, marginTop: 2 }}>● Active Assignment</div>
+              </div>
+            </div>
+          ) : !showAssignDropdown ? (
+            <div style={{ color: '#94a3b8', fontSize: '.85rem', fontStyle: 'italic' }}>No staff assigned yet. Click "Assign Staff" to assign.</div>
+          ) : null}
+
+          {showAssignDropdown && (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                value={selectedStaffId}
+                onChange={e => setSelectedStaffId(e.target.value)}
+                style={{
+                  flex: 1, minWidth: 200, padding: '8px 12px', borderRadius: 8,
+                  border: '1px solid #cbd5e1', fontSize: '.85rem', outline: 'none'
+                }}
+              >
+                <option value="">— Select Staff Member —</option>
+                {staffList.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}{s.email ? ` (${s.email})` : ''}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleAssignStaff}
+                disabled={!selectedStaffId || assigningStaff}
+                style={{
+                  padding: '8px 18px', borderRadius: 8, border: 'none',
+                  background: '#6366f1', color: '#fff', fontWeight: 700,
+                  cursor: selectedStaffId ? 'pointer' : 'not-allowed',
+                  opacity: selectedStaffId ? 1 : 0.6, fontSize: '.85rem',
+                  display: 'flex', alignItems: 'center', gap: 6
+                }}
+              >
+                {assigningStaff ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <UserCheck size={13} />}
+                {assigningStaff ? 'Saving…' : 'Confirm'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Documents Section ── */}
       <div className="data-card" style={{ marginTop: 24 }}>

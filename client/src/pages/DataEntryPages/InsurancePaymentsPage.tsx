@@ -1,6 +1,7 @@
-import InsurancePaymentsPage from '../AdminPages/InsurancePaymentsPage'
+// Staff Insurance Payments page — re-uses the admin InsurancePaymentsPage with delete disabled.
+// forceAdmin={false} hides all admin-only controls (delete button).
+import AdminInsurancePaymentsPage from '../AdminPages/InsurancePaymentsPage'
 
-export default function StaffInsurancePaymentsPage() {
-  return <InsurancePaymentsPage forceRole="data_entry" />
+export default function InsurancePaymentsPage() {
+  return <AdminInsurancePaymentsPage forceAdmin={false} />
 }
-

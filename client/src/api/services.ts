@@ -591,13 +591,19 @@ export const advancesApi = {
   },
 
   predictRisk: async (payload: {
-    party_type: 'dealer' | 'broker'
+    party_type: 'dealer' | 'broker' | 'customer'
     party_id: string
     amount: number
     mode?: string
     utr_cheque_number?: string
+    bank_id?: string
+    remarks?: string
     purpose?: string
-  }) => {
+  }): Promise<{
+    risk_score: number
+    risk_category: string
+    reasons: string[]
+  }> => {
     const { data } = await api.post('/advances/predict-risk', payload, skipAuthRedirectConfig)
     return data
   },
@@ -1002,9 +1008,9 @@ export const serviceRequestsApi = {
 
   create: async (payload: {
     customer_id?: string
-    customer_name: string
-    customer_email: string
-    customer_mobile: string
+    customer_name?: string
+    customer_email?: string
+    customer_mobile?: string
     request_type: 'loan' | 'rto' | 'insurance' | 'other'
     details: any
     remarks: string

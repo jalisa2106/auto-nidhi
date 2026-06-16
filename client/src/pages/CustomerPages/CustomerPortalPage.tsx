@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   FolderOpen, Clock, AlertCircle, CheckCircle2,
   ArrowRight, FileText, Car, ShieldCheck,
-  ChevronRight, CreditCard, User, UserCircle2
+  ChevronRight, CreditCard, User, UserCircle2, UserCheck, X
 } from 'lucide-react'
 import { customerDashboardApi } from '../../api/services'
 import api from '../../api/axios'
@@ -57,7 +57,7 @@ function StatusBadge({ status }: { status?: string }) {
   )
 }
 
-const PIPELINE_STATUSES = ['draft', 'login', 'under_process', 'sanctioned', 'disbursed']
+// PIPELINE_STATUSES removed as it is no longer used
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
@@ -71,11 +71,18 @@ export default function CustomerPortalPage() {
   count: 0,
 })
   const [actionRequired, setActionRequired] = useState<ActionRequiredData | null>(null)
-  // FIXED: Removed the 'unread' variable to resolve TS6133, but kept the setter.
   const [, setUnread] = useState(unreadCount())
   const [loading, setLoading] = useState(true)
   const [firstName, setFirstName] = useState('Customer')
   const [allocatedStaff, setAllocatedStaff] = useState<{name: string, email: string, since: string} | null>(null)
+
+  // Onboarding: staff selection
+  const [showStaffModal, setShowStaffModal] = useState(false)
+  const [staffOptions, setStaffOptions] = useState<{id: string; name: string; email: string}[]>([])
+  const [selectedStaffId, setSelectedStaffId] = useState('')
+  const [savingStaff, setSavingStaff] = useState(false)
+  const [staffSaved, setStaffSaved] = useState(false)
+  const [showBanner, setShowBanner] = useState(false)
 
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'
 
@@ -85,6 +92,19 @@ export default function CustomerPortalPage() {
         setFirstName(res.user?.first_name || 'Customer')
         if (res.dashboard?.allocated_staff) {
           setAllocatedStaff(res.dashboard.allocated_staff)
+        } else {
+          // No staff assigned — show onboarding banner (once per session)
+          const dismissed = sessionStorage.getItem('staff_banner_dismissed')
+          if (!dismissed) setShowBanner(true)
+          // Pre-load staff list
+          api.get('/service-requests/consultants').then(r => {
+            const users = Array.isArray(r.data) ? r.data : []
+            setStaffOptions(users.map((u: any) => ({
+              id: u.id,
+              name: u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+              email: u.email || ''
+            })))
+          }).catch(() => {})
         }
       })
       .catch(() => {})
@@ -142,15 +162,117 @@ export default function CustomerPortalPage() {
   const active    = allFiles.filter(f => !['completed', 'cancelled'].includes(normalizeStatus(f.status))).length
   const completed = allFiles.filter(f => normalizeStatus(f.status) === 'completed').length
 
-  // Pipeline counts
-  const pipeline = PIPELINE_STATUSES.map(key => ({
-    key,
-    cfg: STATUS_CONFIG[key],
-    count: allFiles.filter(f => normalizeStatus(f.status) === key).length,
-  }))
+  // Pipeline logic removed as it's no longer used in UI
+
+  async function handleAssignStaff() {
+    if (!selectedStaffId) return
+    setSavingStaff(true)
+    try {
+      // get customer id from dashboard data
+      const dashRes = await api.get('/portal/profile')
+      const customerId = dashRes.data?.customer_id || dashRes.data?.id
+      if (customerId) {
+        await api.post(`/customers/${customerId}/assign-staff`, { staff_id: selectedStaffId })
+      }
+      const found = staffOptions.find(s => s.id === selectedStaffId)
+      if (found) {
+        setAllocatedStaff({ name: found.name, email: found.email, since: new Date().toISOString() })
+      }
+      setStaffSaved(true)
+      setShowStaffModal(false)
+      setShowBanner(false)
+      sessionStorage.setItem('staff_banner_dismissed', '1')
+    } catch { /* silent */ } finally { setSavingStaff(false) }
+  }
 
   return (
     <div className="db-root customer-db">
+      {/* Onboarding Banner — shown when no consultant assigned */}
+      {showBanner && !allocatedStaff && (
+        <div style={{
+          background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+          borderRadius: 14, padding: '16px 20px', marginBottom: 20,
+          display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+          boxShadow: '0 4px 20px rgba(99,102,241,.25)'
+        }}>
+          <UserCheck size={28} color="#fff" style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, color: '#fff', fontSize: '1rem' }}>Choose your AutoNidhi Consultant</div>
+            <div style={{ fontSize: '.82rem', color: 'rgba(255,255,255,.8)', marginTop: 2 }}>
+              Assign a dedicated consultant who will manage your applications and files.
+            </div>
+          </div>
+          <button
+            onClick={() => setShowStaffModal(true)}
+            style={{ padding: '8px 18px', borderRadius: 8, background: '#fff', color: '#6366f1', fontWeight: 700, border: 'none', cursor: 'pointer', fontSize: '.85rem' }}
+          >
+            Select Consultant
+          </button>
+          <button onClick={() => { setShowBanner(false); sessionStorage.setItem('staff_banner_dismissed','1') }}
+            style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,.7)', cursor: 'pointer', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* Staff Selection Modal */}
+      {showStaffModal && (
+        <div className="modal-backdrop" onClick={() => setShowStaffModal(false)}>
+          <div className="modal" style={{ maxWidth: 480, width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>Choose Your Consultant</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowStaffModal(false)}><X size={16} /></button>
+            </div>
+            <div className="modal-body" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ margin: 0, fontSize: '.85rem', color: '#64748b' }}>
+                Select the AutoNidhi staff member who will handle your profile and applications.
+              </p>
+              {staffOptions.length === 0 ? (
+                <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px 0', fontSize: '.85rem' }}>No consultants available right now. Admin will assign one shortly.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+                  {staffOptions.map(s => (
+                    <div key={s.id} onClick={() => setSelectedStaffId(s.id)} style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                      border: `2px solid ${selectedStaffId === s.id ? '#6366f1' : '#e2e8f0'}`,
+                      background: selectedStaffId === s.id ? '#eef2ff' : '#fff',
+                      transition: 'all .15s'
+                    }}>
+                      <div style={{
+                        width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                        background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontWeight: 800, fontSize: '.9rem'
+                      }}>
+                        {s.name.split(' ').map((n: string) => n[0]).slice(0,2).join('').toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '.88rem' }}>{s.name}</div>
+                        {s.email && <div style={{ fontSize: '.74rem', color: '#64748b' }}>{s.email}</div>}
+                      </div>
+                      {selectedStaffId === s.id && <CheckCircle2 size={18} color="#6366f1" />}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {staffSaved && <div style={{ color: '#16a34a', fontSize: '.82rem', fontWeight: 600 }}>✓ Consultant assigned successfully!</div>}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button className="btn btn-outline btn-sm" onClick={() => { setShowStaffModal(false); sessionStorage.setItem('staff_banner_dismissed','1') }}>Skip for now</button>
+              <button
+                className="btn btn-primary btn-sm"
+                disabled={!selectedStaffId || savingStaff}
+                onClick={handleAssignStaff}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                {savingStaff ? 'Saving…' : <><UserCheck size={14} /> Confirm</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Welcome Banner ── */}
       <div className="db-welcome">
         <div>
@@ -263,46 +385,8 @@ export default function CustomerPortalPage() {
         )
       )}
 
-      {/* ── Row 2: Pipeline + Services ── */}
-      <div className="db-row2">
-        {/* File Status Pipeline */}
-        <div className="db-card db-pipeline">
-          <div className="db-card-header">
-            <div className="db-card-title"><Car size={16} /> File Status Pipeline</div>
-            <Link to="/portal/files" className="db-see-all">View all <ArrowRight size={12} /></Link>
-          </div>
-          <div className="db-pipeline-grid">
-            {pipeline.map(p => (
-              <div
-                key={p.key}
-                className="db-pipeline-item"
-                style={{ background: p.cfg.bg, cursor: 'pointer' }}
-                onClick={() => navigate('/portal/files')}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.cfg.dot, flexShrink: 0 }} />
-                  <span style={{ fontSize: '.72rem', fontWeight: 700, color: p.cfg.text, textTransform: 'uppercase', letterSpacing: '.5px' }}>
-                    {p.cfg.label}
-                  </span>
-                </div>
-                <div style={{ fontSize: '2rem', fontWeight: 900, color: p.cfg.text, lineHeight: 1 }}>{p.count}</div>
-                <div style={{ fontSize: '.72rem', color: p.cfg.text, opacity: 0.7, marginTop: 4 }}>
-                  {p.count === 1 ? 'file' : 'files'}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="db-pipeline-bar">
-            {pipeline.map(p => p.count > 0 && (
-              <div
-                key={p.key}
-                title={`${p.cfg.label}: ${p.count}`}
-                style={{ flex: p.count, height: 6, background: p.cfg.dot, borderRadius: 4, transition: 'flex .4s ease' }}
-              />
-            ))}
-          </div>
-        </div>
-
+      {/* ── Row 2: Services ── */}
+      <div className="db-row2" style={{ gridTemplateColumns: '1fr' }}>
         {/* Apply for new service */}
         <div className="db-card">
           <div className="db-card-header">

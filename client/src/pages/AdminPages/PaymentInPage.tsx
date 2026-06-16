@@ -13,6 +13,7 @@ import { paymentsInApi, filesApi, bankAccountsApi } from '../../api/services'
 import { addNotification } from '../../store/notificationStore'
 import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
 import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
+import FileDetailDrawer from '../../components/app/FileDetailDrawer'
 
 const PAYMENT_MODES = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
 const PAYMENT_FROM  = ['Customer', 'Bank', 'Insurer', 'Other'] as const
@@ -115,6 +116,8 @@ export default function PaymentInPage({ forceRole, forceAdmin }: PageProps = {})
   // Pagination
   const [page, setPage]           = useState(1)
   const [pageSize, setPageSize]   = useState(5)
+
+  const [drawerFileId, setDrawerFileId] = useState<string | null>(null)
 
   // Fetch Payments from DB
   const loadPayments = async () => {
@@ -502,7 +505,12 @@ export default function PaymentInPage({ forceRole, forceAdmin }: PageProps = {})
                         {(page - 1) * pageSize + i + 1}
                       </td>
                       <td>
-                        <span className="db-file-id">{r.file_number}</span>
+                        <span
+                          className="db-file-id"
+                          style={{ cursor: 'pointer' }}
+                          title="Click to view file details"
+                          onClick={() => setDrawerFileId(r.file_id || null)}
+                        >{r.file_number}</span>
                       </td>
                       <td style={{ fontWeight: 500, color: 'var(--gray-800)' }}>{r.customer}</td>
                       <td className="amt-neutral">{fmtINR(r.payment_amount)}</td>
@@ -1045,6 +1053,7 @@ export default function PaymentInPage({ forceRole, forceAdmin }: PageProps = {})
           );
         }}
       />
+      {drawerFileId && <FileDetailDrawer fileId={drawerFileId} onClose={() => setDrawerFileId(null)} />}
     </>
   )
 }

@@ -206,13 +206,8 @@ const loadData = () => {
 
     setSubmitting(true)
     try {
-      // 1. Log structured request
-      const userRaw = localStorage.getItem('an_current_user')
-      const user = userRaw ? JSON.parse(userRaw) : null
+      // Log structured request — backend auto-identifies customer from JWT
       await serviceRequestsApi.create({
-        customer_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Customer',
-        customer_email: user?.email || '',
-        customer_mobile: user?.phone_number || '9876543210',
         request_type: 'insurance',
         details: {
           registration_no: regNo,

@@ -23,6 +23,11 @@ class BankAccountCreate(BaseModel):
     account_number: str
     ifsc_code: str
     area: Optional[str] = None
+    account_holder_name: Optional[str] = None
+    branch_name: Optional[str] = None
+    upi_id: Optional[str] = None
+    is_primary: bool = False
+    notes: Optional[str] = None
 
     @validator("bank_name")
     def validate_bank_name(cls, v: str) -> str:
@@ -53,6 +58,11 @@ class BankAccountUpdate(BaseModel):
     account_number: Optional[str] = None
     ifsc_code: Optional[str] = None
     area: Optional[str] = None
+    account_holder_name: Optional[str] = None
+    branch_name: Optional[str] = None
+    upi_id: Optional[str] = None
+    is_primary: Optional[bool] = None
+    notes: Optional[str] = None
 
     @validator("bank_name")
     def validate_bank_name(cls, v: Optional[str]) -> Optional[str]:
@@ -90,6 +100,11 @@ def _serialize(b: MasterCompanyBank) -> dict:
         "account_number": b.account_number,
         "ifsc_code": b.ifsc_code,
         "area": b.area,
+        "account_holder_name": b.account_holder_name,
+        "branch_name": b.branch_name,
+        "upi_id": b.upi_id,
+        "is_primary": b.is_primary or False,
+        "notes": b.notes,
     }
 
 
@@ -136,6 +151,11 @@ def create_bank_account(
         account_number=payload.account_number,
         ifsc_code=payload.ifsc_code.upper(),
         area=payload.area,
+        account_holder_name=payload.account_holder_name,
+        branch_name=payload.branch_name,
+        upi_id=payload.upi_id,
+        is_primary=payload.is_primary,
+        notes=payload.notes,
     )
     db.add(bank)
     try:

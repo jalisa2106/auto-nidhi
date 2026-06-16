@@ -1,6 +1,7 @@
-import PaymentOutPage from '../AdminPages/PaymentOutPage'
+// Staff Payment OUT page — re-uses the admin PaymentOutPage with delete/edit disabled.
+// forceAdmin={false} hides all admin-only controls (delete button, bulk actions).
+import AdminPaymentOutPage from '../AdminPages/PaymentOutPage'
 
-export default function StaffPaymentOutPage() {
-  return <PaymentOutPage forceRole="data_entry" />
+export default function PaymentOutPage() {
+  return <AdminPaymentOutPage forceAdmin={false} />
 }
- 

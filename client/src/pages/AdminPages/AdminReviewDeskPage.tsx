@@ -40,7 +40,7 @@ export default function AdminReviewDeskPage() {
   const loadTickets = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/admin/modifications/pipeline')
+      const res = await api.get('/api/v1/admin/modifications/pipeline')
       setTickets(res.data || [])
     } catch (err) {
       console.warn('Failed to sync master management queue:', err)
@@ -68,7 +68,7 @@ export default function AdminReviewDeskPage() {
 
     setActioning(true)
     try {
-      await api.post(`/admin/modifications/pipeline/${actionModal.id}/evaluate`, { 
+      await api.post(`/api/v1/admin/modifications/pipeline/${actionModal.id}/evaluate`, { 
         decision: actionModal.action,
         note: adminNote.trim() || undefined
       })
@@ -126,12 +126,12 @@ export default function AdminReviewDeskPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Escalated By</th>
-              <th>Data Target Node</th>
-              <th>Target Identifier</th>
-              <th>Modification Type</th>
-              <th style={{ width: '30%' }}>Operational Justification Reason</th>
-              <th style={{ textAlign: 'right' }}>Actions Workspace</th>
+              <th>Submitted By</th>
+              <th>Category</th>
+              <th>Reference ID</th>
+              <th>Type</th>
+              <th style={{ width: '30%' }}>Reason</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>

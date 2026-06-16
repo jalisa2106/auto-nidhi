@@ -3,7 +3,7 @@ import { message } from 'antd'
 import {
   Plus, X, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  Landmark, RotateCcw,
+  Landmark, RotateCcw, Star,
 } from 'lucide-react'
 import PageHeader from '../../components/app/PageHeader'
 import { bankAccountsApi } from '../../api/services'
@@ -16,6 +16,11 @@ interface BankAccount {
   account_number: string
   ifsc_code: string
   area: string | null
+  account_holder_name: string | null
+  branch_name: string | null
+  upi_id: string | null
+  is_primary: boolean
+  notes: string | null
 }
 
 const EMPTY_FORM = {
@@ -23,6 +28,11 @@ const EMPTY_FORM = {
   account_number: '',
   ifsc_code: '',
   area: '',
+  account_holder_name: '',
+  branch_name: '',
+  upi_id: '',
+  is_primary: false,
+  notes: '',
 }
 type FormState = typeof EMPTY_FORM
 
@@ -104,14 +114,16 @@ export default function BankAccountsPage() {
     try {
       const res = await bankAccountsApi.list(page, pageSize)
       let data: BankAccount[] = res.data || []
-      // Client-side search filter
       if (search.trim()) {
         const q = search.trim().toLowerCase()
         data = data.filter(b =>
           b.bank_name.toLowerCase().includes(q) ||
           b.account_number.toLowerCase().includes(q) ||
           b.ifsc_code.toLowerCase().includes(q) ||
-          (b.area || '').toLowerCase().includes(q)
+          (b.area || '').toLowerCase().includes(q) ||
+          (b.account_holder_name || '').toLowerCase().includes(q) ||
+          (b.branch_name || '').toLowerCase().includes(q) ||
+          (b.upi_id || '').toLowerCase().includes(q)
         )
       }
       setRows(data)
@@ -139,6 +151,11 @@ export default function BankAccountsPage() {
       account_number: b.account_number,
       ifsc_code: b.ifsc_code,
       area: b.area || '',
+      account_holder_name: b.account_holder_name || '',
+      branch_name: b.branch_name || '',
+      upi_id: b.upi_id || '',
+      is_primary: b.is_primary,
+      notes: b.notes || '',
     })
     setErrors({})
     setShowModal(true)
@@ -151,9 +168,9 @@ export default function BankAccountsPage() {
     setErrors({})
   }
 
-  function setField(key: keyof FormState, value: string) {
+  function setField(key: keyof FormState, value: string | boolean) {
     setForm(prev => ({ ...prev, [key]: value }))
-    if (errors[key]) setErrors(prev => { const n = { ...prev }; delete n[key]; return n })
+    if (errors[key as string]) setErrors(prev => { const n = { ...prev }; delete n[key as string]; return n })
   }
 
   function validate() {
@@ -165,6 +182,8 @@ export default function BankAccountsPage() {
     const ifsc = form.ifsc_code.trim().toUpperCase()
     if (!ifsc) e.ifsc_code = 'IFSC code is required'
     else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) e.ifsc_code = 'Invalid IFSC format (e.g. HDFC0001234)'
+    if (form.upi_id.trim() && !/^[\w.\-]+@[\w.\-]+$/.test(form.upi_id.trim()))
+      e.upi_id = 'Invalid UPI ID format (e.g. autonidhi@hdfc)'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -172,11 +191,16 @@ export default function BankAccountsPage() {
   async function handleSave() {
     if (!validate()) return
     setSaving(true)
-    const payload = {
+    const payload: any = {
       bank_name: form.bank_name.trim(),
       account_number: form.account_number.trim(),
       ifsc_code: form.ifsc_code.trim().toUpperCase(),
       area: form.area.trim() || undefined,
+      account_holder_name: form.account_holder_name.trim() || undefined,
+      branch_name: form.branch_name.trim() || undefined,
+      upi_id: form.upi_id.trim() || undefined,
+      is_primary: form.is_primary,
+      notes: form.notes.trim() || undefined,
     }
     try {
       if (editId) {
@@ -213,8 +237,6 @@ export default function BankAccountsPage() {
     }
   }
 
-  const filteredRows = rows
-
   return (
     <>
       <PageHeader
@@ -229,7 +251,7 @@ export default function BankAccountsPage() {
           <input
             id="bank-search"
             className="pay-filter-input"
-            placeholder="Bank name, account number, IFSC, area…"
+            placeholder="Bank name, account number, IFSC, UPI ID…"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
           />
@@ -251,7 +273,7 @@ export default function BankAccountsPage() {
 
       {/* ── Table ── */}
       <div className="data-card">
-        {filteredRows.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="data-empty">
             {search ? 'No bank accounts match your search.' : 'No bank accounts added yet. Click "Add Bank Account" to get started.'}
           </div>
@@ -263,14 +285,16 @@ export default function BankAccountsPage() {
                   <tr>
                     <th>#</th>
                     <th>Bank Name</th>
+                    <th>Account Holder</th>
                     <th>Account Number</th>
                     <th>IFSC Code</th>
-                    <th>Area / Branch</th>
+                    <th>Branch</th>
+                    <th>UPI ID</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map((b, i) => (
+                  {rows.map((b, i) => (
                     <tr key={b.id}>
                       <td style={{ color: 'var(--gray-400)', fontSize: '.8rem' }}>
                         {(page - 1) * pageSize + i + 1}
@@ -279,20 +303,37 @@ export default function BankAccountsPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{
                             width: 32, height: 32, borderRadius: 8,
-                            background: 'var(--brand-50)', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                            background: b.is_primary ? '#fef9c3' : 'var(--brand-50)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                           }}>
-                            <Landmark size={15} color="var(--brand-600)" />
+                            {b.is_primary
+                              ? <Star size={15} color="#ca8a04" fill="#ca8a04" />
+                              : <Landmark size={15} color="var(--brand-600)" />
+                            }
                           </span>
-                          <span style={{ fontWeight: 600, color: 'var(--gray-800)' }}>{b.bank_name}</span>
+                          <div>
+                            <div style={{ fontWeight: 600, color: 'var(--gray-800)' }}>{b.bank_name}</div>
+                            {b.is_primary && (
+                              <span style={{
+                                fontSize: '.68rem', fontWeight: 700, color: '#92400e',
+                                background: '#fef9c3', padding: '1px 6px', borderRadius: 4,
+                              }}>PRIMARY</span>
+                            )}
+                          </div>
                         </div>
+                      </td>
+                      <td style={{ fontSize: '.84rem', color: 'var(--gray-600)' }}>
+                        {b.account_holder_name || '—'}
                       </td>
                       <td style={{ fontFamily: 'monospace', fontSize: '.9rem', color: 'var(--gray-700)' }}>
                         {b.account_number}
                       </td>
                       <td><IFSCBadge code={b.ifsc_code} /></td>
                       <td style={{ fontSize: '.84rem', color: 'var(--gray-500)' }}>
-                        {b.area || '—'}
+                        {b.branch_name || b.area || '—'}
+                      </td>
+                      <td style={{ fontSize: '.82rem', color: 'var(--gray-500)', fontFamily: 'monospace' }}>
+                        {b.upi_id || '—'}
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
@@ -333,7 +374,7 @@ export default function BankAccountsPage() {
       {/* ── Add / Edit Modal ── */}
       {showModal && (
         <div className="modal-backdrop" onClick={closeModal}>
-          <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editId ? 'Edit Bank Account' : 'Add Bank Account'}</h3>
               <button className="btn btn-ghost btn-sm" onClick={closeModal}><X size={16} /></button>
@@ -355,6 +396,18 @@ export default function BankAccountsPage() {
                       onChange={e => setField('bank_name', e.target.value)}
                     />
                     {errors.bank_name && <span className="form-error">{errors.bank_name}</span>}
+                  </div>
+
+                  {/* Account Holder Name */}
+                  <div className="form-group modal-full">
+                    <label className="form-label">Account Holder Name</label>
+                    <input
+                      id="bank-holder-input"
+                      className="form-input"
+                      placeholder="e.g. AutoNidhi Finance Pvt Ltd"
+                      value={form.account_holder_name}
+                      onChange={e => setField('account_holder_name', e.target.value)}
+                    />
                   </div>
 
                   {/* Account Number */}
@@ -389,17 +442,73 @@ export default function BankAccountsPage() {
                     {errors.ifsc_code && <span className="form-error">{errors.ifsc_code}</span>}
                   </div>
 
+                  {/* Branch Name */}
+                  <div className="form-group">
+                    <label className="form-label">Branch Name</label>
+                    <input
+                      id="bank-branch-input"
+                      className="form-input"
+                      placeholder="e.g. HDFC Bank, Rajkot Main Branch"
+                      value={form.branch_name}
+                      onChange={e => setField('branch_name', e.target.value)}
+                    />
+                  </div>
+
+                  {/* UPI ID */}
+                  <div className="form-group">
+                    <label className="form-label">UPI ID</label>
+                    <input
+                      id="bank-upi-input"
+                      className={`form-input${errors.upi_id ? ' error' : ''}`}
+                      placeholder="e.g. autonidhi@hdfc"
+                      value={form.upi_id}
+                      onChange={e => setField('upi_id', e.target.value)}
+                      style={{ fontFamily: 'monospace' }}
+                    />
+                    {errors.upi_id && <span className="form-error">{errors.upi_id}</span>}
+                  </div>
+
                   {/* Area */}
                   <div className="form-group">
-                    <label className="form-label">Area / Branch</label>
+                    <label className="form-label">Area / City</label>
                     <input
                       id="bank-area-input"
                       className="form-input"
-                      placeholder="e.g. Shivaji Nagar, Pune"
+                      placeholder="e.g. Rajkot, Gujarat"
                       value={form.area}
                       onChange={e => setField('area', e.target.value)}
                     />
                   </div>
+
+                  {/* Is Primary toggle */}
+                  <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 24 }}>
+                    <input
+                      id="bank-primary-toggle"
+                      type="checkbox"
+                      checked={form.is_primary}
+                      onChange={e => setField('is_primary', e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand-600)' }}
+                    />
+                    <label htmlFor="bank-primary-toggle" style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--gray-700)', fontSize: '.88rem' }}>
+                      <Star size={13} style={{ marginRight: 4, color: '#ca8a04', verticalAlign: 'text-top' }} />
+                      Mark as Primary Bank Account
+                    </label>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="form-group modal-full">
+                    <label className="form-label">Internal Notes</label>
+                    <textarea
+                      id="bank-notes-input"
+                      className="form-input"
+                      placeholder="Optional internal notes about this account (purpose, restrictions, etc.)"
+                      value={form.notes}
+                      onChange={e => setField('notes', e.target.value)}
+                      rows={2}
+                      style={{ resize: 'vertical' }}
+                    />
+                  </div>
+
                 </div>
               </div>
               <div className="modal-footer">
@@ -414,7 +523,7 @@ export default function BankAccountsPage() {
         </div>
       )}
 
-      {/* ── Remove Confirmation Modal (Soft Delete) ── */}
+      {/* ── Remove Confirmation Modal ── */}
       {deleteId && (
         <div className="modal-backdrop" onClick={() => setDeleteId(null)}>
           <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>

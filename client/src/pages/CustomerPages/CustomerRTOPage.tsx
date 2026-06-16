@@ -218,13 +218,8 @@ export default function CustomerRTOPage() {
       const matchedFile = eligibleFiles.find(f => f.file_id === selectedFileId)
       const fileNumber = matchedFile ? matchedFile.file_number : ''
 
-      // 1. Log structured request
-      const userRaw = localStorage.getItem('an_current_user')
-      const user = userRaw ? JSON.parse(userRaw) : null
+      // Log structured request — backend auto-identifies customer from JWT
       await serviceRequestsApi.create({
-        customer_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Customer',
-        customer_email: user?.email || '',
-        customer_mobile: user?.phone_number || '9876543210',
         request_type: 'rto',
         details: {
           file_id: selectedFileId,
