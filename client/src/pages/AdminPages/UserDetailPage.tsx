@@ -4,9 +4,11 @@ import {
   ArrowLeft, Mail, Phone, Calendar, Clock,
   FolderOpen, Users, IndianRupee, ShieldCheck, Car,
   Receipt, TrendingUp, TrendingDown, Wallet, CreditCard,
-  CheckCircle, XCircle,
+  CheckCircle, XCircle, Pencil, X,
 } from 'lucide-react'
+import { message } from 'antd'
 import { userProfilesApi } from '../../api/services'
+import api from '../../api/axios'
 
 interface UserDetail {
   id: string
@@ -116,6 +118,11 @@ export default function UserDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Edit modal state
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', phone_number: '', is_active: true })
+  const [editSaving, setEditSaving] = useState(false)
+
   useEffect(() => {
     if (!id) return
     load()
@@ -131,6 +138,32 @@ export default function UserDetailPage() {
       setError(e?.response?.data?.detail || 'Failed to load user details')
     } finally {
       setLoading(false)
+    }
+  }
+
+  function openEdit() {
+    if (!user) return
+    setEditForm({
+      first_name: user.first_name || '',
+      last_name: (user as any).last_name || '',
+      phone_number: user.phone_number || '',
+      is_active: user.is_active,
+    })
+    setShowEdit(true)
+  }
+
+  async function saveEdit() {
+    if (!id) return
+    setEditSaving(true)
+    try {
+      await api.put(`/api/v1/settings/users/${id}`, editForm)
+      message.success('User details updated')
+      setShowEdit(false)
+      load()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || 'Failed to update user')
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -161,14 +194,23 @@ export default function UserDetailPage() {
 
   return (
     <div>
-      {/* ── Back Button ── */}
-      <button
-        className="btn btn-outline btn-sm"
-        style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6 }}
-        onClick={() => navigate(backPath)}
-      >
-        <ArrowLeft size={15} /> Back to {roleLabel}s
-      </button>
+      {/* ── Back Button + Edit ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <button
+          className="btn btn-outline btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => navigate(backPath)}
+        >
+          <ArrowLeft size={15} /> Back to {roleLabel}s
+        </button>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={openEdit}
+        >
+          <Pencil size={13} /> Edit Details
+        </button>
+      </div>
 
       {/* ── Profile Header ── */}
       <div style={{
@@ -339,13 +381,74 @@ export default function UserDetailPage() {
                     <td style={{ fontSize: '.84rem', color: '#64748b' }}>{f.file_type || '—'}</td>
                     <td>{statusBadge(f.status)}</td>
                     <td style={{ fontSize: '.82rem', color: '#94a3b8' }}>{f.created_at}</td>
-                  </tr>
+                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      {/* ── Edit Details Modal ── */}
+      {showEdit && (
+        <div className="modal-backdrop" onClick={() => setShowEdit(false)}>
+          <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit User Details</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowEdit(false)}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-grid-2">
+                <div className="form-group">
+                  <label className="form-label">First Name</label>
+                  <input
+                    className="form-input"
+                    value={editForm.first_name}
+                    onChange={e => setEditForm(p => ({ ...p, first_name: e.target.value }))}
+                    placeholder="First name"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Last Name</label>
+                  <input
+                    className="form-input"
+                    value={editForm.last_name}
+                    onChange={e => setEditForm(p => ({ ...p, last_name: e.target.value }))}
+                    placeholder="Last name"
+                  />
+                </div>
+                <div className="form-group modal-full">
+                  <label className="form-label">Phone Number</label>
+                  <input
+                    className="form-input"
+                    value={editForm.phone_number}
+                    onChange={e => setEditForm(p => ({ ...p, phone_number: e.target.value }))}
+                    placeholder="e.g. 9876543210"
+                  />
+                </div>
+                <div className="form-group modal-full" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <input
+                    type="checkbox"
+                    id="edit-user-active"
+                    checked={editForm.is_active}
+                    onChange={e => setEditForm(p => ({ ...p, is_active: e.target.checked }))}
+                    style={{ width: 16, height: 16, accentColor: 'var(--brand-600)', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="edit-user-active" style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--gray-700)', fontSize: '.88rem' }}>
+                    Account is Active
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => setShowEdit(false)}>Cancel</button>
+              <button className="btn btn-primary btn-sm" disabled={editSaving} onClick={saveEdit}>
+                {editSaving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
