@@ -14,6 +14,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
 import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
+import FileDetailDrawer from '../../components/app/FileDetailDrawer'
 
 interface RTOPayment {
   id               : string
@@ -137,6 +138,7 @@ export default function RTOPaymentsPage({ forceRole, forceAdmin }: PageProps = {
   const [pageSize, setPageSize] = useState(5)
 
   const closeView = useCallback(() => { setViewOpen(false); setSelected(null) }, [])
+  const [drawerFileId, setDrawerFileId] = useState<string | null>(null)
 
   const getPayeeName = useCallback((r: RTOPayment) => {
     if (r.payee_dealer_id) {
@@ -502,7 +504,13 @@ export default function RTOPaymentsPage({ forceRole, forceAdmin }: PageProps = {
                       onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background='transparent' }}>
                       <td style={{ padding:'12px 14px', color:'var(--gray-400)', fontSize:'.8rem' }}>{(safePage - 1) * pageSize + i + 1}</td>
                       <td style={{ padding:'12px 14px', color:'var(--brand-700)', fontWeight:600, fontSize:'.82rem' }} title={row.id}>{formatPaymentId(row.id)}</td>
-                      <td style={{ padding:'12px 14px', color:'var(--gray-700)', fontWeight:600 }}>{row.file_number}</td>
+                      <td style={{ padding:'12px 14px', color:'var(--gray-700)', fontWeight:600, cursor:'pointer' }}
+                        title="Click to view file details"
+                        onClick={() => {
+                          const match = filesList.find(f => f.file_number === row.file_number || f.id === row.file_number)
+                          if (match) setDrawerFileId(match.id)
+                        }}
+                      >{row.file_number}</td>
                       <td style={{ padding:'12px 14px' }}>
                         <div style={{ fontWeight:600, color:'var(--gray-900)' }}>{getPayeeName(row)}</div>
                         <div style={{ fontSize:'.73rem', color:'var(--gray-400)' }}>{getPayeeType(row)}</div>
@@ -770,6 +778,7 @@ export default function RTOPaymentsPage({ forceRole, forceAdmin }: PageProps = {
           );
         }}
       />
+      {drawerFileId && <FileDetailDrawer fileId={drawerFileId} onClose={() => setDrawerFileId(null)} />}
     </div>
   )
 }

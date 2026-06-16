@@ -108,14 +108,21 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = () => {
     setLoading(true)
+    setError(null)
     api.get('/analytics/summary')
-      .then(res => setData(res.data))
-      .catch((e: any) => setError(e?.response?.data?.detail || 'Failed to load analytics'))
+      .then(res => {
+        setData(res.data)
+        setLastUpdated(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }))
+      })
+      .catch((e: any) => setError(e?.response?.data?.detail || 'Failed to load analytics data'))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
 
   if (loading) {
     return (
@@ -127,19 +134,33 @@ export default function AnalyticsPage() {
 
   if (error || !data) {
     return (
-      <div style={{ padding: '60px 0', textAlign: 'center', color: '#ef4444' }}>
-        {error || 'No data'}
+      <div style={{ padding: '60px 0', textAlign: 'center' }}>
+        <div style={{ color: '#ef4444', marginBottom: 16 }}>{error || 'No analytics data returned'}</div>
+        <button
+          onClick={load}
+          style={{
+            padding: '8px 20px', borderRadius: 8, border: '1px solid #6366f1',
+            background: '#6366f1', color: '#fff', cursor: 'pointer', fontSize: '.85rem', fontWeight: 600
+          }}
+        >
+          Retry
+        </button>
       </div>
     )
   }
 
-  const mod = data.modification_requests
+  const mod = data.modification_requests ?? {}
+  const customerTypeSplit = data.customer_type_split ?? []
+  const staffPerformance  = data.staff_performance   ?? []
+  const filePipeline      = data.file_pipeline       ?? []
+  const paymentTrends     = data.payment_trends      ?? []
+  const newCustomers      = data.new_customers_by_month ?? []
 
   return (
     <div>
       <PageHeader
         title="Analytics"
-        subtitle="Business overview — last 6 months"
+        subtitle={`Business overview — last 6 months${lastUpdated ? ` · Updated at ${lastUpdated}` : ''}`}
       />
 
       {/* ── KPI Row ── */}
@@ -148,11 +169,11 @@ export default function AnalyticsPage() {
         gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
         gap: 14, marginBottom: 24,
       }}>
-        <KPI icon={<Users size={20} />}        label="Total Customers"     value={data.total_customers}  color={BRAND}  />
-        <KPI icon={<FolderOpen size={20} />}   label="Total Files"         value={data.file_pipeline?.reduce((a: number, b: any) => a + b.count, 0)} color={CYAN}   />
-        <KPI icon={<TrendingUp size={20} />}   label="Payment IN (6 mo)"   value={fmtINR(data.payment_trends?.reduce((a: number, b: any) => a + b.payment_in, 0)  || 0)} color={GREEN}  />
-        <KPI icon={<TrendingDown size={20} />} label="Payment OUT (6 mo)"  value={fmtINR(data.payment_trends?.reduce((a: number, b: any) => a + b.payment_out, 0) || 0)} color={RED}    />
-        <KPI icon={<ClipboardList size={20} />}label="Pending Requests"    value={mod?.pending ?? 0}     color={AMBER}  />
+        <KPI icon={<Users size={20} />}        label="Total Customers"     value={data.total_customers ?? 0}  color={BRAND}  />
+        <KPI icon={<FolderOpen size={20} />}   label="Total Files"         value={filePipeline.reduce((a: number, b: any) => a + b.count, 0)} color={CYAN}   />
+        <KPI icon={<TrendingUp size={20} />}   label="Payment IN (6 mo)"   value={fmtINR(paymentTrends.reduce((a: number, b: any) => a + b.payment_in,  0))} color={GREEN}  />
+        <KPI icon={<TrendingDown size={20} />} label="Payment OUT (6 mo)"  value={fmtINR(paymentTrends.reduce((a: number, b: any) => a + b.payment_out, 0))} color={RED}    />
+        <KPI icon={<ClipboardList size={20} />}label="Pending Requests"    value={mod?.pending  ?? 0}     color={AMBER}  />
         <KPI icon={<BarChart2 size={20} />}    label="Resolved Requests"   value={mod?.approved ?? 0}    color={PURPLE} />
       </div>
 
@@ -161,35 +182,39 @@ export default function AnalyticsPage() {
 
         {/* Customer Type Pie */}
         <ChartCard title="Customers by Type">
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={data.customer_type_split}
-                cx="50%" cy="50%"
-                outerRadius={80}
-                dataKey="value"
-                label={({ name, value }) => `${name}: ${value}`}
-                labelLine={false}
-              >
-                {data.customer_type_split.map((_: any, i: number) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          {customerTypeSplit.length === 0 ? (
+            <div style={{ padding: '60px 0', textAlign: 'center', color: '#94a3b8' }}>No customer type data</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={customerTypeSplit}
+                  cx="50%" cy="50%"
+                  outerRadius={80}
+                  dataKey="value"
+                  label={({ name, value }) => `${name}: ${value}`}
+                  labelLine={false}
+                >
+                  {customerTypeSplit.map((_: any, i: number) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
 
         {/* Staff Performance Bar */}
         <ChartCard title="Staff Performance — Customers & Files">
-          {data.staff_performance?.length === 0 ? (
+          {staffPerformance.length === 0 ? (
             <div style={{ padding: '60px 0', textAlign: 'center', color: '#94a3b8' }}>
               No staff data available
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={data.staff_performance} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+              <BarChart data={staffPerformance} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
@@ -206,31 +231,32 @@ export default function AnalyticsPage() {
       {/* ── Row 2: File Pipeline ── */}
       <div style={{ marginBottom: 16 }}>
         <ChartCard title="File Pipeline by Status">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart
-              data={data.file_pipeline}
-              layout="vertical"
-              margin={{ top: 0, right: 24, left: 80, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
-              <YAxis
-                type="category"
-                dataKey="status"
-                tick={{ fontSize: 11, fill: '#64748b' }}
-                tickFormatter={capitalize}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" name="Files" radius={[0, 4, 4, 0]}>
-                {data.file_pipeline.map((entry: any, index: number) => (
-                  <Cell
-                    key={index}
-                    fill={STATUS_COLORS[entry.status] || '#94a3b8'}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {filePipeline.length === 0 ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: '#94a3b8' }}>No file pipeline data</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart
+                data={filePipeline}
+                layout="vertical"
+                margin={{ top: 0, right: 24, left: 80, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                <YAxis
+                  type="category"
+                  dataKey="status"
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tickFormatter={capitalize}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="count" name="Files" radius={[0, 4, 4, 0]}>
+                  {filePipeline.map((entry: any, index: number) => (
+                    <Cell key={index} fill={STATUS_COLORS[entry.status] || '#94a3b8'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
       </div>
 
@@ -239,36 +265,38 @@ export default function AnalyticsPage() {
 
         {/* Payment trends */}
         <ChartCard title="Payment IN vs OUT — Last 6 Months">
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={data.payment_trends} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={(v) => fmtINR(v)} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Line
-                type="monotone" dataKey="payment_in" name="Payment IN"
-                stroke={GREEN} strokeWidth={2.5} dot={{ r: 4, fill: GREEN }} activeDot={{ r: 6 }}
-              />
-              <Line
-                type="monotone" dataKey="payment_out" name="Payment OUT"
-                stroke={RED} strokeWidth={2.5} dot={{ r: 4, fill: RED }} activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {paymentTrends.length === 0 ? (
+            <div style={{ padding: '60px 0', textAlign: 'center', color: '#94a3b8' }}>No payment trend data</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={paymentTrends} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={(v) => fmtINR(v)} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line type="monotone" dataKey="payment_in" name="Payment IN" stroke={GREEN} strokeWidth={2.5} dot={{ r: 4, fill: GREEN }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="payment_out" name="Payment OUT" stroke={RED} strokeWidth={2.5} dot={{ r: 4, fill: RED }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
 
         {/* New customer registrations */}
         <ChartCard title="New Customer Registrations — Last 6 Months">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data.new_customers_by_month} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" name="New Customers" fill={BRAND} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {newCustomers.length === 0 ? (
+            <div style={{ padding: '60px 0', textAlign: 'center', color: '#94a3b8' }}>No registration data</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={newCustomers} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="count" name="New Customers" fill={BRAND} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
       </div>
 

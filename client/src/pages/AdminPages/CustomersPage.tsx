@@ -50,7 +50,7 @@ export default function CustomersPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [totalRows, setTotalRows] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5);
   const [open, setOpen] = useState(false);
   const [viewCustomer, setViewCustomer] = useState<any>(null);
   const [editCustomer, setEditCustomer] = useState<any>(null);

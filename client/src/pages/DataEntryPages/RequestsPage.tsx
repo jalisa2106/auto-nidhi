@@ -634,20 +634,47 @@ export default function RequestsPage() {
                 </p>
 
                 <div>
-                  <label className="form-label">Request Status</label>
-                  <select
-                    value={submitStatus}
-                    onChange={e => setSubmitStatus(e.target.value as ServiceRequest['status'])}
-                    className="form-input"
-                    style={{ width: '100%' }}
-                    disabled={processing}
-                  >
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status === 'in_progress' ? 'In Progress' : status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="form-label" style={{ marginBottom: 10, display: 'block' }}>Select New Phase</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {([
+                      { value: 'verification', label: '🔍 Verification' },
+                      { value: 'in_progress',  label: '⚙️ In Progress' },
+                      { value: 'processed',    label: '📋 Processed' },
+                      { value: 'approved',     label: '✅ Approved' },
+                      { value: 'completed',    label: '🏁 Completed' },
+                      { value: 'cancelled',    label: '❌ Cancelled' },
+                    ] as { value: ServiceRequest['status']; label: string }[]).map((opt) => {
+                      const isCurrent = selectedReq.status === opt.value
+                      const isSelected = submitStatus === opt.value
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          disabled={processing}
+                          onClick={() => setSubmitStatus(opt.value)}
+                          style={{
+                            padding: '7px 14px', borderRadius: 8, fontSize: '.8rem', fontWeight: 700,
+                            cursor: 'pointer', border: '2px solid',
+                            borderColor: isSelected ? '#6366f1' : isCurrent ? '#94a3b8' : '#e2e8f0',
+                            background: isSelected ? '#6366f1' : isCurrent ? '#f1f5f9' : '#fff',
+                            color: isSelected ? '#fff' : isCurrent ? '#475569' : '#64748b',
+                            transition: 'all .15s',
+                            position: 'relative',
+                          }}
+                        >
+                          {opt.label}
+                          {isCurrent && !isSelected && (
+                            <span style={{
+                              position: 'absolute', top: -6, right: -6,
+                              background: '#94a3b8', color: '#fff',
+                              fontSize: '.6rem', fontWeight: 800, padding: '1px 4px',
+                              borderRadius: 4, lineHeight: 1.4
+                            }}>NOW</span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
 
                 <div>

@@ -12,6 +12,7 @@ import PageHeader from '../../components/app/PageHeader'
 import { paymentsOutApi, filesApi, bankAccountsApi, usersSettingsApi, customersApi, brokersApi, dealersApi } from '../../api/services'
 import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
 import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
+import FileDetailDrawer from '../../components/app/FileDetailDrawer'
 
 
 const PAYMENT_MODES  = ['Cash', 'Cheque', 'NEFT', 'RTGS', 'UPI', 'DD'] as const
@@ -125,6 +126,8 @@ export default function PaymentOutPage({ forceRole, forceAdmin }: PageProps = {}
   // Pagination
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(5)
+
+  const [drawerFileId, setDrawerFileId] = useState<string | null>(null)
 
   const payeeOptions = useMemo(() => {
     if (form.payment_to === 'Broker') return brokers
@@ -539,7 +542,12 @@ export default function PaymentOutPage({ forceRole, forceAdmin }: PageProps = {}
                       <td style={{ color: 'var(--gray-400)', fontSize: '.8rem' }}>
                         {(page - 1) * pageSize + i + 1}
                       </td>
-                      <td><span className="db-file-id">{r.file_number}</span></td>
+                      <td><span
+                        className="db-file-id"
+                        style={{ cursor: 'pointer' }}
+                        title="Click to view file details"
+                        onClick={() => setDrawerFileId(r.file_id || null)}
+                      >{r.file_number}</span></td>
                       <td>{toBadge(r.payment_to)}</td>
                       <td style={{ fontWeight: 500, color: 'var(--gray-800)' }}>{r.payee_name}</td>
                       <td className="amt-negative">{fmtINR(r.amount)}</td>
@@ -1015,6 +1023,7 @@ export default function PaymentOutPage({ forceRole, forceAdmin }: PageProps = {}
           );
         }}
       />
+      {drawerFileId && <FileDetailDrawer fileId={drawerFileId} onClose={() => setDrawerFileId(null)} />}
     </>
   )
 }

@@ -12,6 +12,7 @@ import PageHeader from '../../components/app/PageHeader'
 import { commissionsInApi, filesApi, bankAccountsApi } from '../../api/services'
 import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
 import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
+import FileDetailDrawer from '../../components/app/FileDetailDrawer'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 type CommissionIn = {
@@ -179,6 +180,7 @@ export default function CommissionInPage() {
   // Pagination Configuration
   const [page, setPage]         = useState(1)
   const [pageSize, setPageSize] = useState(5)
+  const [drawerFileId, setDrawerFileId] = useState<string | null>(null)
 
   // ── Derived Client Filter Data Flow ──────────────────────────────────────
   const filtered = useMemo(() => {
@@ -570,7 +572,12 @@ export default function CommissionInPage() {
                       <td style={{ color: 'var(--gray-400)', fontSize: '.8rem' }}>
                         {(safePage - 1) * pageSize + i + 1}
                       </td>
-                      <td><span className="db-file-id">{r.file_number}</span></td>
+                      <td><span
+                        className="db-file-id"
+                        style={{ cursor: 'pointer' }}
+                        title="Click to view file details"
+                        onClick={() => setDrawerFileId(r.file_id || null)}
+                      >{r.file_number}</span></td>
                       <td>{sourceBadge(r.source_type)}</td>
                       <td style={{ fontWeight: 500, color: 'var(--gray-800)' }}>{r.source_name}</td>
                       <td className="amt-positive" style={{ color: '#137333', fontWeight: 600 }}>{fmtINR(r.amount)}</td>
@@ -1056,6 +1063,7 @@ export default function CommissionInPage() {
           );
         }}
       />
+      {drawerFileId && <FileDetailDrawer fileId={drawerFileId} onClose={() => setDrawerFileId(null)} />}
     </>
   )
 }

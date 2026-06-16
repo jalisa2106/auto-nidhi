@@ -11,7 +11,7 @@ from datetime import date, datetime
 from backend.email_utils import send_email
 
 from backend.database import get_db
-from backend.models import Customer, FileRecord, SystemUser, MasterRole, PaymentIn, PaymentOut, InsurancePayment, RTOPayment, FinanceInfo, CustomerDocument
+from backend.models import Customer, FileRecord, SystemUser, MasterRole, PaymentIn, PaymentOut, InsurancePayment, RTOPayment, FinanceInfo, CustomerDocument, CustomerStaffAllocation
 from backend.utils import get_current_staff, get_current_admin, record_dashboard_event, get_password_hash, send_targeted_notification
 
 router = APIRouter(prefix="/api/v1/customers", tags=["Admin Customers"])
@@ -71,11 +71,20 @@ def list_customers(
 
     role_name = current_user.role.role_name.lower() if current_user.role else ""
     if role_name == 'data_entry':
-        assigned_customer_ids = db.query(FileRecord.customer_id).filter(
+        # Customers assigned via explicit allocation
+        alloc_customer_ids = db.query(CustomerStaffAllocation.customer_id).filter(
+            CustomerStaffAllocation.staff_id == current_user.id,
+            CustomerStaffAllocation.is_active == True,
+        ).distinct().all()
+        # Also include customers who have a file assigned to this staff member
+        file_customer_ids = db.query(FileRecord.customer_id).filter(
             FileRecord.assigned_to == current_user.id,
             FileRecord.is_deleted == False
         ).distinct().all()
-        cust_ids = [r[0] for r in assigned_customer_ids if r[0] is not None]
+        cust_ids = list(set(
+            [r[0] for r in alloc_customer_ids if r[0] is not None] +
+            [r[0] for r in file_customer_ids if r[0] is not None]
+        ))
         query = query.filter(Customer.id.in_(cust_ids))
 
     if search:
@@ -314,14 +323,21 @@ def get_customer_profile(
 
     role_name = current_user.role.role_name.lower() if current_user.role else ""
     if role_name in ("data_entry", "staff", "dataentry"):
-        # Ensure staff is assigned to at least one of customer's files
-        assigned = db.query(FileRecord).filter(
-            FileRecord.customer_id == customer_id,
-            FileRecord.assigned_to == current_user.id,
-            FileRecord.is_deleted == False
+        # Check via CustomerStaffAllocation first (direct assignment)
+        alloc = db.query(CustomerStaffAllocation).filter(
+            CustomerStaffAllocation.customer_id == customer_id,
+            CustomerStaffAllocation.staff_id == current_user.id,
+            CustomerStaffAllocation.is_active == True,
         ).first()
-        if not assigned:
-            raise HTTPException(status_code=403, detail="You are not authorized to view this customer's profile")
+        if not alloc:
+            # Fallback: check via assigned file
+            assigned = db.query(FileRecord).filter(
+                FileRecord.customer_id == customer_id,
+                FileRecord.assigned_to == current_user.id,
+                FileRecord.is_deleted == False
+            ).first()
+            if not assigned:
+                raise HTTPException(status_code=403, detail="You are not authorized to view this customer's profile")
 
     # ── Files ────────────────────────────────────────────────────────────────
     files_q = db.query(FileRecord).filter(
@@ -482,13 +498,19 @@ def list_customer_documents(
     # Scoping: if staff, check if they are assigned to any of the customer's files
     role_name = current_user.role.role_name.lower() if current_user.role else ""
     if role_name in ("data_entry", "staff", "dataentry"):
-        assigned = db.query(FileRecord).filter(
-            FileRecord.customer_id == customer_id,
-            FileRecord.assigned_to == current_user.id,
-            FileRecord.is_deleted == False
+        alloc = db.query(CustomerStaffAllocation).filter(
+            CustomerStaffAllocation.customer_id == customer_id,
+            CustomerStaffAllocation.staff_id == current_user.id,
+            CustomerStaffAllocation.is_active == True,
         ).first()
-        if not assigned:
-            raise HTTPException(status_code=403, detail="You are not authorized to view this customer's documents")
+        if not alloc:
+            assigned = db.query(FileRecord).filter(
+                FileRecord.customer_id == customer_id,
+                FileRecord.assigned_to == current_user.id,
+                FileRecord.is_deleted == False
+            ).first()
+            if not assigned:
+                raise HTTPException(status_code=403, detail="You are not authorized to view this customer's documents")
 
     # Make sure default slots exist
     from backend.routes.customer.documents import ensure_slots, serialize
@@ -518,14 +540,19 @@ def update_customer_document_status(
 
     role_name = current_user.role.role_name.lower() if current_user.role else ""
     if role_name in ("data_entry", "staff", "dataentry"):
-        # Ensure staff is assigned to at least one of customer's files
-        assigned = db.query(FileRecord).filter(
-            FileRecord.customer_id == customer_id,
-            FileRecord.assigned_to == current_user.id,
-            FileRecord.is_deleted == False
+        alloc = db.query(CustomerStaffAllocation).filter(
+            CustomerStaffAllocation.customer_id == customer_id,
+            CustomerStaffAllocation.staff_id == current_user.id,
+            CustomerStaffAllocation.is_active == True,
         ).first()
-        if not assigned:
-            raise HTTPException(status_code=403, detail="You are not authorized to update this customer's document status")
+        if not alloc:
+            assigned = db.query(FileRecord).filter(
+                FileRecord.customer_id == customer_id,
+                FileRecord.assigned_to == current_user.id,
+                FileRecord.is_deleted == False
+            ).first()
+            if not assigned:
+                raise HTTPException(status_code=403, detail="You are not authorized to update this customer's document status")
 
     doc.status = payload.status
     if payload.status == 'rejected':
@@ -555,3 +582,87 @@ def update_customer_document_status(
 
     db.commit()
     return {"status": "success", "message": "Document status updated and customer notified."}
+
+
+# ── Staff Assignment (Admin only) ─────────────────────────────────────────────
+
+class StaffAssignPayload(BaseModel):
+    staff_id: str
+
+
+@router.get("/{customer_id}/assigned-staff")
+def get_assigned_staff(
+    customer_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: SystemUser = Depends(get_current_staff),
+):
+    """Return the currently active staff assignment for a customer."""
+    allocation = (
+        db.query(CustomerStaffAllocation)
+        .filter(
+            CustomerStaffAllocation.customer_id == customer_id,
+            CustomerStaffAllocation.is_active == True,
+        )
+        .order_by(CustomerStaffAllocation.allocated_since.desc())
+        .first()
+    )
+    if not allocation:
+        return {"staff_id": None, "staff_name": None, "staff_email": None}
+
+    staff = db.query(SystemUser).filter(SystemUser.id == allocation.staff_id).first()
+    if not staff:
+        return {"staff_id": None, "staff_name": None, "staff_email": None}
+
+    return {
+        "staff_id": str(staff.id),
+        "staff_name": f"{staff.first_name or ''} {staff.last_name or ''}".strip(),
+        "staff_email": staff.email or "",
+        "allocated_since": allocation.allocated_since.isoformat() if allocation.allocated_since else None,
+    }
+
+
+@router.post("/{customer_id}/assign-staff")
+def assign_staff_to_customer(
+    customer_id: UUID,
+    payload: StaffAssignPayload,
+    db: Session = Depends(get_db),
+    current_admin: SystemUser = Depends(get_current_admin),
+):
+    """Admin assigns a staff member to a customer. Previous allocation is deactivated."""
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    try:
+        staff_uuid = UUID(payload.staff_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid staff_id format")
+
+    staff = db.query(SystemUser).filter(SystemUser.id == staff_uuid).first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff member not found")
+
+    # Deactivate existing active allocations
+    db.query(CustomerStaffAllocation).filter(
+        CustomerStaffAllocation.customer_id == customer_id,
+        CustomerStaffAllocation.is_active == True,
+    ).update({"is_active": False, "updated_at": datetime.utcnow()})
+
+    # Create new allocation
+    new_alloc = CustomerStaffAllocation(
+        customer_id=customer_id,
+        staff_id=staff_uuid,
+        allocated_by=current_admin.id,
+        is_active=True,
+        allocated_since=datetime.utcnow(),
+    )
+    db.add(new_alloc)
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": f"{staff.first_name} has been assigned to {customer.full_name}",
+        "staff_id": str(staff.id),
+        "staff_name": f"{staff.first_name or ''} {staff.last_name or ''}".strip(),
+    }
+

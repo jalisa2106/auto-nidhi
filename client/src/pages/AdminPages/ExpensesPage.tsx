@@ -13,6 +13,7 @@ import Modal from '../../components/app/Modal'
 import { expenseCategoriesApi, expensesApi, filesApi } from '../../api/services'
 import { SelectiveExportModal } from '../../components/app/SelectiveExportModal'
 import { exportDetailPDFsAsZip } from '../../utils/zipExportUtils'
+import FileDetailDrawer from '../../components/app/FileDetailDrawer'
 
 
 interface Expense {
@@ -127,6 +128,7 @@ export default function ExpensesPage({ forceRole, forceAdmin }: PageProps = {}) 
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportMode, setExportMode] = useState<'pdf' | 'excel'>('pdf')
   const [form, setForm] = useState<Omit<Expense, 'id' | 'created_at'>>(() => emptyForm(''))
+  const [drawerFileId, setDrawerFileId] = useState<string | null>(null)
 
   const closeView = useCallback(() => {
     setViewOpen(false)
@@ -483,7 +485,14 @@ export default function ExpensesPage({ forceRole, forceAdmin }: PageProps = {}) 
                       <td style={{ padding: '12px 14px', color: 'var(--gray-600)' }}>{row.expense_date}</td>
                       <td style={{ padding: '12px 14px' }}>
                         {row.file_number
-                          ? <span style={{ color: 'var(--brand-600)', fontWeight: 600 }}>{row.file_number}</span>
+                          ? <span
+                              style={{ color: 'var(--brand-600)', fontWeight: 600, cursor: 'pointer' }}
+                              title="Click to view file details"
+                              onClick={() => {
+                                const match = fileOptions.find(f => f.file_number === row.file_number)
+                                if (match) setDrawerFileId(match.id)
+                              }}
+                            >{row.file_number}</span>
                           : <span style={{ color: 'var(--gray-300)', fontSize: '.8rem' }}>-</span>}
                       </td>
                       <td style={{ padding: '12px 14px', color: 'var(--gray-700)' }}>{row.created_by_name}</td>
@@ -633,6 +642,7 @@ export default function ExpensesPage({ forceRole, forceAdmin }: PageProps = {}) 
           )
         }}
       />
+      {drawerFileId && <FileDetailDrawer fileId={drawerFileId} onClose={() => setDrawerFileId(null)} />}
     </div>
   )
 }
