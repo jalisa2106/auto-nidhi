@@ -9,6 +9,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    include: ['recharts'],
+  },
   server: {
     port: 5173,
     proxy: {
@@ -21,6 +24,9 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1000,
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -41,4 +47,4 @@ export default defineConfig({
       }
     }
   }
-})
+})
