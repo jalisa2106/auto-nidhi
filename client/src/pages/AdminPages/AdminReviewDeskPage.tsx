@@ -40,7 +40,7 @@ export default function AdminReviewDeskPage() {
   const loadTickets = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/api/v1/admin/modifications/pipeline')
+      const res = await api.get('/admin/modifications/pipeline')
       setTickets(res.data || [])
     } catch (err) {
       console.warn('Failed to sync master management queue:', err)
@@ -68,7 +68,7 @@ export default function AdminReviewDeskPage() {
 
     setActioning(true)
     try {
-      await api.post(`/api/v1/admin/modifications/pipeline/${actionModal.id}/evaluate`, { 
+      await api.post(`/admin/modifications/pipeline/${actionModal.id}/evaluate`, { 
         decision: actionModal.action,
         note: adminNote.trim() || undefined
       })
