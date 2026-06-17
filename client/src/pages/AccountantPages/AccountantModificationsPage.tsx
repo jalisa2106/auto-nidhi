@@ -30,7 +30,8 @@ export default function AccountantModificationsPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await api.get('/api/v1/customer/modifications')
+      // Corrected: Removed the double /api/v1 prefix.
+      const res = await api.get('/customer/modifications')
       setRequests(res.data || [])
     } catch (err: any) {
       setError('Failed to load requests.')
@@ -50,7 +51,7 @@ export default function AccountantModificationsPage() {
     setSubmitting(true)
     try {
       // Corrected: Removed the double /api/v1 prefix.
-      await api.post('/api/v1/customer/modifications', {
+      await api.post('/customer/modifications', {
         entity_type: entityType,
         entity_id: entityId,
         request_type: requestType,
